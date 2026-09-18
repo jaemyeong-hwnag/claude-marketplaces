@@ -18,6 +18,7 @@
     ]
   },
   "enabledPlugins": {
+    "marketplace-directory-structure@plugin-marketplace": true,
     "plugin-naming@plugin-marketplace": true
   },
   "extraKnownMarketplaces": {
