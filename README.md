@@ -16,13 +16,14 @@ test/validate-plugin-scope.test.sh         # 배치 정책 회귀 테스트
 test/sync-internal-plugins.test.sh         # 동기화 훅 회귀 테스트
 ```
 
-> 이름 규칙은 `plugin-naming` 플러그인이, 배치·배포 정책은 저장소가 담당한다. 서로 섞지 않는다.
+> 이름 규칙은 `plugin-naming` 이, 디렉터리 구조는 `marketplace-directory-structure` 가, 배치·배포 정책은 저장소가 담당한다. 서로 섞지 않는다.
 
 ## 수록 플러그인
 
 | 이름 | 위치 | 설명 |
 |---|---|---|
 | [`plugin-naming`](internal-plugins/plugin-naming) | `internal-plugins/` | 플러그인·스킬·커맨드·에이전트 이름을 네이밍 규칙과 glossary 사전으로 강제한다 |
+| [`marketplace-directory-structure`](internal-plugins/marketplace-directory-structure) | `internal-plugins/` | 마켓플레이스 루트와 플러그인의 디렉터리 구조를 강제한다 |
 
 ## 배포용 플러그인 설치 (다른 저장소에서)
 
@@ -79,11 +80,22 @@ internal-plugins/plugin-naming/scripts/validate-naming.sh --all .   # 저장소 
 internal-plugins/plugin-naming/test/validate-naming.test.sh          # 이름 규칙 회귀 테스트
 ```
 
+## 디렉터리 구조 규칙
+
+어떤 파일을 어디에 두는지는 `marketplace-directory-structure` 가 훅으로 강제한다. 규칙에 없는 위치에는 파일이 만들어지지 않는다.
+
+- 규칙: [`directory-structure-rules.md`](internal-plugins/marketplace-directory-structure/references/directory-structure-rules.md)
+
+```bash
+internal-plugins/marketplace-directory-structure/scripts/validate-directory-structure.sh --all .
+internal-plugins/marketplace-directory-structure/test/validate-directory-structure.test.sh
+```
+
 ## 플러그인 추가 절차
 
 1. 이름을 정한다 (`name-create` 스킬).
-2. 배포용은 `public-plugins/<이름>/`, 내부용은 `internal-plugins/<이름>/` 에 만든다.
-3. `.claude-plugin/plugin.json` 을 작성한다.
+2. 배포용은 `public-plugins/<이름>/`, 내부용은 `internal-plugins/<이름>/` 에 만든다 (`plugin-directory-create` 스킬).
+3. `.claude-plugin/plugin.json` · `README.md` · `CHANGELOG.md` 를 작성한다.
    - 배포용: `marketplace.json` 에 `category: "public"` 으로 등록하고 푸시한다.
    - 내부용: SessionStart 훅이 알아서 등록·설치한다.
 4. 검증과 테스트를 돌린다.
