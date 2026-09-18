@@ -1,0 +1,94 @@
+# claude-marketplaces
+
+Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름은 `plugin-marketplace` 다.
+
+## 디렉터리 구분
+
+| 경로 | 성격 | 배포 | 반영 시점 |
+|---|---|---|---|
+| `public-plugins/` | 배포용 플러그인 | github 마켓플레이스 | 커밋·푸시해야 반영 |
+| `internal-plugins/` | 이 저장소가 내부에서 쓰는 플러그인 | 하지 않음 | 로컬 디렉터리 소스. 고치면 세션 시작 시 재설치 |
+
+배포할 플러그인은 `public-plugins/` 에, 이 저장소에서만 쓸 플러그인은 `internal-plugins/` 에 둔다.
+둘 다 같은 `.claude-plugin/marketplace.json` 에 등록되며 `category` (`public` / `internal`) 로 구분한다.
+디렉터리와 `category` · `source` 가 어긋나면 `.claude/hooks/validate-plugin-scope.sh` 가 막는다.
+
+## 관심사 분리
+
+| 관심사 | 담당 | 범위 |
+|---|---|---|
+| 이름이 올바른가 | `plugin-naming` 플러그인 | kebab-case, 단어 사전, 줄임말. 배포·배치는 모른다 |
+| 어디에 두고 어떻게 배포하는가 | 저장소 `.claude/hooks/` | `public`/`internal` 배치, marketplace 등록, 설치 동기화 |
+
+플러그인에 저장소 정책을 넣지 않는다. 저장소 정책 스크립트에 이름 규칙을 넣지 않는다.
+
+## 네이밍 규칙
+
+규칙은 `plugin-naming` 플러그인이 강제한다. 이 저장소에서는 SessionStart 훅이 설치 상태를 확인·복구하므로 항상 켜져 있다.
+
+- 규칙 원본: `internal-plugins/plugin-naming/references/naming-rules.md`
+- 단어 사전: `internal-plugins/plugin-naming/references/glossary.json`
+
+요약 — 충돌하면 규칙 원본이 우선한다.
+
+- 플러그인·스킬·커맨드·에이전트 이름은 kebab-case 로 쓴다.
+- 패턴은 `{대상}-{관심사}` / 공통은 `common-{관심사}` / 번들은 `{역할}-standard`.
+- 한 단어짜리 이름은 쓰지 않는다. 언어명(`java`)·프레임워크명(`spring`)·범용 단어(`utils`) 단독 사용 금지가 여기에 포함된다.
+- 같은 단어를 이름 안에서 두 번 쓰지 않는다.
+- 줄임말은 금지한다. 예외는 사전에 `use` 로 등록된 공식·업계 표준 약어뿐이다.
+- 사전의 `deny` 단어는 어떤 이름에도 쓰지 않는다.
+
+## 작업 규칙
+
+- 이름을 정하거나 바꿀 때는 `name-create` 스킬을 따른다.
+- 사전을 고칠 때는 `glossary-update` 스킬을 따른다. 임의로 편집하지 않는다.
+- 이름 검토는 `/naming-review` 또는 `naming-reviewer` 에이전트를 쓴다.
+- 새로 막을 단어가 생기면 스크립트가 아니라 `glossary.json` 에 추가한다.
+- 이름 규칙을 고쳤으면 `internal-plugins/plugin-naming/test/validate-naming.test.sh` 를 돌린다.
+- 배치·배포 정책을 고쳤으면 `test/validate-plugin-scope.test.sh` 를 돌린다.
+- 동기화 훅을 고쳤으면 `test/sync-internal-plugins.test.sh` 를 돌린다.
+- 조항을 추가했으면 해당 쪽 TC 도 같이 추가한다.
+
+## 내부 플러그인 자동 설치
+
+`internal-plugins/` 하위 플러그인은 세션 시작 시 `.claude/hooks/sync-internal-plugins.sh` 가 확인한다.
+마켓플레이스 등록 → `marketplace.json` 등록 → `settings.json` 활성화 → 실제 설치 순으로 점검하고 빠진 것을 채운다.
+멱등하며, 실패해도 세션을 막지 않고 보고만 한다.
+
+이 저장소는 마켓플레이스를 로컬 디렉터리(`.`) 소스로 등록한다. 커밋·푸시는 필요 없다.
+다만 설치본은 `~/.claude/plugins/cache/` 로 복사되므로 **고친 내용은 다음 세션부터 적용된다.**
+훅이 설치본과 작업 트리를 비교해 어긋나면 재설치한다 (`claude plugin update` 는 버전이 같으면 갱신하지 않는다).
+
+`public-plugins/` 를 설치하는 다른 저장소는 같은 마켓플레이스를 github 소스로 등록하며, 그쪽은 푸시된 커밋만 읽는다.
+
+내부 플러그인을 추가할 때는 디렉터리와 `.claude-plugin/plugin.json` 만 만들면 된다. 나머지 등록은 훅이 한다.
+
+## 플러그인 추가 절차
+
+1. `name-create` 스킬로 이름을 정한다.
+2. 배포용은 `public-plugins/<이름>/`, 내부용은 `internal-plugins/<이름>/` 에 만든다.
+3. `.claude-plugin/plugin.json` 을 작성한다.
+   - 배포용: `.claude-plugin/marketplace.json` 에 `category: "public"` 으로 직접 등록하고, 커밋·푸시해야 배포된다.
+   - 내부용: SessionStart 훅이 등록·활성화·설치를 자동으로 한다.
+4. 테스트와 전체 검증을 돌린다.
+
+마켓플레이스 이름은 `claude` 로 시작할 수 없다. 공식 마켓플레이스 사칭으로 거부된다.
+
+## 검증
+
+```bash
+internal-plugins/plugin-naming/scripts/validate-naming.sh --all .   # 저장소 전체 이름
+internal-plugins/plugin-naming/scripts/validate-naming.sh --glossary # 사전 구조
+.claude/hooks/validate-plugin-scope.sh .                             # 배치·배포 정책
+test/validate-plugin-scope.test.sh                                   # 배치 정책 TC 10건
+test/sync-internal-plugins.test.sh                                   # 동기화 훅 TC 14건
+internal-plugins/plugin-naming/test/validate-naming.test.sh          # 이름 규칙 회귀 테스트 (TC 64건)
+```
+
+`Write` / `Edit` 에 훅이 걸려 있어 규칙을 어기는 이름으로는 파일이 만들어지지 않는다.
+훅이 막으면 이름을 우회하지 말고 사전이 지시한 단어로 바꾼다.
+
+## 산출물
+
+- 문서는 `.md` 로 만든다. 웹 페이지·아티팩트로 만들지 않는다.
+- 진행 중인 피처 문서는 `.agent-tasks/<주제>/*.md` 에 둔다 (git 미추적).
