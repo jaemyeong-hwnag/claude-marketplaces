@@ -6,12 +6,47 @@
 ## 1. 형식
 
 - kebab-case (소문자 + 하이픈)만 사용한다.
-- 기본 패턴은 `{대상}-{관심사}`.
-  - `spring-naming`, `git-branching-rules`, `document-notion`
+- 슬롯은 `{대상}-{범위}-{관심사}-{목적}` 네 개다. **필요한 슬롯만 쓰되 순서는 바꾸지 않는다.**
+- 최소 두 슬롯, 최대 네 슬롯.
+
+| 슬롯 | 뜻 | 사전 카테고리 | 예 |
+|---|---|---|---|
+| 대상 | 무엇을 다루는가 | `artifact`·`platform`·`abbreviation`·`time`·**미등록** | `plugin`, `spring`, `notion` |
+| 범위 | 대상 안에서 어디까지인가 | 위와 같음 | `document`, `config` |
+| 관심사 | 어떤 성질을 보는가 | `quality` | `naming`, `coverage`, `standard` |
+| 목적 | 무엇을 하려는가 | `action`·`role` | `validate`, `create`, `sync`, `reviewer` |
+
+```
+plugin-naming               대상 + 관심사
+name-create                 대상 + 목적
+spring-naming               대상 + 관심사
+notion-document-sync        대상 + 범위 + 목적
+document-naming-validate    대상 + 관심사 + 목적
+```
+
 - 공통 플러그인은 `common-{관심사}`.
-  - `common-testing`, `common-logging`
+  - `common-test`, `common-logging`
 - 번들 플러그인은 `{역할}-standard`.
   - `backend-standard`, `frontend-standard`
+
+다섯 단어 이상은 막는다. 길어지면 슬롯을 더하지 말고 대상을 좁힌다.
+
+### 슬롯은 사전 카테고리로 판정한다
+
+단어가 어느 슬롯인지는 `glossary.json` 의 **카테고리**가 정한다. 그래서 순서를 기계가 검사할 수 있다.
+
+- `action`·`role` → 목적
+- `quality` → 관심사
+- 그 밖의 카테고리와 미등록 단어 → 대상·범위
+
+왼쪽에서 오른쪽으로 등급이 커지기만 해야 한다. `review-standard`(목적 뒤에 관심사), `glossary-update-plugin`(목적 뒤에 대상)은 막힌다.
+
+### 끝 단어만 사전에 등록돼야 한다
+
+끝 단어는 항상 `{관심사}` 아니면 `{목적}` 이므로 **사전에 `use` 로 등록돼 있어야 한다.**
+앞 단어(`{대상}`·`{범위}`)는 `spring`·`kotlin`·`notion`·`order` 같은 도메인 고유명사라 사전이 통제하지 않는다.
+
+사전이 모든 프레임워크·제품명을 담을 수는 없다. 통제할 가치가 있는 건 "무엇을 보고 무엇을 하는가"를 말하는 뒷부분이다.
 
 적용 대상: 플러그인명, 스킬명, 커맨드명, 에이전트명, 그리고 코드 식별자(케이싱은 각 언어 컨벤션을 따르되 단어 선택은 동일).
 
@@ -21,8 +56,10 @@
 |---|---|
 | 언어명 단독 사용 | `java`, `kotlin`, `react` |
 | 프레임워크명 단독 사용 | `spring`, `nextjs` |
-| 범용 단어 단독 사용 | `utils`, `tools`, `helpers` |
 | 맥락 중복 | `spring-spring-boot-naming` |
+| 슬롯 다섯 개 이상 | `plugin-document-config-naming-review` |
+| 슬롯 순서 위반 | `review-standard`, `glossary-update-plugin` |
+| 끝 단어가 사전에 없음 | `plugin-banana`, `order-service` |
 
 단독 사용이 금지된 단어라도 구성 단어로는 쓸 수 있다: `spring-naming` (O), `spring` (X).
 
@@ -48,7 +85,7 @@
 - 판단 기준: *공식 문서가 그 줄임말을 정식 명칭으로 쓰는가?*
   - 허용: `k8s` (Kubernetes 공식), `api` (업계 표준)
   - 금지: `doc` (document 의 공식 약어가 아님), `repo`, `cfg`
-- 허용된 줄임말은 반드시 `glossary.json` 에 `use` 로 등록해 관리한다. 등록되지 않은 3자 이하 단어는 검증에서 경고한다.
+- 허용된 줄임말은 반드시 `glossary.json` 에 `use` 로 등록해 관리한다. 끝 단어라면 **차단**되고, 앞 단어라면 3자 이하일 때 경고한다.
 
 ## 5. 사전 (glossary.json)
 
@@ -62,9 +99,13 @@
 
 프로젝트 사전을 두면 플러그인 사전은 **병합되지 않고 대체된다.** 공통 단어까지 포함해 복사한 뒤 도메인 단어를 더한다.
 
-- `glossary.json` 의 `use` 단어만 사용한다.
-- `deny` 목록의 단어는 플러그인명·스킬명·커맨드명·에이전트명에 쓸 수 없다.
-- `validate-naming.sh` 가 deny 사용 여부를 자동으로 막는다.
+- 끝 단어는 `glossary.json` 의 `use` 단어만 사용한다. 앞 단어는 도메인 고유명사를 허용한다.
+- `deny` 목록의 단어는 위치를 가리지 않고 플러그인명·스킬명·커맨드명·에이전트명에 쓸 수 없다.
+- `validate-naming.sh` 가 deny 사용·끝 단어 미등록·슬롯 순서를 자동으로 막는다.
+- 새 관심사·목적 단어가 필요하면 이름을 비틀지 말고 `glossary-update` 스킬로 먼저 등록한다.
+
+**카테고리가 곧 슬롯이다.** 새 항목을 추가할 때 카테고리를 잘못 고르면 슬롯 판정이 틀어진다.
+`meaning` 에는 단어의 뜻만 적는다 — 이번 용례나 대상을 섞어 쓰지 않는다 (`structure` 는 "구성 요소의 배치 구조"이지 "디렉터리 구조"가 아니다).
 
 ### 값 규칙
 

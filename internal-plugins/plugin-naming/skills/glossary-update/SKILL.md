@@ -26,6 +26,24 @@ jq -r --arg w "$W" 'to_entries[] | .key as $c | .value[]
 | 없는데 기존 항목과 같은 개념이다 | 그 항목의 `deny` 에 추가한다. |
 | 없고 새로운 개념이다 | 해당 카테고리에 새 항목을 추가한다. |
 
+## 카테고리가 곧 슬롯이다
+
+카테고리를 잘못 고르면 이름의 슬롯 판정이 틀어진다. 검증기는 카테고리로 슬롯을 정한다.
+
+| 카테고리 | 슬롯 | 예 |
+|---|---|---|
+| `action` · `role` | 목적 | `validate`, `create`, `reviewer` |
+| `quality` | 관심사 | `naming`, `coverage`, `standard` |
+| 그 밖 (`artifact`·`platform`·`abbreviation`·`time`) | 대상·범위 | `plugin`, `document`, `git` |
+
+`meaning` 에는 **단어의 뜻만** 적는다. 지금 하는 작업의 용례나 대상을 섞지 않는다.
+
+- O `structure` — "구성 요소의 배치 구조"
+- X `structure` — "디렉터리 구조" (대상을 단어에 박으면 `{범위}` 슬롯과 충돌한다)
+
+같은 이유로 **지금 작업에서 같이 등장하는 단어를 동의어로 착각해 `deny` 에 넣지 않는다.**
+`directory` 는 `structure` 의 동의어가 아니라 별개의 대상 단어다.
+
 ## 항목 작성 규칙
 
 ```json

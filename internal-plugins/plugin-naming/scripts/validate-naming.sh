@@ -26,6 +26,8 @@ else
 fi
 
 KEBAB_RE='^[a-z0-9]+(-[a-z0-9]+)*$'
+# 슬롯은 {대상}-{범위}-{관심사}-{목적} 네 개가 상한이다
+MAX_SEGMENTS=4
 
 ERRORS=()
 WARNINGS=()
@@ -39,6 +41,22 @@ DENY_TABLE="$(jq -r 'to_entries[] | .key as $cat | .value[]
   | .use as $use | .meaning as $meaning
   | (.deny // [])[] | [., $use, $cat, $meaning] | @tsv' "$GLOSSARY")"
 USE_WORDS="$(jq -r '.[][] | .use' "$GLOSSARY")"
+# 단어 → 카테고리. 카테고리가 곧 슬롯을 정한다.
+USE_CATEGORY="$(jq -r 'to_entries[] | .key as $c | .value[] | [.use, $c] | @tsv' "$GLOSSARY")"
+
+# 슬롯 등급: 1 대상·범위 / 2 관심사 / 3 목적. 왼쪽에서 오른쪽으로 커지기만 해야 한다.
+slot_rank() { # $1=단어 → 등급
+  local c
+  c="$(printf '%s\n' "$USE_CATEGORY" | awk -F'\t' -v w="$1" '$1 == w { print $2; exit }')"
+  case "$c" in
+    action|role) echo 3 ;;
+    quality)     echo 2 ;;
+    *)           echo 1 ;;
+  esac
+}
+slot_label() { # $1=등급 → 이름
+  case "$1" in 3) echo "목적" ;; 2) echo "관심사" ;; *) echo "대상·범위" ;; esac
+}
 
 lookup_deny() { # $1=단어 → "deny\tuse\tcat\tmeaning" 또는 빈 문자열
   printf '%s\n' "$DENY_TABLE" | awk -F'\t' -v w="$1" '$1 == w { print; exit }'
@@ -66,10 +84,15 @@ validate_name() {
     rest="${rest#*-}"
   done
 
+  # 슬롯 상한: {대상}-{범위}-{관심사}-{목적}
+  if [ "${#segs[@]}" -gt "$MAX_SEGMENTS" ]; then
+    ERRORS+=("$label: 단어가 ${#segs[@]} 개입니다 — {대상}-{범위}-{관심사}-{목적} 네 개까지만 쓰세요")
+  fi
+
   # 단독 사용 금지: 한 단어짜리 이름은 종류를 불문하고 막는다.
   # 언어·프레임워크·범용 단어를 목록으로 열거하지 않아도 구조로 전부 걸린다.
   if [ "${#segs[@]}" -lt 2 ]; then
-    ERRORS+=("$label: 한 단어 이름은 쓸 수 없습니다 — {대상}-{관심사} / common-{관심사} / {역할}-standard 형태로 바꾸세요 (예: ${name}-naming)")
+    ERRORS+=("$label: 한 단어 이름은 쓸 수 없습니다 — {대상}-{범위}-{관심사}-{목적} 중 최소 두 슬롯을 쓰세요 (예: ${name}-naming)")
   fi
 
   # 맥락 중복
@@ -82,8 +105,12 @@ validate_name() {
     done
   done
 
+  # 검사 대상 = 구성 단어 + (두 단어 이상일 때만) 이름 전체
+  local -a targets=("${segs[@]}")
+  [ "${#segs[@]}" -ge 2 ] && targets+=("$name")
+
   # glossary deny 검사: 전체 이름 + 각 구성 단어
-  for seg in "$name" "${segs[@]}"; do
+  for seg in "${targets[@]}"; do
     hit="$(lookup_deny "$seg")"
     [ -n "$hit" ] || continue
     use="$(printf '%s' "$hit" | cut -f2)"
@@ -92,8 +119,34 @@ validate_name() {
     ERRORS+=("$label: '$seg' 은 glossary 의 deny 단어입니다 → '$use' 를 쓰세요 ($cat: $meaning)")
   done
 
-  # 등록되지 않은 줄임말 의심
-  for seg in "${segs[@]}"; do
+  # 끝 단어는 {관심사} 또는 {목적} 이므로 반드시 사전에 등록돼 있어야 한다.
+  # 앞 단어({대상}·{범위})는 도메인 고유명사(spring, notion, order)라 사전이 통제하지 않는다.
+  if [ "${#segs[@]}" -ge 2 ]; then
+    local last="${segs[${#segs[@]}-1]}"
+    if ! is_use_word "$last" && ! [[ "$last" =~ ^[0-9]+$ ]] && [ -z "$(lookup_deny "$last")" ]; then
+      if [ "${#last}" -le 3 ]; then
+        ERRORS+=("$label: 끝 단어 '$last' 이 사전에 없습니다 — 줄임말이면 전체 단어를 쓰고, 공식 약어라면 glossary 에 등록하세요")
+      else
+        ERRORS+=("$label: 끝 단어 '$last' 이 사전에 없습니다 — 끝 단어는 {관심사} 또는 {목적} 이므로 glossary-update 스킬로 먼저 등록하세요")
+      fi
+    fi
+  fi
+
+  # 슬롯 순서: {대상}-{범위}-{관심사}-{목적} 순으로만 놓을 수 있다
+  local prev_rank=0 cur_rank i2
+  for ((i2 = 0; i2 < ${#segs[@]}; i2++)); do
+    cur_rank="$(slot_rank "${segs[$i2]}")"
+    if [ "$cur_rank" -lt "$prev_rank" ]; then
+      ERRORS+=("$label: 슬롯 순서 위반 — '${segs[$i2]}'($(slot_label "$cur_rank"))가 $(slot_label "$prev_rank") 뒤에 왔습니다. {대상}-{범위}-{관심사}-{목적} 순으로 쓰세요")
+      break
+    fi
+    prev_rank="$cur_rank"
+  done
+
+  # 앞 단어의 줄임말 의심은 경고로만 남긴다
+  local idx
+  for ((idx = 0; idx < ${#segs[@]} - 1; idx++)); do
+    seg="${segs[$idx]}"
     if [ "${#seg}" -le 3 ] && ! is_use_word "$seg" && ! [[ "$seg" =~ ^[0-9]+$ ]]; then
       WARNINGS+=("$label: '$seg' 이 줄임말이면 사용 금지입니다 — 공식 약어라면 glossary 에 등록하세요")
     fi

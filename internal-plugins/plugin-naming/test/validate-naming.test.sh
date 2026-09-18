@@ -111,13 +111,13 @@ tc TC-016 "한 단어 커맨드명도 막는다"
 run ".claude/commands/review.md"; expect_code 2; expect_out "command 'review'"
 
 tc TC-017 "common-{관심사} 는 통과한다"
-run "plugins/common-testing/x.md"; expect_code 0
+run "plugins/common-test/x.md"; expect_code 0
 
 tc TC-018 "{역할}-standard 는 통과한다"
 run "plugins/backend-standard/x.md"; expect_code 0
 
-tc TC-019 "세 단어 이상도 통과한다"
-run "plugins/git-branching-rules/x.md"; expect_code 0
+tc TC-019 "세 슬롯 이름도 통과한다"
+run "plugins/git-branch-naming/x.md"; expect_code 0
 
 section "== C. 맥락 중복 =="
 
@@ -159,7 +159,7 @@ tc TC-041 "glossary 에 등록된 공식 약어는 경고하지 않는다"
 run "plugins/k8s-naming/x.md"; expect_code 0; expect_noout "줄임말이면 사용 금지"
 
 tc TC-042 "use 로 등록된 짧은 단어는 경고하지 않는다"
-run "plugins/git-branching-rules/x.md"; expect_code 0; expect_noout "줄임말이면 사용 금지"
+run "plugins/git-branch-naming/x.md"; expect_code 0; expect_noout "줄임말이면 사용 금지"
 
 tc TC-043 "네 글자 이상은 경고 대상이 아니다"
 run "plugins/notion-sync/x.md"; expect_code 0; expect_noout "줄임말이면 사용 금지"
@@ -196,7 +196,7 @@ run "/any/where/plugins/java/skills/utils/SKILL.md"
 expect_code 2; expect_out "plugin 'java'"; expect_out "skill 'utils'"
 
 tc TC-056 "이름만 인자로 줘도 검사한다"
-run "order-service"; expect_code 0
+run "order-create"; expect_code 0
 
 tc TC-057 "이름만 줬을 때 위반도 잡는다"
 run "utils"; expect_code 2; expect_out "한 단어 이름은 쓸 수 없습니다"
@@ -333,6 +333,53 @@ tc TC-084 "전체 검사가 접두사 붙은 *-plugins 디렉터리도 본다"
 rm -rf "$TMP/repo4"; mkdir -p "$TMP/repo4/internal-plugins/utils" "$TMP/repo4/public-plugins/helpers"
 run --all "$TMP/repo4"
 expect_code 2; expect_out "plugin 'utils'"; expect_out "plugin 'helpers'"
+
+section "== J. 슬롯 =="
+
+tc TC-090 "슬롯 네 개는 통과한다"
+run plugin-document-naming-review; expect_code 0
+
+tc TC-091 "슬롯 다섯 개는 막는다"
+run plugin-document-config-naming-review
+expect_code 2; expect_out "{대상}-{범위}-{관심사}-{목적} 네 개까지만"
+
+tc TC-092 "슬롯 상한 메시지가 실제 단어 수를 알려준다"
+run plugin-document-config-template-naming-review
+expect_code 2; expect_out "단어가 6 개입니다"
+
+tc TC-093 "목적이 관심사보다 앞에 오면 막는다"
+run review-standard
+expect_code 2; expect_out "슬롯 순서 위반"; expect_out "'standard'(관심사)가 목적 뒤에"
+
+tc TC-094 "목적이 대상보다 앞에 오면 막는다"
+run glossary-update-plugin
+expect_code 2; expect_out "'plugin'(대상·범위)가 목적 뒤에"
+
+tc TC-095 "대상-관심사-목적 순서는 통과한다"
+run document-naming-validate; expect_code 0
+
+section "== K. 끝 단어 사전 강제 =="
+
+tc TC-100 "끝 단어가 사전에 없으면 막는다"
+run plugin-banana
+expect_code 2; expect_out "끝 단어 'banana' 이 사전에 없습니다"
+
+tc TC-101 "끝 단어 메시지가 glossary-update 를 안내한다"
+run plugin-frobnicate; expect_code 2; expect_out "glossary-update"
+
+tc TC-102 "끝 단어가 3자 이하면 줄임말로 안내한다"
+run plugin-str; expect_code 2; expect_out "줄임말이면 전체 단어를 쓰고"
+
+tc TC-103 "앞 단어는 사전에 없어도 통과한다 (도메인 고유명사)"
+run spring-naming; expect_code 0
+run notion-document-sync; expect_code 0
+
+tc TC-104 "앞 단어의 짧은 미등록 단어는 경고만 한다"
+run abc-naming; expect_code 0; expect_out "줄임말이면 사용 금지"
+
+tc TC-105 "끝 단어가 deny 면 deny 로 안내한다"
+run common-testing
+expect_code 2; expect_out "deny 단어입니다"; expect_noout "끝 단어 'testing' 이 사전에 없습니다"
 
 flush_tc
 

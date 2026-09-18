@@ -266,7 +266,8 @@
     {
       "use": "test",
       "deny": [
-        "spec"
+        "spec",
+        "testing"
       ],
       "meaning": "테스트"
     }
