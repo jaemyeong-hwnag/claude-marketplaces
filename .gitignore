@@ -1,1 +1,4 @@
 .DS_Store
+
+# 개별 진행 피처 문서 (로컬 전용)
+.agent-tasks/
