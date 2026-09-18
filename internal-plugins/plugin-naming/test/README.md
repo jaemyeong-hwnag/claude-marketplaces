@@ -14,7 +14,7 @@ VERBOSE=1 test/validate-naming.test.sh  # 통과 케이스의 출력까지 표�
 
 종료 코드 0 이면 전체 통과다. 세션 없이 돌아가므로 커밋 전 검증에 그대로 쓴다.
 
-## 자동 TC (76건)
+## 자동 TC (86건)
 
 ### A. 형식 (kebab-case)
 
@@ -147,6 +147,23 @@ VERBOSE=1 test/validate-naming.test.sh  # 통과 케이스의 출력까지 표�
 | TC-104 | 앞 단어의 짧은 미등록 단어는 경고만 한다 | 통과 (0) | `abc-naming` |
 | TC-105 | 끝 단어가 deny 면 deny 로 안내한다 | 차단 (2) | `common-testing` → deny 메시지, 미등록 메시지 없음 |
 
+### M. AI 판단 넘김
+
+기계 규칙을 통과한 이름은 **예외 없이** AI 판단으로 넘어간다. 차단 TC 가 아니라 **넘김 TC** 다.
+
+| ID | 무엇을 | 기대 | 확인 |
+|---|---|---|---|
+| TC-120 | 기계 규칙을 통과한 이름은 무조건 넘긴다 | 통과 (0) | `plugin-naming` → `AI 가 판단할 것` |
+| TC-121 | 겉보기에 멀쩡한 이름도 예외 없이 넘긴다 | 통과 (0) | `notion-document-sync` |
+| TC-122 | 기계 위반이 있으면 차단이 우선이다 | 차단 (2) | `doc-sync`, 판단 항목을 넘기지 않는다 |
+| TC-123 | 훅 모드는 additionalContext 로 넘긴다 | 통과 (0) | `additionalContext` |
+| TC-124 | 훅 모드 판단 출력이 올바른 JSON 이다 | 통과 (0) | `jq -e .hookSpecificOutput.hookEventName` |
+| TC-125 | 판단 요청에 체크리스트가 들어 있다 | 통과 (0) | `한 문장으로`, `description 과 대조`, `다시 만드세요` |
+| TC-126 | 경로 하나에서 나온 이름을 전부 넘긴다 | 통과 (0) | plugin + skill 둘 다 |
+| TC-127 | 무관한 경로에는 반응하지 않는다 | 통과 (0) | 출력 없음 |
+| TC-128 | 범용 단어도 막지 않고 판단으로 넘긴다 | 통과 (0) | `utils-create` |
+| TC-129 | 판단 요청이 범용 단어를 묻는다 | 통과 (0) | `범용 단어를 쓰지 않았는가` |
+
 ## 수동 TC (새 세션 필요)
 
 훅 등록·스킬 자동 발동은 세션이 있어야 확인된다. `.claude/settings.json` 은 **세션 시작 시점에 로드**되므로 반드시 새 세션에서 돌린다.
@@ -199,7 +216,7 @@ cp /tmp/vn.bak scripts/validate-naming.sh && test/validate-naming.test.sh
 ## TC 추가 규칙
 
 - TC 는 `test/validate-naming.test.sh` 에 추가하고, 이 문서의 표는 거기서 생성한다. 표만 고치지 않는다.
-- ID 는 구간을 지킨다. A 형식 `TC-00x` / B 구조 `TC-01x` / C 중복 `TC-02x` / D 사전 `TC-03x` / E 줄임말 `TC-04x` / F 경로 `TC-05x` / G 훅 `TC-06x` / H 사전구조 `TC-07x` / I 전체검사 `TC-08x` / J 슬롯 `TC-09x` / K 끝단어 `TC-10x`.
+- ID 는 구간을 지킨다. A 형식 `TC-00x` / B 구조 `TC-01x` / C 중복 `TC-02x` / D 사전 `TC-03x` / E 줄임말 `TC-04x` / F 경로 `TC-05x` / G 훅 `TC-06x` / H 사전구조 `TC-07x` / I 전체검사 `TC-08x` / J 슬롯 `TC-09x` / K 끝단어 `TC-10x` / M AI판단 `TC-12x`.
 - 규칙을 바꾸면 "통과해야 하는 케이스"와 "막아야 하는 케이스"를 **쌍으로** 추가한다. 차단 TC 만 늘리면 과잉 차단을 놓친다.
 - `references/naming-rules.md` 에 조항을 추가하면 대응 TC 없이 끝내지 않는다.
 
@@ -209,4 +226,7 @@ cp /tmp/vn.bak scripts/validate-naming.sh && test/validate-naming.test.sh
 - 3자 이하 미등록 단어는 **앞 단어일 때만** 경고다 (TC-040). 끝 단어면 차단한다 (TC-102).
 - 앞 단어(`{대상}`·`{범위}`)는 사전이 통제하지 않는다. `notion-banana-naming` 은 통과한다 — `naming-reviewer` 의 몫이다.
 - `spring-boot` 처럼 두 단어짜리 프레임워크 풀네임은 기계로 못 잡는다. `naming-reviewer` 의 몫이다 (TC-M10).
+- **이름이 옳은지는 스크립트가 판정하지 않는다.** 맥락에 따라 달라지므로 AI 에게 넘긴다 (M 구간).
+  판단 항목이 붙어도 종료 코드는 0 이다. 차단되지 않는 것이 정상이다.
+- 기계 규칙을 통과한 이름은 **전부** 판단으로 넘어간다. 조용히 통과하는 이름은 없다.
 - 코드 식별자(변수·함수명)는 훅이 검사하지 않는다. `name-create` 스킬이 안내할 뿐이다.

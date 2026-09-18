@@ -381,6 +381,50 @@ tc TC-105 "끝 단어가 deny 면 deny 로 안내한다"
 run common-testing
 expect_code 2; expect_out "deny 단어입니다"; expect_noout "끝 단어 'testing' 이 사전에 없습니다"
 
+section "== M. AI 판단 넘김 =="
+
+tc TC-120 "기계 규칙을 통과한 이름은 무조건 판단으로 넘긴다"
+run plugin-naming
+expect_code 0; expect_out "AI 가 판단할 것"; expect_out "name 'plugin-naming'"
+
+tc TC-121 "겉보기에 멀쩡한 이름도 예외 없이 넘긴다"
+run notion-document-sync
+expect_code 0; expect_out "AI 가 판단할 것"
+
+tc TC-122 "기계 위반이 있으면 차단이 우선이고 판단은 넘기지 않는다"
+run doc-sync
+expect_code 2; expect_out "deny 단어입니다"; expect_noout "AI 가 판단할 것"
+
+tc TC-128 "범용 단어도 막지 않고 판단으로 넘긴다"
+run utils-create
+expect_code 0; expect_out "AI 가 판단할 것"; expect_out "name 'utils-create'"
+
+tc TC-129 "판단 요청이 범용 단어를 묻는다"
+run_stdin '{"hook_event_name":"PreToolUse","tool_input":{"file_path":"/x/internal-plugins/plugin-directory-structure/README.md"}}'
+expect_out "범용 단어를 쓰지 않았는가"
+
+tc TC-123 "훅 모드는 판단을 additionalContext 로 넘긴다"
+run_stdin '{"hook_event_name":"PreToolUse","tool_input":{"file_path":"/x/internal-plugins/plugin-directory-structure/README.md"}}'
+expect_code 0; expect_out "additionalContext"; expect_out "plugin 'plugin-directory-structure'"
+
+tc TC-124 "훅 모드 판단 출력이 올바른 JSON 이다"
+run_stdin '{"hook_event_name":"PreToolUse","tool_input":{"file_path":"/x/internal-plugins/plugin-directory-structure/README.md"}}'
+printf '%s' "$OUT" | jq -e '.hookSpecificOutput.hookEventName == "PreToolUse"' >/dev/null || fail_tc "JSON 파싱 실패 또는 hookEventName 불일치"
+
+tc TC-125 "판단 요청에 체크리스트가 들어 있다"
+run_stdin '{"hook_event_name":"PreToolUse","tool_input":{"file_path":"/x/internal-plugins/plugin-directory-structure/README.md"}}'
+expect_out "한 문장으로 말할 수 있는가"
+expect_out "description 과 대조"
+expect_out "이름을 다시 만드세요"
+
+tc TC-126 "경로 하나에서 여러 이름이 나오면 전부 넘긴다"
+run_stdin '{"hook_event_name":"PreToolUse","tool_input":{"file_path":"/x/internal-plugins/plugin-directory-structure/skills/structure-review/SKILL.md"}}'
+expect_out "plugin 'plugin-directory-structure'"; expect_out "skill 'structure-review'"
+
+tc TC-127 "훅이 무관한 경로에는 반응하지 않는다"
+run_stdin '{"hook_event_name":"PreToolUse","tool_input":{"file_path":"/x/test/run-thing.test.sh"}}'
+expect_code 0; expect_empty
+
 flush_tc
 
 echo

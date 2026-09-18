@@ -31,6 +31,9 @@ MAX_SEGMENTS=4
 
 ERRORS=()
 WARNINGS=()
+# 스크립트가 정량 판정할 수 없어 AI 에게 넘기는 항목
+JUDGMENTS=()
+MODE=cli
 
 die() { echo "validate-naming: $*" >&2; exit 1; }
 [ -r "$GLOSSARY" ] || die "glossary 를 찾을 수 없습니다: $GLOSSARY"
@@ -143,6 +146,10 @@ validate_name() {
     prev_rank="$cur_rank"
   done
 
+  # 기계 규칙과 무관하게, 만들어진 이름은 전부 AI 판단 대상이다.
+  # 이름이 옳은지는 무엇을 만드는가에 달렸고 그건 스크립트가 알 수 없다.
+  JUDGMENTS+=("$kind '$name'")
+
   # 앞 단어의 줄임말 의심은 경고로만 남긴다
   local idx
   for ((idx = 0; idx < ${#segs[@]} - 1; idx++)); do
@@ -214,9 +221,34 @@ validate_glossary() {
   [ -n "$out" ] && while IFS= read -r l; do ERRORS+=("glossary: $l"); done <<< "$out"
 }
 
+# 훅 모드에서 AI 판단 항목을 Claude 컨텍스트로 넘긴다
+emit_judgments_json() {
+  [ "${#JUDGMENTS[@]}" -gt 0 ] || return 0
+  local body j
+  body="네이밍 판단 요청 (plugin-naming) — 기계 규칙은 통과했습니다. 규칙을 지켰다고 옳은 이름은 아닙니다. 아래 이름을 직접 판단하세요."
+  for j in "${JUDGMENTS[@]}"; do body="$body"$'\n'"- $j"; done
+  body="$body"$'\n'"판단할 것:"
+  body="$body"$'\n'"  1. 이름만 보고 무엇을 가리키는지 한 문장으로 말할 수 있는가 (무슨 structure 인가, 무슨 name 인가)"
+  body="$body"$'\n'"  2. 슬롯이 실제 대상·범위와 맞는가 — 넓지도 좁지도 않은가"
+  body="$body"$'\n'"  3. 무엇을 다루는지 말하지 않는 범용 단어를 쓰지 않았는가 (utils, manager, data, misc …)"
+  body="$body"$'\n'"  4. 무엇을 하는지와 이름이 같은 것을 말하는가 (plugin.json 의 description 과 대조)"
+  body="$body"$'\n'"옳지 않다고 판단하면 이름을 다시 만드세요. 기준: $PLUGIN_ROOT/references/naming-rules.md 의 'AI 가 판단할 것'"
+  jq -n --arg c "$body" '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $c}}'
+}
+
 report() {
-  local w e
+  local w e j
   for w in ${WARNINGS+"${WARNINGS[@]}"}; do echo "⚠️  $w" >&2; done
+  if [ "${#ERRORS[@]}" -eq 0 ] && [ "${#JUDGMENTS[@]}" -gt 0 ]; then
+    if [ "$MODE" = hook ]; then
+      emit_judgments_json
+    else
+      echo "" >&2
+      echo "🤔 AI 가 판단할 것 — 기계 규칙은 통과했습니다. 이 이름이 옳은지는 별개입니다." >&2
+      for j in "${JUDGMENTS[@]}"; do echo "  - $j" >&2; done
+    fi
+    exit 0
+  fi
   if [ "${#ERRORS[@]}" -gt 0 ]; then
     echo "" >&2
     echo "❌ 네이밍 규칙 위반 (plugin-naming)" >&2
@@ -264,6 +296,7 @@ main() {
   fi
 
   # 훅 모드
+  MODE=hook
   local payload event path
   payload="$(cat)"
   [ -n "$payload" ] || exit 0
