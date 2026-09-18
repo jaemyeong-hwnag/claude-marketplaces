@@ -1,0 +1,25 @@
+{
+  "name": "plugin-marketplace",
+  "owner": {
+    "name": "황재명",
+    "email": "woaudsla@gmail.com"
+  },
+  "metadata": {
+    "description": "Claude Code 플러그인 모음. public-plugins/ 는 github 로 배포하는 플러그인, internal-plugins/ 는 이 저장소가 내부에서 쓰는 플러그인이다.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "plugin-naming",
+      "source": "./internal-plugins/plugin-naming",
+      "category": "internal",
+      "description": "플러그인을 만들 때 네이밍 규칙과 glossary 사전을 강제한다",
+      "keywords": [
+        "naming",
+        "convention",
+        "glossary",
+        "internal"
+      ]
+    }
+  ]
+}
