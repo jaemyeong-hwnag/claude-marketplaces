@@ -1,0 +1,31 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/sync-internal-plugins.sh\"",
+            "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/validate-plugin-scope.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "plugin-naming@plugin-marketplace": true
+  },
+  "extraKnownMarketplaces": {
+    "plugin-marketplace": {
+      "source": {
+        "source": "directory",
+        "path": "."
+      }
+    }
+  }
+}
