@@ -19,6 +19,7 @@
   },
   "enabledPlugins": {
     "marketplace-directory-structure@plugin-marketplace": true,
+    "plugin-authoring@plugin-marketplace": true,
     "plugin-naming@plugin-marketplace": true,
     "plugin-versioning@plugin-marketplace": true
   },

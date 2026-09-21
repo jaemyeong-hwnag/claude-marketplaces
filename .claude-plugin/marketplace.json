@@ -53,6 +53,15 @@
         "tag",
         "internal"
       ]
+    },
+    {
+      "name": "plugin-authoring",
+      "source": "./internal-plugins/plugin-authoring",
+      "category": "internal",
+      "description": "플러그인 파일의 내용 형식을 강제한다 — 스킬·커맨드·에이전트 프런트매터, 스킬 본문·참조 문서 크기, README 절 구성과 실제 구성요소의 일치. 이름·위치·버전은 관여하지 않는다.",
+      "tags": [
+        "development"
+      ]
     }
   ]
 }

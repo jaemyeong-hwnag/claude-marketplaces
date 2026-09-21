@@ -4,41 +4,44 @@
 
 다루는 것은 **이름 하나뿐**이다. 어느 디렉터리에 두는지, 어떻게 배포하는지는 이 플러그인의 관심사가 아니다.
 
-## 구성
+## 설치
+
+이 저장소에서는 SessionStart 훅(`.claude/hooks/sync-internal-plugins.sh`)이 등록·활성화·설치한다.
+internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 곳에서 쓰려면 `public-plugins/` 로 옮긴다.
+
+## 의존성
+
+없음
+
+## 포함된 스킬
+
+| 스킬 | 트리거 | 설명 |
+|---|---|---|
+| name-create | 이름 짓기·바꾸기, 플러그인·스킬·커맨드 만들기 | `{대상}-{범위}-{관심사}-{목적}` 슬롯과 사전으로 이름을 정한다 |
+| glossary-update | 사전에 단어 추가·수정, "이 단어 써도 되나" | 중복·정렬·카테고리 규칙을 지키며 사전을 고친다 |
+| /naming-review | 직접 호출 | 이름 하나 또는 저장소 전체를 검증하고 판정한다 |
+
+## 포함된 에이전트
+
+| 에이전트 | 설명 |
+|---|---|
+| naming-reviewer | 기계 규칙을 통과한 이름이 무엇을 가리키는지 알 수 있는지 판정한다 |
+
+## 포함된 훅
+
+| 스크립트 | 이벤트 | 동작 |
+|---|---|---|
+| validate-naming.sh | PreToolUse (Write\|Edit) | 경로에서 이름을 뽑아 규칙 위반이면 **차단**, 통과하면 AI 판단 요청 |
+| validate-naming.sh | PostToolUse (Write\|Edit) | `glossary.json` 을 저장하면 사전 구조를 검증 |
+
+## 파일
 
 | 경로 | 역할 |
 |---|---|
 | `references/naming-rules.md` | 네이밍 규칙 원본. 단일 기준 |
 | `references/glossary.json` | 기본 단어 사전 (`use` / `deny` / `meaning`) |
 | `scripts/validate-naming.sh` | 기계 검증. 훅과 CLI 겸용 |
-| `hooks/hooks.json` | Write/Edit 에 PreToolUse·PostToolUse 로 연결 |
-| `skills/name-create/` | 이름 짓는 절차 |
-| `skills/glossary-update/` | 사전 고치는 절차 |
-| `agents/naming-reviewer.md` | 기계가 못 잡는 부분을 판정하는 에이전트 |
-| `commands/naming-review.md` | `/naming-review` |
-| `test/` | 회귀 테스트 60건과 TC 명세 |
-
-## 설치
-
-이 저장소에서는 SessionStart 훅이 자동으로 확인·설치한다. 다른 저장소에서 쓰려면:
-
-```
-/plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-/plugin install plugin-naming@plugin-marketplace
-```
-
-프로젝트에서 자동으로 켜려면 `.claude/settings.json` 에 넣는다.
-
-```json
-{
-  "extraKnownMarketplaces": {
-    "plugin-marketplace": {
-      "source": { "source": "github", "repo": "jaemyeong-hwnag/claude-marketplaces" }
-    }
-  },
-  "enabledPlugins": { "plugin-naming@plugin-marketplace": true }
-}
-```
+| `test/` | 회귀 테스트와 TC 명세 |
 
 ## 동작
 
@@ -78,3 +81,7 @@ test/validate-naming.test.sh
 ```
 
 TC 명세는 [`test/README.md`](test/README.md).
+
+## 변경 이력
+
+[`CHANGELOG.md`](CHANGELOG.md) 참조.

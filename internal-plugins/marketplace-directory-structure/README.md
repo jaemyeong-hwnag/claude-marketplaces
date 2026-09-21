@@ -4,15 +4,34 @@
 
 다루는 것은 **무엇을 어디에 두는가** 하나뿐이다. 이름이 올바른지(`plugin-naming`), public 인지 internal 인지와 등록이 맞는지(저장소 `.claude/hooks/`)는 이 플러그인의 관심사가 아니다.
 
-## 구성
+## 설치
+
+이 저장소에서는 SessionStart 훅(`.claude/hooks/sync-internal-plugins.sh`)이 등록·활성화·설치한다.
+internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 곳에서 쓰려면 `public-plugins/` 로 옮긴다.
+
+## 의존성
+
+없음
+
+## 포함된 스킬
+
+| 스킬 | 트리거 | 설명 |
+|---|---|---|
+| plugin-directory-create | 플러그인 만들기, 구성요소를 어디에 둘지 | 디렉터리 구조 규칙대로 플러그인과 구성요소를 만든다 |
+| /directory-structure-validate | 직접 호출 | 루트와 모든 플러그인의 구조를 검증한다 |
+
+## 포함된 훅
+
+| 스크립트 | 이벤트 | 동작 |
+|---|---|---|
+| validate-directory-structure.sh | PreToolUse (Write\|Edit) | 플러그인 안의 경로가 규칙에 없는 위치면 **차단** |
+
+## 파일
 
 | 경로 | 역할 |
 |---|---|
 | `references/directory-structure-rules.md` | 구조 규칙 원본. 단일 기준 (`R-0x` 루트 / `P-0x` 플러그인) |
 | `scripts/validate-directory-structure.sh` | 기계 검증. 훅과 CLI 겸용 |
-| `hooks/hooks.json` | Write/Edit 에 PreToolUse 로 연결 |
-| `skills/plugin-directory-create/` | 플러그인 디렉터리를 만드는 절차 |
-| `commands/directory-structure-validate.md` | `/directory-structure-validate` |
 | `test/` | 회귀 테스트와 TC 명세 |
 
 ## 동작
@@ -59,10 +78,6 @@
 
 마켓플레이스 루트: `.claude-plugin/marketplace.json` · `README.md` · `CHANGELOG.md` 필수, `.claude-plugin/` 에는 `marketplace.json` `tags.json` `categories.json` `plugins.json` `keywords.json` 만, 플러그인은 `public-plugins/<이름>/` · `internal-plugins/<이름>/` 바로 아래에만.
 
-## 설치
-
-이 저장소에서는 SessionStart 훅이 자동으로 확인·설치한다. 다른 저장소에서 쓰려면 `public-plugins/` 로 옮겨 배포해야 한다.
-
 ## 테스트
 
 ```bash
@@ -71,3 +86,7 @@ test/validate-directory-structure.test.sh TC-D1    # ID 접두사로 필터
 ```
 
 TC 명세는 [`test/README.md`](test/README.md).
+
+## 변경 이력
+
+[`CHANGELOG.md`](CHANGELOG.md) 참조.

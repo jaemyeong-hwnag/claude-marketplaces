@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.2.1
+
+### Changed
+- README 를 작성 규칙 템플릿으로 개편
+- `version-update` description 을 300자 안으로
+
 ## 0.2.0
 
 ### Added

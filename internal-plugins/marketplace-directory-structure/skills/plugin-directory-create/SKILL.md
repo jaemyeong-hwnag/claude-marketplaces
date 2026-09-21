@@ -18,7 +18,7 @@ description: 플러그인 디렉터리를 만들거나 구성요소를 추가할
    | 파일 | 내용 |
    |---|---|
    | `.claude-plugin/plugin.json` | `name` 은 디렉터리명과 같아야 한다. `hooks` 필드로 `./hooks/hooks.json` 을 가리키지 않는다 (P-09) |
-   | `README.md` | 무엇을 하는 플러그인인가, 구성 표, 설치, 동작 |
+   | `README.md` | 템플릿(설치 · 의존성 · 포함된 스킬/에이전트/훅 · 변경 이력)을 따른다 — `document-create` 스킬 (`plugin-authoring`) |
    | `CHANGELOG.md` | `## 0.1.0` 초기 항목 |
 
 4. **구성요소를 필요한 것만 추가한다.** 아래 표에 없는 디렉터리는 만들지 않는다.
@@ -45,6 +45,7 @@ description: 플러그인 디렉터리를 만들거나 구성요소를 추가할
    internal-plugins/marketplace-directory-structure/scripts/validate-directory-structure.sh --all .
    internal-plugins/plugin-naming/scripts/validate-naming.sh --all .
    internal-plugins/plugin-versioning/scripts/validate-versioning.sh --all .
+   internal-plugins/plugin-authoring/scripts/validate-authoring.sh --all .
    .claude/hooks/validate-plugin-scope.sh .
    claude plugin list    # 설치 후 Error 줄이 없어야 한다. --strict 검증이 못 잡는 훅 로딩 실패가 여기 나온다
    ```

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.2.2
+
+### Changed
+- README 를 작성 규칙 템플릿으로 개편
+- `plugin-directory-create` 스킬이 README 를 템플릿(`document-create`)으로 안내하고, 검증 단계에 작성 규칙 검사를 넣는다
+
 ## 0.2.1
 
 - `R-04` 가 `.claude/worktrees/` 안을 보지 않는다. Claude Code 가 워크트리를 저장소 안에 만들어서, 워크트리가 하나만 있어도 `--all` 이 깨졌다

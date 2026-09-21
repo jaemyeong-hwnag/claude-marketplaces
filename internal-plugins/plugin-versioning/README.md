@@ -5,6 +5,37 @@
 이름은 `plugin-naming`, 디렉터리 구조는 `marketplace-directory-structure`, 배치·배포는 저장소 `.claude/hooks/` 가 본다.
 여기서는 **버전만** 본다.
 
+## 설치
+
+이 저장소에서는 SessionStart 훅(`.claude/hooks/sync-internal-plugins.sh`)이 등록·활성화·설치한다.
+internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 곳에서 쓰려면 `public-plugins/` 로 옮긴다.
+
+## 의존성
+
+없음
+
+## 포함된 스킬
+
+| 스킬 | 트리거 | 설명 |
+|---|---|---|
+| version-update | 버전 올리기, 릴리즈, CHANGELOG, 태그 | semver 등급 판정과 릴리즈 순서 |
+| /versioning-validate | 직접 호출 | 저장소 전체와 이번 변경 범위(`--since`)의 버전 정합성을 검증한다 |
+
+## 포함된 훅
+
+| 스크립트 | 이벤트 | 동작 |
+|---|---|---|
+| validate-versioning.sh | PreToolUse (Write\|Edit) | `plugin.json` 에 들어가는 `version` 값이 틀렸으면 **차단** (`V-01` · `V-03`) |
+| validate-versioning.sh | PostToolUse (Write\|Edit) | `plugin.json` · `CHANGELOG.md` 저장 뒤 `V-06` 이 어긋나면 **알림** |
+
+## 파일
+
+| 경로 | 역할 |
+|---|---|
+| `references/versioning-rules.md` | 규칙 원본 |
+| `scripts/validate-versioning.sh` | 기계 검증 (훅 모드 + CLI 모드) |
+| `test/` | 회귀 테스트와 TC 명세 |
+
 ## 무엇을 막나
 
 | | 조항 |
@@ -18,17 +49,6 @@
 규칙 원본은 [`references/versioning-rules.md`](references/versioning-rules.md) 다. 충돌하면 그쪽이 우선한다.
 
 **올림 등급(PATCH/MINOR/MAJOR)은 기계가 판정하지 않는다.** `version-update` 스킬이 판단한다.
-
-## 구성
-
-| 경로 | 역할 |
-|---|---|
-| `references/versioning-rules.md` | 규칙 원본 |
-| `scripts/validate-versioning.sh` | 기계 검증 (훅 모드 + CLI 모드) |
-| `hooks/hooks.json` | `Write`/`Edit` PreToolUse(차단) · PostToolUse(알림) |
-| `skills/version-update/` | 등급 판단과 릴리즈 절차 |
-| `commands/versioning-validate.md` | `/versioning-validate` |
-| `test/` | 회귀 테스트 |
 
 ## 훅이 두 갈래인 이유
 
@@ -66,3 +86,7 @@ claude plugin tag --push
 ```
 
 `claude plugin tag` 가 `{플러그인명}--v{버전}` 형식으로 만들고 엔트리 정합성까지 검증한다.
+
+## 변경 이력
+
+[`CHANGELOG.md`](CHANGELOG.md) 참조.

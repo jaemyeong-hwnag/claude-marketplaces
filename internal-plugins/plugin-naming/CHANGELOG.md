@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.2.1
+
+### Changed
+- README 를 작성 규칙 템플릿으로 개편 (설치 · 의존성 · 포함된 스킬/에이전트/훅 · 변경 이력). 낡은 "회귀 테스트 60건" 문구 제거
+- `name-create` description 을 300자 안으로 — 트리거 동의어를 줄였다
+
 ## 0.2.0
 
 - 사전에 `versioning` · `authoring` · `dependency` · `workflow` 추가 (`quality`). `semver` · `deps` · `flow` 등을 `deny` 로 막으므로 **전에 통과하던 이름이 막힐 수 있다** — `0.x` 라 MINOR

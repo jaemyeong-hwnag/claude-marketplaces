@@ -1,6 +1,6 @@
 ---
 name: version-update
-description: 플러그인 버전을 올리거나 릴리즈할 때 사용한다. 변경을 커밋·배포하기 전에 버전을 얼마나 올릴지 정할 때, CHANGELOG 를 쓸 때, 태그를 달 때, 1.0.0 으로 올릴 시점을 판단할 때 자동으로 적용한다. 트리거 — "버전 올려", "릴리즈", "배포", "태그 달아", "CHANGELOG", "버전 뭐로", "patch minor major", "bump version", "release". semver 등급 판정과 plugin.json · CHANGELOG · marketplace 엔트리 · git 태그의 정합성을 강제한다.
+description: 플러그인 버전을 올리거나 릴리즈할 때 사용한다. 변경을 커밋·배포하기 전에 버전을 얼마나 올릴지 정할 때, CHANGELOG 를 쓸 때, 1.0.0 으로 올릴 시점을 판단할 때 적용한다. 트리거 — "버전 올려", "릴리즈", "CHANGELOG", "버전 뭐로", "patch minor major", "bump version". semver 등급 판정과 plugin.json · CHANGELOG · marketplace 엔트리 · git 태그의 정합성을 강제한다.
 ---
 
 # 버전 올리기
