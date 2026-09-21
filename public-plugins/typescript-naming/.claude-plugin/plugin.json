@@ -1,0 +1,16 @@
+{
+  "name": "typescript-naming",
+  "description": "TypeScript 소스의 식별자를 TypeScript 관례로 강제한다 — 타입·클래스·enum PascalCase, 변수·함수 camelCase(snake_case 금지), interface I 접두사·enum 멤버·타입 매개변수·class 멤버 경고. 새로 생긴 위반만 막고 단어 선택은 스킬이 판단한다.",
+  "version": "0.1.0",
+  "author": {
+    "name": "황재명",
+    "email": "woaudsla@gmail.com"
+  },
+  "homepage": "https://github.com/jaemyeong-hwnag/claude-marketplaces",
+  "keywords": [
+    "typescript",
+    "naming",
+    "convention",
+    "validate"
+  ]
+}

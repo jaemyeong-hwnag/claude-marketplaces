@@ -1,0 +1,16 @@
+{
+  "name": "java-naming",
+  "description": "Java 코드의 이름을 Java 컨벤션으로 강제한다 — 패키지 소문자, 타입 UpperCamelCase, public 타입과 파일명, 상수 UPPER_SNAKE_CASE, 메서드·필드 lowerCamelCase. 새로 생긴 위반만 막고 단어 선택은 스킬이 판단한다.",
+  "version": "0.1.0",
+  "author": {
+    "name": "황재명",
+    "email": "woaudsla@gmail.com"
+  },
+  "homepage": "https://github.com/jaemyeong-hwnag/claude-marketplaces",
+  "keywords": [
+    "java",
+    "naming",
+    "convention",
+    "validate"
+  ]
+}
