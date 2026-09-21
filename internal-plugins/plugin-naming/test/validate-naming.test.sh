@@ -343,6 +343,10 @@ tc TC-086 "워크트리 밖의 같은 위반은 여전히 잡는다"
 mkdir -p "$TMP/repo5/.claude/skills/utils"; touch "$TMP/repo5/.claude/skills/utils/SKILL.md"
 run --all "$TMP/repo5"; expect_code 2; expect_out "skill 'utils'"
 
+tc TC-087 "루트 자체가 워크트리 안(절대 경로)이어도 검사한다 (#3)"
+rm -rf "$TMP/outer"; WTR="$TMP/outer/.claude/worktrees/wt"; mkdir -p "$WTR/.claude/skills/utils"; touch "$WTR/.claude/skills/utils/SKILL.md"
+run --all "$WTR"; expect_code 2; expect_out "skill 'utils'"
+
 section "== J. 슬롯 =="
 
 tc TC-090 "슬롯 네 개는 통과한다"

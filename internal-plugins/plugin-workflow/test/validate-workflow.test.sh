@@ -505,6 +505,21 @@ printf -- '---\n---\n\nq\n' > "$R/internal-plugins/item-sync/evals/x/prompt.md"
 : > "$CALLS"; run "$EA" --plugin item-sync "$R"
 [ "$TC_ON" = 1 ] && { [ "$(grep -c 'plugin eval' "$CALLS")" = 1 ] || fail_tc "item-sync 하나만 돌아야 한다"; }; true
 
+echo "== I. 워크트리 안에서 (#3) =="
+
+tc TC-W131 "verify-all: 루트가 .claude/worktrees/ 안이어도 플러그인을 찾는다"
+R="$TMP/wtroot/.claude/worktrees/wt"; rm -rf "$TMP/wtroot"; mkdir -p "$R/internal-plugins/ok-sync/scripts" "$R/internal-plugins/ok-sync/test"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$R/internal-plugins/ok-sync/scripts/validate-ok.sh"
+printf '#!/usr/bin/env bash\necho "통과 1 / 실패 0"\n' > "$R/internal-plugins/ok-sync/test/ok.test.sh"
+chmod +x "$R/internal-plugins/ok-sync/scripts/validate-ok.sh" "$R/internal-plugins/ok-sync/test/ok.test.sh"
+run "$VA" "$R"; expect_out "internal-plugins/ok-sync/scripts/validate-ok.sh"; expect_out "internal-plugins/ok-sync/test/ok.test.sh"
+
+tc TC-W132 "eval-all: 루트가 .claude/worktrees/ 안이어도 케이스를 찾는다"
+mkdir -p "$R/internal-plugins/ok-sync/.claude-plugin" "$R/internal-plugins/ok-sync/evals/c1"; printf '{"name":"ok-sync"}' > "$R/internal-plugins/ok-sync/.claude-plugin/plugin.json"
+printf -- '---\n---\n\nq\n' > "$R/internal-plugins/ok-sync/evals/c1/prompt.md"
+: > "$CALLS"; run "$EA" "$R"
+[ "$TC_ON" = 1 ] && { grep -q 'plugin eval .*/evals/c1/prompt.md' "$CALLS" || fail_tc "케이스를 찾지 못했다"; }; true
+
 flush_tc
 echo
 printf '통과 %d / 실패 %d' "$PASS" "$FAIL"

@@ -36,7 +36,7 @@ while IFS= read -r v; do
     out="$("$v" --since origin/main "$ROOT" 2>&1)"; c=$?
     row "$c" "$rel --since origin/main" "$( [ "$c" = 0 ] && echo "exit 0" || first_error "$out")"
   fi
-done < <(find "$ROOT" -mindepth 4 -maxdepth 4 -path "$ROOT/*plugins/*/scripts/validate-*.sh" -not -path '*/.claude/*' 2>/dev/null | sort)
+done < <(find "$ROOT" -mindepth 4 -maxdepth 4 -path "$ROOT/*plugins/*/scripts/validate-*.sh" -not -path "$ROOT/.claude/*" 2>/dev/null | sort)
 
 # 2. 저장소 정책 훅
 while IFS= read -r v; do
@@ -49,7 +49,7 @@ while IFS= read -r t; do
   out="$("$t" 2>&1)"; c=$?
   row "$c" "${t#"$ROOT"/}" "$(last_line "$out")"
 done < <( { find "$ROOT/test" -maxdepth 1 -name '*.test.sh' 2>/dev/null
-            find "$ROOT" -mindepth 4 -maxdepth 4 -path "$ROOT/*plugins/*/test/*.test.sh" -not -path '*/.claude/*' 2>/dev/null; } | sort)
+            find "$ROOT" -mindepth 4 -maxdepth 4 -path "$ROOT/*plugins/*/test/*.test.sh" -not -path "$ROOT/.claude/*" 2>/dev/null; } | sort)
 
 # 4. Claude Code 매니페스트 검증
 if command -v claude >/dev/null 2>&1; then
@@ -60,7 +60,7 @@ if command -v claude >/dev/null 2>&1; then
   while IFS= read -r d; do
     out="$(claude plugin validate "$d" --strict 2>&1)"; c=$?
     row "$c" "claude plugin validate ${d#"$ROOT"/} --strict" "$(last_line "$out")"
-  done < <(find "$ROOT" -mindepth 2 -maxdepth 2 -type d -path "$ROOT/*plugins/*" -not -path '*/.claude/*' 2>/dev/null | sort \
+  done < <(find "$ROOT" -mindepth 2 -maxdepth 2 -type d -path "$ROOT/*plugins/*" -not -path "$ROOT/.claude/*" 2>/dev/null | sort \
            | while IFS= read -r d; do [ -r "$d/.claude-plugin/plugin.json" ] && echo "$d"; done)
 fi
 

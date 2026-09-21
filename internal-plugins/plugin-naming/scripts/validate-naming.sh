@@ -269,6 +269,7 @@ main() {
       --all)
         local root="${2:-$PROJECT_DIR}" d f
         # 이름이 *plugins 로 끝나는 디렉터리를 플러그인 디렉터리로 본다.
+        # .claude/worktrees/ 제외는 루트 기준이다 — "*/.claude/worktrees/*" 로 쓰면 루트 자체가 워크트리 안일 때 전부 제외된다.
         while IFS= read -r d; do validate_name plugin "$d"; done < <(
           find "$root" -mindepth 1 -maxdepth 1 -type d -name '*plugins' -not -path '*/.git*' 2>/dev/null \
             | while IFS= read -r pd; do
@@ -277,12 +278,12 @@ main() {
               done | sort -u
         )
         while IFS= read -r d; do validate_name skill "$(basename "$d")"; done \
-          < <(find "$root" -type d -name skills -not -path '*/.git/*' -not -path '*/.claude/worktrees/*' \
+          < <(find "$root" -type d -name skills -not -path '*/.git/*' -not -path "${root%/}/.claude/worktrees/*" \
               -exec find {} -mindepth 1 -maxdepth 1 -type d \; 2>/dev/null)
         while IFS= read -r f; do validate_name command "$(basename "$f" .md)"; done \
-          < <(find "$root" -type f -path '*/commands/*.md' -not -path '*/.git/*' -not -path '*/.claude/worktrees/*' 2>/dev/null)
+          < <(find "$root" -type f -path '*/commands/*.md' -not -path '*/.git/*' -not -path "${root%/}/.claude/worktrees/*" 2>/dev/null)
         while IFS= read -r f; do validate_name agent "$(basename "$f" .md)"; done \
-          < <(find "$root" -type f -path '*/agents/*.md' -not -path '*/.git/*' -not -path '*/.claude/worktrees/*' 2>/dev/null)
+          < <(find "$root" -type f -path '*/agents/*.md' -not -path '*/.git/*' -not -path "${root%/}/.claude/worktrees/*" 2>/dev/null)
         validate_glossary "$GLOSSARY"
         ;;
       *) for arg in "$@"; do

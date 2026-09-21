@@ -11,7 +11,7 @@ test/validate-workflow.test.sh TC-W5    # ID 접두사로 필터
 
 **실제 git 저장소**로 돈다 — 임시 bare 저장소를 `origin` 으로 두고 클론해서 main · 작업 브랜치 · 원격이 앞서 나간 상태를 만든다. `gh` · `claude` 는 PATH 스텁이라 GitHub 과 설치 상태를 건드리지 않는다.
 
-## 자동 TC (96건)
+## 자동 TC (98건)
 
 ### A. 템플릿 (W-01 · W-02)
 
@@ -148,6 +148,13 @@ test/validate-workflow.test.sh TC-W5    # ID 접두사로 필터
 | TC-W127 | eval-all: Bash 샌드박스를 못 쓰는 환경은 실패가 아니라 환경 제한이다 |
 | TC-W128 | eval-all: 결과 JSON 이 없으면 실행 실패다 |
 | TC-W129 | eval-all: --plugin 으로 한 플러그인만 |
+
+### I. 워크트리 안에서 (#3)
+
+| ID | 케이스 |
+|---|---|
+| TC-W131 | verify-all: 루트가 .claude/worktrees/ 안이어도 플러그인을 찾는다 |
+| TC-W132 | eval-all: 루트가 .claude/worktrees/ 안이어도 케이스를 찾는다 |
 
 ## 수동 TC (새 세션 필요)
 

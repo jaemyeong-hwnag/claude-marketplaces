@@ -75,7 +75,7 @@ while IFS= read -r c; do
       mark="✅"; awk -v s="$score" -v t="$THRESHOLD" 'BEGIN { exit !(s + 0 < t + 0) }' && { mark="❌"; FAILED=1; } ;;
   esac
   printf '%-32s %-24s %6s %6s %7s %s\n' "$name" "$case_name" "$score" "$delta" "\$$(printf '%.2f' "$cost")" "$mark${err:+ $err}"
-done < <(find "$ROOT" -mindepth 5 -path "$ROOT/*plugins/*/evals/*" \( -name prompt.md -o -name case.yaml \) -type f -not -path '*/results/*' -not -path '*/.claude/*' 2>/dev/null \
+done < <(find "$ROOT" -mindepth 5 -path "$ROOT/*plugins/*/evals/*" \( -name prompt.md -o -name case.yaml \) -type f -not -path '*/results/*' -not -path "$ROOT/.claude/*" 2>/dev/null \
          | while IFS= read -r f; do d="$(dirname "$f")"; [ -r "$d/prompt.md" ] && [ "$(basename "$f")" = case.yaml ] && continue; echo "$f"; done | sort)
 
 echo
