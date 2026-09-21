@@ -15,7 +15,7 @@ internal-plugins/plugin-workflow/scripts/verify-all.sh .     # 검증기 · 회�
 internal-plugins/plugin-workflow/scripts/eval-all.sh --quick . # 스킬 발동 · 훅 차단 eval (모델 호출, 게시 안 함)
 ```
 
-> 이름은 `plugin-naming`, 디렉터리 구조는 `marketplace-directory-structure`, 버전은 `plugin-versioning`, 파일 내용 형식은 `plugin-authoring`, 의존 관계는 `plugin-dependency`, 개발 플로우는 `plugin-workflow`, 배치·등록은 저장소 `.claude/hooks/` 가 담당한다. 서로 섞지 않는다.
+> 이름은 `plugin-naming`, 디렉터리 구조는 `marketplace-directory-structure`, 버전은 `plugin-versioning`, 파일 내용 형식은 `plugin-authoring`, 의존 관계는 `plugin-dependency`, GitHub 플로우는 `github-workflow`, 플러그인 릴리즈 단계는 `plugin-workflow`, 배치·등록은 저장소 `.claude/hooks/` 가 담당한다. 서로 섞지 않는다.
 
 ## 수록 플러그인
 
@@ -26,7 +26,8 @@ internal-plugins/plugin-workflow/scripts/eval-all.sh --quick . # 스킬 발동 �
 | [`plugin-versioning`](internal-plugins/plugin-versioning) | `internal-plugins/` | 버전 값과 CHANGELOG · marketplace 엔트리 · git 태그의 정합성을 강제한다 |
 | [`plugin-authoring`](internal-plugins/plugin-authoring) | `internal-plugins/` | 스킬·커맨드·에이전트 프런트매터와 README 절 구성 · 실제 구성요소의 일치를 강제한다 |
 | [`plugin-dependency`](internal-plugins/plugin-dependency) | `internal-plugins/` | 플러그인 사이의 의존 관계(순환 · 층 · 경계 · 범위 겹침)를 강제한다 |
-| [`plugin-workflow`](internal-plugins/plugin-workflow) | `internal-plugins/` | 이슈에서 릴리즈까지의 개발 플로우(템플릿 · 브랜치 · main 보호 · 머지 · 태그)를 강제한다 |
+| [`plugin-workflow`](internal-plugins/plugin-workflow) | `internal-plugins/` | 플러그인 생성 · 삭제 순서, 검증 전체 실행, 설치 확인 뒤 플러그인별 태그 · 릴리즈. `github-workflow` 에 의존한다 |
+| [`github-workflow`](public-plugins/github-workflow) | `public-plugins/` | 이슈에서 머지까지의 GitHub 플로우(템플릿 · 이슈 번호 브랜치 · 기본 브랜치 보호 · 머지 커밋 · 태그 위치)를 강제한다 |
 
 ## 배포용 플러그인 설치 (다른 저장소에서)
 
@@ -115,13 +116,14 @@ internal-plugins/plugin-versioning/test/validate-versioning.test.sh
 |---|---|---|
 | 파일 안의 형식 — 프런트매터, description, README 템플릿 | `plugin-authoring` | [`authoring-rules.md`](internal-plugins/plugin-authoring/references/authoring-rules.md) |
 | 플러그인 사이의 의존 — 순환, common · 번들, public → internal 금지 | `plugin-dependency` | [`dependency-rules.md`](internal-plugins/plugin-dependency/references/dependency-rules.md) |
-| 이슈 → 브랜치 → PR → 머지 → 릴리즈 | `plugin-workflow` | [`workflow-rules.md`](internal-plugins/plugin-workflow/references/workflow-rules.md) |
+| 이슈 → 브랜치 → PR → 머지 | `github-workflow` | [`workflow-rules.md`](public-plugins/github-workflow/references/workflow-rules.md) |
+| 버전 · 설치 확인 · 태그 · 릴리즈 (위 흐름에 더하는 단계) | `plugin-workflow` | [`workflow-rules.md`](internal-plugins/plugin-workflow/references/workflow-rules.md) |
 
 이슈 폼과 PR 템플릿은 GitHub 가 읽는 자리인 [`.github/`](.github) 에 있다 — `feature` · `bugfix` 두 가지.
 
 ## 플러그인 추가 절차
 
-개발 플로우의 "작업" 단계 안에서 한다 (`issue-create` → … → `release-create`).
+개발 플로우의 "작업" 단계 안에서 한다 (`issue-create` → … → `pull-request-merge` · `release-create`).
 
 1. 이름을 정한다 (`name-create` 스킬).
 2. 배포용은 `public-plugins/<이름>/`, 내부용은 `internal-plugins/<이름>/` 에 만든다 (`plugin-directory-create` 스킬).

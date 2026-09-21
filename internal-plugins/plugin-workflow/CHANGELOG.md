@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.3.0
+
+### Changed
+- GitHub 플로우를 public 플러그인 `github-workflow` 로 옮기고 그것에 의존한다 (#12). 옮긴 것 — `validate-workflow.sh` 훅(`W-01` ~ `W-10`), `branch-create.sh`, `issue-create` · `pull-request-create` 스킬, `/workflow-validate`, 해당 TC · eval
+- `release-create` 는 설치 확인 · 태그 · 릴리즈만 한다. 머지와 정리는 `github-workflow` 의 `pull-request-merge`
+- 규칙 원본은 이 마켓플레이스가 더하는 단계(버전 · `verify-all.sh` · 설치 확인 · 태그)만 담는다
+- 테스트 파일 `validate-workflow.test.sh` → `workflow-scripts.test.sh`
+
 ## 0.2.4
 
 ### Fixed

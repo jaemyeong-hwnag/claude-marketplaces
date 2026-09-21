@@ -1,0 +1,16 @@
+{
+  "name": "github-workflow",
+  "description": "GitHub 저장소의 변경이 이슈에서 머지까지 가는 경로를 강제한다 — feature·bugfix 이슈·PR 템플릿, 이슈 번호 브랜치, 기본 브랜치 보호, 리베이스 뒤 머지 커밋, 기본 브랜치에서만 태그.",
+  "version": "0.1.0",
+  "author": {
+    "name": "황재명",
+    "email": "woaudsla@gmail.com"
+  },
+  "homepage": "https://github.com/jaemyeong-hwnag/claude-marketplaces",
+  "keywords": [
+    "workflow",
+    "github",
+    "git",
+    "pull-request"
+  ]
+}

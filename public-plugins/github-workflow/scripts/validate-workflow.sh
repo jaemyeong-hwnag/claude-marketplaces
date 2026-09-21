@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# 개발 플로우를 검증한다 — 이슈·PR 템플릿, 브랜치 이름, main 보호, 머지 방식, 태그 위치.
-# 이름·위치·버전·작성 형식·의존 관계는 다른 플러그인이 본다.
+# GitHub 개발 플로우를 검증한다 — 이슈·PR 템플릿, 브랜치 이름, main 보호, 머지 방식, 태그 위치.
+# 기본 브랜치는 origin/HEAD 에서 읽는다 (없으면 main). 이하 main 은 기본 브랜치를 뜻한다.
 #
 # 훅 모드 : stdin 으로 훅 JSON 을 받는다.
 #   PreToolUse(Bash) → git · gh · claude plugin tag 명령을 보고 W-03 ~ W-10 위반이면 차단
@@ -18,7 +18,7 @@ PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 RULES="$PLUGIN_ROOT/references/workflow-rules.md"
 
-MAIN="main"
+MAIN="main"   # detect_main 이 덮어쓴다
 TYPES="feature bugfix"
 BRANCH_RE='^(feature|bugfix)/[0-9]+-[a-z0-9]+(-[a-z0-9]+){0,4}$'
 
@@ -74,6 +74,14 @@ check_branch_name() { # $1=이름
 # ---- git 도우미 -------------------------------------------------------------
 branch_of() { git -C "$1" rev-parse --abbrev-ref HEAD 2>/dev/null; }
 
+# 기본 브랜치 — origin/HEAD 가 가리키는 브랜치. 없으면 main
+detect_main() { # $1=디렉터리
+  local h
+  h="$(git -C "$1" symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)"
+  [ -n "$h" ] && MAIN="${h#origin/}"
+  return 0
+}
+
 # 최신 main 을 포함하는가. $1=디렉터리 $2=대상 ref $3=fetch 여부(1)
 contains_main() {
   local dir="$1" ref="$2" fetch="${3:-0}"
@@ -116,10 +124,10 @@ check_git() { # $1=dir, 나머지=git 뒤 토큰
 
   case "$sub" in
     commit)
-      [ "$br" = "$MAIN" ] && err "main 에 직접 커밋하지 않습니다 — {feature|bugfix}/{이슈}-{slug} 브랜치에서 작업하고 PR 로 넣습니다 (W-09)" ;;
+      [ "$br" = "$MAIN" ] && err "$MAIN 에 직접 커밋하지 않습니다 — {feature|bugfix}/{이슈}-{slug} 브랜치에서 작업하고 PR 로 넣습니다 (W-09)" ;;
     merge)
       if [ "$br" = "$MAIN" ] && ! has_tok --ff-only ${a[@]+"${a[@]}"} && ! has_tok --abort ${a[@]+"${a[@]}"}; then
-        err "main 에서 git merge 를 하지 않습니다 — PR 로 머지합니다. 받아오기만 하려면 --ff-only (W-09)"
+        err "$MAIN 에서 git merge 를 하지 않습니다 — PR 로 머지합니다. 받아오기만 하려면 --ff-only (W-09)"
       fi ;;
     push)
       for t in ${a[@]+"${a[@]}"}; do
@@ -136,10 +144,10 @@ check_git() { # $1=dir, 나머지=git 뒤 토큰
       if [ "${#nonflag[@]}" -ge 2 ]; then
         for t in "${nonflag[@]:1}"; do
           target="${t##*:}"; target="${target#refs/heads/}"
-          [ "$target" = "$MAIN" ] && err "main 에 직접 푸시하지 않습니다 — PR 로 넣습니다 (W-09)"
+          [ "$target" = "$MAIN" ] && err "$MAIN 에 직접 푸시하지 않습니다 — PR 로 넣습니다 (W-09)"
         done
       elif ! has_tok --tags ${a[@]+"${a[@]}"} && ! has_tok --delete ${a[@]+"${a[@]}"} && ! has_tok -d ${a[@]+"${a[@]}"}; then
-        [ "$br" = "$MAIN" ] && err "main 에서 git push 하지 않습니다 — PR 로 넣습니다 (W-09)"
+        [ "$br" = "$MAIN" ] && err "$MAIN 에서 git push 하지 않습니다 — PR 로 넣습니다 (W-09)"
       fi ;;
     checkout|switch)
       n=0
@@ -188,7 +196,7 @@ check_git() { # $1=dir, 나머지=git 뒤 토큰
         esac
       done
       if [ "$create" = 1 ] && [ "$br" != "$MAIN" ]; then
-        err "태그는 main 에서만 답니다 (지금 '$br') — 리베이스가 SHA 를 바꿔 브랜치의 태그는 머지 뒤 어디에도 없는 커밋을 가리킵니다 (W-10)"
+        err "태그는 $MAIN 에서만 답니다 (지금 '$br') — 리베이스가 SHA 를 바꿔 브랜치의 태그는 머지 뒤 어디에도 없는 커밋을 가리킵니다 (W-10)"
       fi ;;
   esac
 }
@@ -221,8 +229,8 @@ check_gh() { # $1=dir, 나머지=gh 뒤 토큰
       contains_main "$dir" HEAD 1; r=$?
       case "$r" in
         0) ;;
-        1) err "브랜치가 최신 origin/main 을 포함하지 않습니다 — git rebase origin/main 뒤 검증·테스트를 다시 돌리고 PR 을 엽니다 (W-06)" ;;
-        *) err "origin/main 과 비교할 수 없습니다 (fetch 실패) — 확인 전에는 PR 을 열지 않습니다 (W-06)" ;;
+        1) err "브랜치가 최신 origin/$MAIN 을 포함하지 않습니다 — git rebase origin/$MAIN 뒤 검증·테스트를 다시 돌리고 PR 을 엽니다 (W-06)" ;;
+        *) err "origin/$MAIN 과 비교할 수 없습니다 (fetch 실패) — 확인 전에는 PR 을 열지 않습니다 (W-06)" ;;
       esac ;;
     merge)
       has_tok --squash ${a[@]+"${a[@]}"} && err "스쿼시 머지를 쓰지 않습니다 — gh pr merge --merge (W-07)"
@@ -239,14 +247,14 @@ check_gh() { # $1=dir, 나머지=gh 뒤 토큰
         return 0
       fi
       if ! git -C "$dir" fetch -q origin "$MAIN" "$head" >/dev/null 2>&1; then
-        err "origin 에서 main · $head 를 받아올 수 없습니다 — 확인 전에는 머지하지 않습니다 (W-06)"
+        err "origin 에서 $MAIN · $head 를 받아올 수 없습니다 — 확인 전에는 머지하지 않습니다 (W-06)"
         return 0
       fi
       contains_main "$dir" "origin/$head" 0; r=$?
       case "$r" in
         0) ;;
-        1) err "PR 브랜치 '$head' 가 최신 origin/main 을 포함하지 않습니다 — 리베이스하고 검증·테스트를 다시 돌린 뒤 머지합니다 (W-06)" ;;
-        *) err "origin/main 과 비교할 수 없습니다 — 확인 전에는 머지하지 않습니다 (W-06)" ;;
+        1) err "PR 브랜치 '$head' 가 최신 origin/$MAIN 을 포함하지 않습니다 — 리베이스하고 검증·테스트를 다시 돌린 뒤 머지합니다 (W-06)" ;;
+        *) err "origin/$MAIN 과 비교할 수 없습니다 — 확인 전에는 머지하지 않습니다 (W-06)" ;;
       esac ;;
   esac
 }
@@ -256,7 +264,7 @@ check_claude() { # $1=dir, 나머지=claude 뒤 토큰
   [ "${1:-}" = "plugin" ] && [ "${2:-}" = "tag" ] || return 0
   local br; br="$(branch_of "$dir")"
   [ -n "$br" ] && [ "$br" != "$MAIN" ] && \
-    err "claude plugin tag 는 main 에서만 돌립니다 (지금 '$br') (W-10)"
+    err "claude plugin tag 는 $MAIN 에서만 돌립니다 (지금 '$br') (W-10)"
   return 0
 }
 
@@ -287,7 +295,7 @@ report() {
   local e
   if [ "${#ERRORS[@]}" -gt 0 ]; then
     echo "" >&2
-    echo "❌ 개발 플로우 위반 (plugin-workflow)" >&2
+    echo "❌ 개발 플로우 위반 (github-workflow)" >&2
     for e in "${ERRORS[@]}"; do echo "  - $e" >&2; done
     echo "" >&2
     echo "규칙: $RULES" >&2
@@ -299,13 +307,14 @@ report() {
 emit_notices_json() {
   [ "${#NOTICES[@]}" -gt 0 ] || return 0
   local body n
-  body="개발 플로우 알림 (plugin-workflow)"
+  body="개발 플로우 알림 (github-workflow)"
   for n in "${NOTICES[@]}"; do body="$body"$'\n'"- $n"; done
   jq -n --arg c "$body" '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $c}}'
 }
 
 main() {
   if [ "$#" -gt 0 ]; then
+    case "$1" in --templates|--all|--up-to-date) detect_main "${2:-$PROJECT_DIR}" ;; esac
     case "$1" in
       --templates|--all) check_templates "${2:-$PROJECT_DIR}" ;;
       --branch) [ -n "${2:-}" ] || die "--branch 에는 이름이 필요합니다"; check_branch_name "$2" ;;
@@ -313,8 +322,8 @@ main() {
         contains_main "${2:-$PROJECT_DIR}" HEAD 0
         case $? in
           0) ;;
-          1) err "HEAD 가 origin/main 을 포함하지 않습니다 — git fetch origin && git rebase origin/main (W-06)" ;;
-          *) err "origin/main 이 없습니다 — git fetch origin 먼저 (W-06)" ;;
+          1) err "HEAD 가 origin/$MAIN 을 포함하지 않습니다 — git fetch origin && git rebase origin/$MAIN (W-06)" ;;
+          *) err "origin/$MAIN 이 없습니다 — git fetch origin 먼저 (W-06)" ;;
         esac ;;
       *) die "알 수 없는 인자: $1" ;;
     esac
@@ -332,6 +341,7 @@ main() {
   printf '%s' "$cmd" | grep -qE '(^|[^[:alnum:]_-])(git|gh|claude)[[:space:]]' || exit 0
   cwd="$(printf '%s' "$payload" | jq -r '.cwd // ""' 2>/dev/null)"
   [ -n "$cwd" ] && [ -d "$cwd" ] || cwd="$PROJECT_DIR"
+  detect_main "$cwd"
   check_command "$cmd" "$cwd"
   if [ "${#ERRORS[@]}" -gt 0 ]; then report; fi
   emit_notices_json

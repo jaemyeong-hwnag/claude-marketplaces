@@ -3,6 +3,7 @@
 ## 미출시
 
 ### Added
+- `github-workflow` public 플러그인 — `plugin-workflow` 에서 이슈 · 브랜치 · PR · 머지 플로우와 훅(`W-01` ~ `W-10`)을 떼어 다른 저장소도 설치할 수 있게 했다. 기본 브랜치를 `origin/HEAD` 에서 읽고, 템플릿 설치 스킬과 머지 · 정리 스킬을 더했다. `plugin-workflow` 는 이것에 의존한다 (#12)
 - eval 자동화 — 플러그인마다 스킬 발동 · 훅 차단 케이스, `eval-all.sh`(케이스 단위 권한, `--no-publish`, 결과는 플러그인 밖). 구조 규칙 `P-10`
 - `plugin-create` · `plugin-delete` 스킬 — 생성 체크리스트, 역참조부터 시작하는 삭제 순서
 - `V-05` — CHANGELOG 항목에 날짜(`## x.y.z - YYYY-MM-DD`)를 붙일 수 있다

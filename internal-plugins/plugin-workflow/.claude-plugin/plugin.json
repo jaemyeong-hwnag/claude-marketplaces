@@ -1,7 +1,7 @@
 {
   "name": "plugin-workflow",
-  "description": "플러그인 변경이 이슈에서 릴리즈까지 가는 경로를 강제한다 — 이슈·PR 템플릿, 브랜치 이름, main 보호, 리베이스 뒤 머지 커밋, main 에서만 태그. 이름·위치·버전·작성 형식·의존 관계는 관여하지 않는다.",
-  "version": "0.2.4",
+  "description": "플러그인 마켓플레이스가 GitHub 플로우에 더하는 단계를 맡는다 — 플러그인 생성·삭제 순서, 검증 전체 실행, 설치 확인 뒤 플러그인별 태그·릴리즈, eval 실행. 이슈·브랜치·PR·머지 규칙은 github-workflow 가 본다.",
+  "version": "0.3.0",
   "author": {
     "name": "황재명",
     "email": "woaudsla@gmail.com"
@@ -9,8 +9,11 @@
   "homepage": "https://github.com/jaemyeong-hwnag/claude-marketplaces",
   "keywords": [
     "workflow",
-    "github",
     "release",
+    "plugin",
     "validate"
+  ],
+  "dependencies": [
+    "github-workflow"
   ]
 }
