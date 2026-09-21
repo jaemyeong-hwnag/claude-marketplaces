@@ -199,12 +199,12 @@ internal-plugins/plugin-workflow/scripts/validate-workflow.sh --templates . # �
 .claude/hooks/validate-plugin-scope.sh .                             # 배치·배포 정책
 test/validate-plugin-scope.test.sh                                   # 배치·등록 정책 TC 29건
 test/sync-internal-plugins.test.sh                                   # 동기화 훅 TC 37건
-internal-plugins/plugin-naming/test/validate-naming.test.sh          # 이름 규칙 회귀 테스트 (TC 89건)
+internal-plugins/plugin-naming/test/validate-naming.test.sh          # 이름 규칙 회귀 테스트 (TC 90건)
 internal-plugins/marketplace-directory-structure/test/validate-directory-structure.test.sh  # 구조 규칙 회귀 테스트 (TC 54건)
 internal-plugins/plugin-versioning/test/validate-versioning.test.sh  # 버전 규칙 회귀 테스트 (TC 125건)
 internal-plugins/plugin-authoring/test/validate-authoring.test.sh    # 작성 규칙 회귀 테스트 (TC 74건)
 internal-plugins/plugin-dependency/test/validate-dependency.test.sh  # 의존성 회귀 테스트 (TC 55건)
-internal-plugins/plugin-workflow/test/validate-workflow.test.sh      # 개발 플로우 회귀 테스트 (TC 96건)
+internal-plugins/plugin-workflow/test/validate-workflow.test.sh      # 개발 플로우 회귀 테스트 (TC 98건)
 ```
 
 전부 한 번에 — 검증기 · 회귀 테스트 · `claude plugin validate --strict` 를 경로 규칙으로 찾아 돌리고 한 줄씩 요약한다:
