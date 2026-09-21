@@ -11,7 +11,7 @@ test/validate-workflow.test.sh TC-W5    # ID 접두사로 필터
 
 **실제 git 저장소**로 돈다 — 임시 bare 저장소를 `origin` 으로 두고 클론해서 main · 작업 브랜치 · 원격이 앞서 나간 상태를 만든다. `gh` · `claude` 는 PATH 스텁이라 GitHub 과 설치 상태를 건드리지 않는다.
 
-## 자동 TC (98건)
+## 자동 TC (101건)
 
 ### A. 템플릿 (W-01 · W-02)
 
@@ -127,6 +127,9 @@ test/validate-workflow.test.sh TC-W5    # ID 접두사로 필터
 | TC-W106 | release: 버전이 바뀐 플러그인이 없으면 할 것이 없다 |
 | TC-W107 | release --dry-run: 대상을 보여주고 아무것도 하지 않는다 |
 | TC-W108 | release: 태그를 달고 CHANGELOG 절을 노트로 릴리즈한다 |
+| TC-W116 | release: 직전 태그가 있으면 그 뒤의 절만 노트에 담는다 |
+| TC-W117 | release: 여러 절을 담으면 뒤 절의 제목을 남기고 첫 제목은 뺀다 |
+| TC-W118 | release: 날짜가 붙은 제목도 경계로 읽는다 |
 | TC-W109 | release: 설치본에 로드 에러가 있으면 거부한다 (--json 의 errors) |
 | TC-W113 | release: --json 을 못 받으면 텍스트의 Error 줄로 대신한다 |
 | TC-W110 | release: 태그가 이미 있으면 거부한다 |
@@ -195,6 +198,8 @@ test/validate-workflow.test.sh TC-W5    # ID 접두사로 필터
 | M22 eval: scaffold 의 git 권한 누락 | 1 |
 | M23 eval: 환경 제한 구분 제거 | 1 |
 | M24 eval: `--no-publish` 빠짐 | 1 |
+| M25 release 노트를 현재 절만 (#2 의 옛 동작) | 2 |
+| M26 release 직전 태그 무시 | 2 |
 
 ## 알려진 한계
 

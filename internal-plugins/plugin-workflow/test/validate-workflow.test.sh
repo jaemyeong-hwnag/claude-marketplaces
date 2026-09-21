@@ -420,7 +420,26 @@ run "$RP" "$W"; expect_code 0; expect_out "✅ order-sync--v0.2.0"
 expect_call "claude plugin tag --push"
 expect_call "gh release create order-sync--v0.2.0 --verify-tag --title order-sync v0.2.0"
 expect_call "--latest=false"
-[ "$TC_ON" = 1 ] && { grep -qF "새 검사" "$STUB_NOTES_COPY" 2>/dev/null || fail_tc "노트에 0.2.0 절이 없다"; grep -qF "첫" "$STUB_NOTES_COPY" 2>/dev/null && fail_tc "노트에 0.1.0 절까지 들어갔다"; }
+# 태그가 한 번도 없었으니 첫 릴리즈 — 0.1.0 절까지 담는다 (이슈 #2)
+[ "$TC_ON" = 1 ] && { grep -qF "새 검사" "$STUB_NOTES_COPY" 2>/dev/null || fail_tc "노트에 0.2.0 절이 없다"; grep -qF "첫" "$STUB_NOTES_COPY" 2>/dev/null || fail_tc "첫 릴리즈인데 0.1.0 절이 빠졌다"; }
+
+tc TC-W116 "release: 직전 태그가 있으면 그 뒤의 절만 노트에 담는다"
+mkrel rl13; gitq "$W" tag order-sync--v0.1.0 main~1; gitq "$W" push -q origin order-sync--v0.1.0; rm -f "$STUB_NOTES_COPY"
+run "$RP" "$W"; expect_code 0
+[ "$TC_ON" = 1 ] && { grep -qF "새 검사" "$STUB_NOTES_COPY" || fail_tc "0.2.0 절이 없다"; grep -qF "첫" "$STUB_NOTES_COPY" && fail_tc "이미 릴리즈한 0.1.0 절이 들어갔다"; }; true
+
+tc TC-W117 "release: 여러 절을 담으면 뒤 절의 제목을 남기고 첫 제목은 뺀다"
+mkrel rl14; rm -f "$STUB_NOTES_COPY"; run "$RP" "$W"
+[ "$TC_ON" = 1 ] && { grep -qx "## 0.1.0" "$STUB_NOTES_COPY" || fail_tc "0.1.0 제목이 없다"; grep -qx "## 0.2.0" "$STUB_NOTES_COPY" && fail_tc "첫 제목이 남았다"; }; true
+
+tc TC-W118 "release: 날짜가 붙은 제목도 경계로 읽는다"
+mkrel rl15; gitq "$W" checkout -q -b feature/9-dated
+printf '# CHANGELOG\n\n## 0.3.0 - 2026-09-21\n\n- 셋째\n\n## 0.2.0 - 2026-09-18\n\n- 둘째\n\n## 0.1.0\n\n- 첫\n' > "$W/internal-plugins/order-sync/CHANGELOG.md"
+printf '{ "name": "order-sync", "version": "0.3.0" }' > "$W/internal-plugins/order-sync/.claude-plugin/plugin.json"
+gitq "$W" commit -qam dated; gitq "$W" checkout -q main; gitq "$W" merge -q --no-ff -m m feature/9-dated; gitq "$W" push -q origin main
+gitq "$W" tag order-sync--v0.2.0 main~1; rm -f "$STUB_NOTES_COPY"
+run "$RP" "$W"; expect_code 0
+[ "$TC_ON" = 1 ] && { grep -qF "셋째" "$STUB_NOTES_COPY" || fail_tc "0.3.0 절이 없다"; grep -qF "둘째" "$STUB_NOTES_COPY" && fail_tc "날짜 붙은 0.2.0 경계를 못 읽었다"; }; true
 
 tc TC-W109 "release: 설치본에 로드 에러가 있으면 거부한다 (--json 의 errors)"
 mkrel rl7; printf '[{"id":"order-sync@x-marketplace","errors":["Hook load failed"]}]' > "$TMP/list.json"
