@@ -1,35 +1,36 @@
-# 개발 플로우 규칙 (단일 원본)
+# GitHub 개발 플로우 규칙 (단일 원본)
 
-플러그인 변경이 **이슈에서 릴리즈까지 어떤 경로로 가는가**를 정한다. 기계 검증은 [`scripts/validate-workflow.sh`](../scripts/validate-workflow.sh).
+GitHub 저장소의 변경이 **이슈에서 머지까지 어떤 경로로 가는가**를 정한다. 기계 검증은 [`scripts/validate-workflow.sh`](../scripts/validate-workflow.sh).
 
-이름 · 위치 · 버전 · 작성 형식 · 의존 관계는 각 플러그인이 본다. 여기서는 **git 과 GitHub 에서 밟는 순서**만 본다.
+무엇을 검증 · 테스트하고 버전을 어떻게 올리는지는 프로젝트가 정한다 (프로젝트 `CLAUDE.md` 나 다른 플러그인). 여기서는 **git 과 GitHub 에서 밟는 순서**만 본다.
+
+**기본 브랜치**는 `origin/HEAD` 가 가리키는 브랜치다. 없으면 `main` 으로 본다. 이 문서의 `main` 은 기본 브랜치를 뜻한다.
 
 ## 1. 순서
 
 | # | 단계 | 어디서 | 스킬 |
 |---|---|---|---|
+| 0 | 템플릿 · 라벨 준비 — 저장소마다 한 번 | 저장소 | `github-template-create` |
 | 1 | 이슈 발행 — `feature` / `bugfix` | GitHub | `issue-create` |
 | 2 | 워크트리 + 브랜치 — `origin/main` 에서 | 워크트리 | `issue-create` |
-| 3 | 작업 | 워크트리 | (각 관심사 스킬) |
-| 4 | 버전 올림 — CHANGELOG → `plugin.json` | 워크트리 | `pull-request-create` → `version-update` |
-| 5 | 검증 — 정적 검증 전부 | 워크트리 | `pull-request-create` |
-| 6 | 테스트 — 회귀 TC 전부 | 워크트리 | `pull-request-create` |
-| 7 | 리베이스 — `origin/main` 위로, 그다음 5 · 6 다시 | 워크트리 | `pull-request-create` |
-| 8 | PR — 타입별 템플릿 | GitHub | `pull-request-create` |
-| 9 | 머지 — 직전에 최신인지 다시 확인 | GitHub | `release-create` |
-| 10 | 설치 확인 — main 에서 `claude plugin list` 에 `Error:` 없음 | 메인 체크아웃 | `release-create` |
-| 11 | 태그 + 릴리즈 — 버전이 바뀐 플러그인마다 | 메인 체크아웃 | `release-create` |
-| 12 | 정리 — 워크트리 · 로컬 브랜치 | 메인 체크아웃 | `release-create` |
+| 3 | 작업 | 워크트리 | - |
+| 4 | 검증 · 테스트 — 프로젝트가 정한 명령 전부 | 워크트리 | `pull-request-create` |
+| 5 | 리베이스 — `origin/main` 위로, 그다음 4 다시 | 워크트리 | `pull-request-create` |
+| 6 | PR — 타입별 템플릿 · 라벨 | GitHub | `pull-request-create` |
+| 7 | 머지 — 직전에 최신인지 다시 확인, 머지 커밋 | GitHub | `pull-request-merge` |
+| 8 | 받아오기 · 정리 — `main` 을 `--ff-only` 로, 워크트리 · 브랜치 삭제, 이슈 닫힘 확인 | 메인 체크아웃 | `pull-request-merge` |
 
-버전 올림(4)이 PR 안에 있고 태그(11)가 머지 뒤에 있는 이유: 버전도 리뷰 대상이고, 리베이스가 SHA 를 바꾸므로 브랜치에서 단 태그는 머지 뒤 어디에도 없는 커밋을 가리킨다.
-설치 확인(10)이 태그 앞에 있는 이유: 훅이 로드되지 않는 버전을 릴리즈하지 않는다.
+프로젝트는 단계를 더할 수 있다 (예: 4 앞에 버전 올림, 8 뒤에 태그 · 릴리즈). 더한 단계도 아래 조항을 지킨다 — 특히 태그는 머지 뒤 `main` 에서(`W-10`).
+
+리베이스(5) 뒤에 검증(4)을 다시 하는 이유: 리베이스 전의 결과는 다른 코드의 결과다.
+태그를 머지 뒤에 다는 이유: 리베이스가 SHA 를 바꾸므로 브랜치에서 단 태그는 머지 뒤 어디에도 없는 커밋을 가리킨다.
 
 ## 2. 한 단어 규칙
 
-| 이슈 타입 | 라벨 | 브랜치 | 이슈 폼 | PR 템플릿 | 커밋 타입 | 기본 등급 | 이슈 연결 |
-|---|---|---|---|---|---|---|---|
-| 피처 | `feature` | `feature/{이슈}-{slug}` | `feature.yml` | `feature.md` | `feat` | MINOR | `Closes #N` |
-| 버그픽스 | `bugfix` | `bugfix/{이슈}-{slug}` | `bugfix.yml` | `bugfix.md` | `fix` | PATCH | `Fixes #N` |
+| 이슈 타입 | 라벨 | 브랜치 | 이슈 폼 | PR 템플릿 | 커밋 타입 | 이슈 연결 |
+|---|---|---|---|---|---|---|
+| 피처 | `feature` | `feature/{이슈}-{slug}` | `feature.yml` | `feature.md` | `feat` | `Closes #N` |
+| 버그픽스 | `bugfix` | `bugfix/{이슈}-{slug}` | `bugfix.yml` | `bugfix.md` | `fix` | `Fixes #N` |
 
 ## 3. 조항
 
@@ -48,8 +49,8 @@
 
 ### 왜 훅인가
 
-저장소가 비공개 + 무료 플랜이라 GitHub 브랜치 보호를 켤 수 없다 (API 403). "최신 main 위에서만 머지", "main 직접 푸시 금지" 를 GitHub 가 대신 해주지 않는다.
-그래서 Claude 가 실행하는 `Bash` 명령에 `PreToolUse` 훅을 건다. **웹 UI 에서 하는 머지·푸시는 막지 못한다.**
+GitHub 브랜치 보호는 비공개 저장소의 무료 플랜에서 켤 수 없다. 켤 수 있는 저장소라도 Claude 가 명령을 치기 **전에** 막는 편이 되돌리기보다 싸다.
+그래서 Claude 가 실행하는 `Bash` 명령에 `PreToolUse` 훅을 건다. **웹 UI 에서 하는 머지·푸시는 막지 못한다.** 브랜치 보호를 켤 수 있으면 같이 켠다.
 
 ### 최신 확인(`W-06`)의 동작
 
@@ -62,11 +63,11 @@
 | | 담당 | 무엇을 |
 |---|---|---|
 | 정량 | `validate-workflow.sh` | `W-01` ~ `W-10` |
-| 판단 | AI (스킬 셋) | 이슈 타입(기존 판정이 바뀌면 feature 여도 MAJOR), slug 가 이슈를 말하는가, PR 본문의 "어떻게 확인했나" 가 실제로 돌린 명령인가, 영향 범위를 찾아봤는가 |
+| 판단 | AI (스킬) | 이슈 타입(기존 동작이 바뀌면 feature), slug 가 이슈를 말하는가, PR 본문의 "어떻게 확인했나" 가 실제로 돌린 명령인가, 영향 범위를 찾아봤는가 |
 
-## 5. 부트스트랩 예외
+## 5. 처음 도입할 때
 
-플로우는 자기 자신을 만들 수 없다. 이 플러그인과 `.github/` 템플릿이 `main` 에 들어가기 전의 브랜치(`feature/plugin-creater-setting`)는 이슈 번호 없이 한 번만 예외로 머지한다. 이후는 예외가 없다.
+플로우는 자기 자신을 만들 수 없다. 템플릿(`W-01` · `W-02`)이 기본 브랜치에 들어가는 첫 PR 하나는 이슈 번호 없이 들어가도 된다. 이후는 예외가 없다.
 
 ## 6. 검증
 
@@ -74,6 +75,4 @@
 "${CLAUDE_PLUGIN_ROOT}/scripts/validate-workflow.sh" --templates .                  # W-01 · W-02
 "${CLAUDE_PLUGIN_ROOT}/scripts/validate-workflow.sh" --branch feature/12-order-sync  # W-03
 "${CLAUDE_PLUGIN_ROOT}/scripts/validate-workflow.sh" --up-to-date .                 # W-06 (로컬 origin/main 기준)
-"${CLAUDE_PLUGIN_ROOT}/scripts/verify-all.sh" .                                     # 5 · 6 단계 — 정적 검증 + 회귀 테스트 전부
-"${CLAUDE_PLUGIN_ROOT}/scripts/release-plugins.sh" --dry-run                         # 11 단계 미리보기
 ```

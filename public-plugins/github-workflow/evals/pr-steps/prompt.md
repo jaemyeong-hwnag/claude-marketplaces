@@ -5,4 +5,4 @@ max_turns: 8
 allowed_tools: [Read, Glob, Grep, Skill]
 ---
 
-이 Claude Code 플러그인 저장소에서 작업을 끝냈어. PR 을 올리기 전에 해야 할 일을 순서대로 짧게 알려줘.
+이 저장소에서 작업을 끝냈어. PR 을 올리기 전에 해야 할 일을 순서대로 짧게 알려줘.
