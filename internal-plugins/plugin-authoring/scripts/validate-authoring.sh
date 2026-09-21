@@ -31,6 +31,9 @@ command -v jq >/dev/null 2>&1 || die "jq 가 필요합니다"
 err() { ERRORS+=("$1"); }
 warn() { WARNINGS+=("$1"); }
 
+# 인자 중 실제로 있는 파일이 하나라도 있는가 (펼쳐지지 않은 글롭은 그대로 남아 -e 가 거짓이 된다)
+any_exists() { local f; for f in "$@"; do [ -e "$f" ] && return 0; done; return 1; }
+
 # UTF-8 글자 수. 로캘과 무관하게 이어지는 바이트(10xxxxxx)를 빼고 센다.
 char_count() { printf '%s' "$1" | LC_ALL=C tr -d '\200-\277' | wc -c | tr -d ' '; }
 
@@ -154,8 +157,9 @@ check_readme() { # $1=플러그인 디렉터리 $2=플러그인명 $3=배치(pub
   for h in "설치" "의존성" "변경 이력"; do
     has_h "$h" || err "$name/README.md: '## $h' 절이 없습니다 (A-21)"
   done
-  if [ -d "$dir/skills" ] || [ -d "$dir/commands" ]; then
-    { ls "$dir"/skills/*/SKILL.md "$dir"/commands/*.md >/dev/null 2>&1; } && { has_h "포함된 스킬" || err "$name/README.md: 스킬·커맨드가 있는데 '## 포함된 스킬' 절이 없습니다 (A-22)"; }
+  # 스킬이나 커맨드 중 하나라도 있으면. ls 에 글롭을 여럿 주면 하나만 없어도 실패하므로 파일마다 본다.
+  if any_exists "$dir"/skills/*/SKILL.md "$dir"/commands/*.md; then
+    has_h "포함된 스킬" || err "$name/README.md: 스킬·커맨드가 있는데 '## 포함된 스킬' 절이 없습니다 (A-22)"
   fi
   if ls "$dir"/agents/*.md >/dev/null 2>&1; then
     has_h "포함된 에이전트" || err "$name/README.md: 에이전트가 있는데 '## 포함된 에이전트' 절이 없습니다 (A-22)"
