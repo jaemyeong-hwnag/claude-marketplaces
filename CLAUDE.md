@@ -20,14 +20,15 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 
 한 관심사는 한 곳이 맡는다. 플러그인에 저장소 정책을 넣지 않고, 저장소 정책 스크립트에 이름 규칙을 넣지 않는다.
 
-| 관심사 | 담당 | 규칙 원본 (`internal-plugins/…`) | 작업할 때 쓰는 스킬 | 검토 |
+| 관심사 | 담당 | 규칙 원본 (따로 적지 않으면 `internal-plugins/…`) | 작업할 때 쓰는 스킬 | 검토 |
 |---|---|---|---|---|
 | 이름 | `plugin-naming` | `plugin-naming/references/naming-rules.md` · `glossary.json` | `name-create` · `glossary-update` | `/naming-review` · `naming-reviewer` |
 | 파일 위치 | `marketplace-directory-structure` | `…/references/directory-structure-rules.md` | `plugin-directory-create` | `/directory-structure-validate` |
 | 버전 · CHANGELOG · 태그 | `plugin-versioning` | `plugin-versioning/references/versioning-rules.md` | `version-update` | `/versioning-validate` |
 | 파일 내용 형식 (프런트매터 · README) | `plugin-authoring` | `plugin-authoring/references/authoring-rules.md` | `document-create` | `/authoring-validate` |
 | 플러그인 사이의 의존 | `plugin-dependency` | `plugin-dependency/references/dependency-rules.md` | `dependency-update` | `/dependency-validate` |
-| 이슈 → PR → 머지 → 릴리즈, 생성 · 삭제 절차 | `plugin-workflow` | `plugin-workflow/references/workflow-rules.md` | `issue-create` · `pull-request-create` · `release-create` · `plugin-create` · `plugin-delete` | `/workflow-validate` |
+| 이슈 → 브랜치 → PR → 머지 (`W-01` ~ `W-10`) | `github-workflow` (public) | `public-plugins/github-workflow/references/workflow-rules.md` | `issue-create` · `pull-request-create` · `pull-request-merge` · `github-template-create` | `/workflow-validate` |
+| 버전 · 설치 확인 · 태그 · 릴리즈, 생성 · 삭제 절차 | `plugin-workflow` | `plugin-workflow/references/workflow-rules.md` | `release-create` · `plugin-create` · `plugin-delete` | `verify-all.sh` |
 | 배치 · 등록 · 설치 동기화 | 저장소 `.claude/hooks/` | 아래 "마켓플레이스 등록" · `test/README.md` | - | `.claude/hooks/validate-plugin-scope.sh .` |
 
 규칙은 `Write` · `Edit` · `Bash` 훅이 막거나 알린다. **훅이 막으면 우회하지 말고 메시지가 지시한 대로 고친다** (이름이면 사전이 지시한 단어로). 새로 막을 단어는 스크립트가 아니라 `glossary.json` 에 넣는다.
@@ -41,7 +42,7 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 → 머지 → main 에서 설치 확인 → 태그 · 릴리즈 → 정리
 ```
 
-- 이슈 · 라벨 · 브랜치 · PR 템플릿 · 커밋 타입을 `feature` / `bugfix` 한 단어로 맞춘다. 브랜치는 `{feature|bugfix}/{이슈}-{slug}` 이고 `origin/main` 에서 딴다 (`branch-create.sh`). `develop` 은 없다
+- 이슈 · 라벨 · 브랜치 · PR 템플릿 · 커밋 타입을 `feature` / `bugfix` 한 단어로 맞춘다. 브랜치는 `{feature|bugfix}/{이슈}-{slug}` 이고 `origin/main` 에서 딴다 (`github-workflow` 의 `branch-create.sh`). `develop` 은 없다
 - 워크트리는 `.claude/worktrees/{이슈}-{slug}` 에 둔다
 - 파일을 바꾼 플러그인은 버전을 올린다. **CHANGELOG 먼저**, 그다음 `plugin.json`
 - PR 전에 `verify-all.sh` 를 돌리고, `origin/main` 위로 리베이스한 **뒤에 다시** 돌린다
@@ -65,6 +66,7 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 
 세션 시작 때 `.claude/hooks/sync-internal-plugins.sh` 가 `internal-plugins/*` 를 마켓플레이스 · `marketplace.json` · `settings.json` 에 등록하고 설치한 뒤 로드 오류를 보고한다. 멱등하고, 실패해도 세션을 막지 않는다.
 내부 플러그인을 새로 만들 때는 디렉터리와 `.claude-plugin/plugin.json` 만 있으면 나머지는 이 훅이 한다.
+public 플러그인은 이 훅이 설치하지 않는다. internal 이 `dependencies` 로 선언하면 Claude Code 가 같이 설치 · 활성화한다 (`plugin-workflow` → `github-workflow`).
 
 **로드 방식** — 마켓플레이스를 로컬 디렉터리로 등록했으므로 플러그인은 **캐시가 아니라 소스 디렉터리에서 그대로** 로드된다 (세션 init 의 플러그인 경로와 훅 스크립트 경로가 `internal-plugins/…` 다).
 

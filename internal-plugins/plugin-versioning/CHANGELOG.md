@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.3.1
+
+### Fixed
+- 규칙 원본의 PR · 머지 담당을 `github-workflow` 로 (#12)
+
 ## 0.3.0
 
 ### Added
