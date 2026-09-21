@@ -33,6 +33,7 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 �
 | `references/directory-structure-rules.md` | 구조 규칙 원본. 단일 기준 (`R-0x` 루트 / `P-0x` 플러그인) |
 | `scripts/validate-directory-structure.sh` | 기계 검증. 훅과 CLI 겸용 |
 | `test/` | 회귀 테스트와 TC 명세 |
+| `evals/` | `claude plugin eval` 케이스 — 위치 안내 스킬 발동 · `docs/` 차단. `plugin-workflow` 의 `eval-all.sh` 로 돈다 |
 
 ## 동작
 

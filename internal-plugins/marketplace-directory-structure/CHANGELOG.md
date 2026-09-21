@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.3.0
+
+### Added
+- `P-06` 에 `evals/` 허용, `P-07` 에 케이스 디렉터리만, 새 조항 `P-10` — 케이스에는 `prompt.md` 나 `case.yaml`
+- eval 케이스 둘 — 스킬 발동 · 훅 차단 (`evals/`). `plugin-workflow` 의 `eval-all.sh` 로 돈다
+
+### Changed
+- `plugin-directory-create` 는 위치 결정만 맡는다. 생성 절차 전체는 `plugin-create`(`plugin-workflow`) — 트리거 겹침을 없앴다
+
 ## 0.2.3
 
 ### Changed

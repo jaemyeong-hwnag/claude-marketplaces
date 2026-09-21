@@ -13,7 +13,7 @@ test/validate-directory-structure.test.sh TC-D1    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. 세션 없이 돌아가므로 커밋 전 검증에 그대로 쓴다.
 
-## 자동 TC (47건)
+## 자동 TC (54건)
 
 ### A. 플러그인 필수 파일
 
@@ -56,6 +56,13 @@ test/validate-directory-structure.test.sh TC-D1    # ID 접두사로 필터
 | TC-D20 | 스킬 디렉터리에 SKILL.md 가 없으면 막는다 | 차단 (2) | 메시지: `SKILL.md 가 없습니다` |
 | TC-D21 | skills/ 바로 아래 파일을 막는다 | 차단 (2) | 메시지: `스킬 디렉터리만 둡니다` |
 | TC-D22 | 스킬 디렉터리 안쪽 파일은 자유다 | 통과 (0) | - |
+| TC-D23 | `evals/<케이스>/prompt.md` 는 허용한다 | 통과 (0) | - |
+| TC-D24 | `evals/` 바로 아래 파일을 막는다 (P-07) | 차단 (2) | 메시지: `evals/ 아래에는 케이스 디렉터리만` |
+| TC-D25 | 케이스 안쪽은 자유다 — 스크립트 · JSON · 하위 디렉터리 | 통과 (0) | - |
+| TC-D26 | `prompt.md` · `case.yaml` 이 없는 디렉터리를 막는다 (P-10) | 차단 (2) | 메시지: `prompt.md 나 case.yaml 이 없습니다` |
+| TC-D27 | 케이스를 묶는 디렉터리는 허용한다 | 통과 (0) | - |
+| TC-D28 | `mocks/` · `results/` 는 케이스가 아니어도 허용한다 | 통과 (0) | - |
+| TC-D29 | 훅: `evals/<케이스>/graders/` 에 쓰는 것은 통과시킨다 | 통과 (0) | 출력 없음 |
 
 ### D. 마켓플레이스 루트
 
@@ -127,6 +134,7 @@ cp /tmp/vds.bak scripts/validate-directory-structure.sh && test/validate-directo
 | M4 `P-01` CHANGELOG 필수 무력화 | 2 |
 | M5 `P-07` hooks/*.json 무력화 | 2 |
 | M6 `P-08` skills 하위 무력화 | 1 |
+| M7 `P-10` 케이스 검사 무력화 | 1 |
 
 ## TC 추가 규칙
 

@@ -181,6 +181,33 @@ P="$(make_plugin order-sync)"; mkdir -p "$P/skills/order-create/references"
 : > "$P/skills/order-create/SKILL.md"; : > "$P/skills/order-create/references/sample.json"
 run "$P"; expect_code 0
 
+
+tc TC-D23 "evals/<케이스>/prompt.md 는 허용한다"
+P="$(make_plugin order-sync)"; mkdir -p "$P/evals/order-trigger/graders"
+printf -- '---\n---\n' > "$P/evals/order-trigger/prompt.md"; printf -- '---\ntype: llm\n---\n' > "$P/evals/order-trigger/graders/criteria.md"
+run "$P"; expect_code 0
+
+tc TC-D24 "evals/ 바로 아래 파일을 막는다 (P-07)"
+: > "$P/evals/notes.md"; run "$P"; expect_code 2; expect_out "evals/ 아래에는 케이스 디렉터리만"; rm "$P/evals/notes.md"
+
+tc TC-D25 "케이스 안쪽은 자유다 — 스크립트 · JSON · 하위 디렉터리"
+printf 'x\n' > "$P/evals/order-trigger/fixture.sh"; mkdir -p "$P/evals/order-trigger/resources"; printf '{}' > "$P/evals/order-trigger/resources/data.json"
+run "$P"; expect_code 0
+
+tc TC-D26 "prompt.md · case.yaml 이 없는 디렉터리를 막는다 (P-10)"
+mkdir -p "$P/evals/half-case/graders"; printf -- '---\n---\n' > "$P/evals/half-case/graders/g.md"
+run "$P"; expect_code 2; expect_out "evals/half-case: prompt.md 나 case.yaml 이 없습니다"; rm -rf "$P/evals/half-case"
+
+tc TC-D27 "케이스를 묶는 디렉터리는 허용한다"
+mkdir -p "$P/evals/group/inner-case"; printf 'name: x\n' > "$P/evals/group/inner-case/case.yaml"
+run "$P"; expect_code 0
+
+tc TC-D28 "mocks/ · results/ 는 케이스가 아니어도 허용한다"
+mkdir -p "$P/evals/mocks/tracker" "$P/evals/results/2026"; printf 'x\n' > "$P/evals/mocks/tracker/create.md"; printf '<html>' > "$P/evals/results/2026/report.html"
+run "$P"; expect_code 0
+
+tc TC-D29 "훅: evals/<케이스>/graders/ 에 쓰는 것은 통과시킨다"
+run_hook "$TMP/internal-plugins/order-sync/evals/order-trigger/graders/skill-fired.md"; expect_code 0; expect_no_out
 echo "== D. 마켓플레이스 루트 =="
 
 tc TC-D30 "정상 루트는 통과한다"

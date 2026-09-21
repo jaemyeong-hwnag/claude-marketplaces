@@ -75,7 +75,13 @@ internal-plugins/          # 내부용 (category: internal)
   test/                      # 선택
     {대상}.test.sh
     README.md
+  evals/                     # 선택 — claude plugin eval 케이스
+    {case-name}/
+      prompt.md
+      graders/*.md
 ```
+
+`evals/results/` 는 `claude plugin eval` 이 쓰는 결과 디렉터리다. 커밋하지 않는다 (`.gitignore`). 결과를 플러그인 밖에 쓰는 것이 낫다 — 플러그인 안에 생기면 설치본과 달라져 sync 훅이 재설치한다.
 
 | 조항 | 내용 |
 |---|---|
@@ -84,10 +90,11 @@ internal-plugins/          # 내부용 (category: internal)
 | P-03 | `plugin.json` 은 올바른 JSON 이고 `name` 이 디렉터리명과 같아야 한다 |
 | P-04 | `plugin.json` 이 가리키는 상대 경로(`hooks`)의 파일이 실제로 있어야 한다 |
 | P-05 | 플러그인 루트에는 `README.md` · `CHANGELOG.md` · `LICENSE` · `.gitignore` 만 둔다 |
-| P-06 | 디렉터리는 `.claude-plugin` · `skills` · `hooks` · `scripts` · `commands` · `references` · `agents` · `test` 만 쓴다 |
+| P-06 | 디렉터리는 `.claude-plugin` · `skills` · `hooks` · `scripts` · `commands` · `references` · `agents` · `test` · `evals` 만 쓴다 |
 | P-07 | 각 디렉터리에 두는 파일 확장자는 아래 표를 따른다 |
 | P-08 | `skills/` 아래에는 스킬 디렉터리만 두고, 각 디렉터리에 `SKILL.md` 가 있어야 한다 |
 | P-09 | `plugin.json` 의 `hooks` 로 표준 경로 `hooks/hooks.json` 을 가리키지 않는다 — 자동 로드된다 |
+| P-10 | `evals/` 아래 디렉터리(`mocks/` · `results/` 제외)는 `prompt.md` 나 `case.yaml` 을 가진 eval 케이스이거나 케이스를 묶는 디렉터리다 |
 
 | 디렉터리 | 둘 수 있는 것 |
 |---|---|
@@ -99,6 +106,7 @@ internal-plugins/          # 내부용 (category: internal)
 | `references/` | `*.md`, `*.json` |
 | `agents/` | `*.md` |
 | `test/` | `*.test.sh`, `README.md` |
+| `evals/` | `{case-name}/` 디렉터리. 그 안은 Claude Code eval 형식(`prompt.md` · `graders/*.md` · `case.yaml` · 픽스처)을 따르므로 자유 |
 
 `{...}` 자리의 이름이 올바른지는 이 규칙이 판단하지 않는다. `plugin-naming` 의 몫이다.
 

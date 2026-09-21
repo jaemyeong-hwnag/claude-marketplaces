@@ -19,7 +19,7 @@ RULES="$PLUGIN_ROOT/references/directory-structure-rules.md"
 
 # 규칙 원본은 references/directory-structure-rules.md 다. 여기는 그 기계 검증이다.
 PLUGIN_ROOT_FILES="README.md CHANGELOG.md LICENSE .gitignore"
-PLUGIN_DIRS=".claude-plugin skills hooks scripts commands references agents test"
+PLUGIN_DIRS=".claude-plugin skills hooks scripts commands references agents test evals"
 MARKETPLACE_FILES="marketplace.json tags.json categories.json plugins.json keywords.json"
 
 ERRORS=()
@@ -87,6 +87,9 @@ check_location() {
       case "$rest" in *.md) ;; *) err "$name/$rel: agents/ 에는 *.md 만 둡니다 (P-07)" ;; esac ;;
     test)
       case "$rest" in *.test.sh|README.md) ;; *) err "$name/$rel: test/ 에는 *.test.sh 와 README.md 만 둡니다 (P-07)" ;; esac ;;
+    evals)
+      # evals/<케이스>/... 이어야 한다. 케이스 안쪽은 Claude Code eval 형식을 따르므로 자유다.
+      [[ "$rest" == */* ]] || err "$name/$rel: evals/ 아래에는 케이스 디렉터리만 둡니다 — evals/<케이스>/prompt.md (P-07)" ;;
   esac
 }
 
@@ -135,6 +138,15 @@ validate_plugin_dir() {
     while IFS= read -r s; do
       [ -r "$s/SKILL.md" ] || err "$name/skills/$(basename "$s"): SKILL.md 가 없습니다 (P-08)"
     done < <(find "$dir/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
+  fi
+
+  # P-10 evals/ 의 각 디렉터리(mocks · results 제외)는 케이스이거나 케이스를 묶는다
+  if [ -d "$dir/evals" ]; then
+    while IFS= read -r s; do
+      case "$(basename "$s")" in mocks|results) continue ;; esac
+      [ -n "$(find "$s" \( -name prompt.md -o -name case.yaml \) -type f 2>/dev/null | head -1)" ] || \
+        err "$name/evals/$(basename "$s"): prompt.md 나 case.yaml 이 없습니다 — 케이스가 아닙니다 (P-10)"
+    done < <(find "$dir/evals" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
   fi
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "marketplace-directory-structure",
   "description": "마켓플레이스 루트와 개별 플러그인의 디렉터리 구조를 강제한다. 어떤 파일을 어디에 두는지만 다루며 이름 규칙·배치 정책은 관여하지 않는다.",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "author": {
     "name": "황재명",
     "email": "woaudsla@gmail.com"
