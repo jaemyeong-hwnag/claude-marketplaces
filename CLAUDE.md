@@ -126,9 +126,9 @@ internal-plugins/marketplace-directory-structure/scripts/validate-directory-stru
 internal-plugins/plugin-versioning/scripts/validate-versioning.sh --all .  # 버전 정합성
 .claude/hooks/validate-plugin-scope.sh .                             # 배치·배포 정책
 test/validate-plugin-scope.test.sh                                   # 배치 정책 TC 10건
-test/sync-internal-plugins.test.sh                                   # 동기화 훅 TC 14건
-internal-plugins/plugin-naming/test/validate-naming.test.sh          # 이름 규칙 회귀 테스트 (TC 86건)
-internal-plugins/marketplace-directory-structure/test/validate-directory-structure.test.sh  # 구조 규칙 회귀 테스트 (TC 45건)
+test/sync-internal-plugins.test.sh                                   # 동기화 훅 TC 30건
+internal-plugins/plugin-naming/test/validate-naming.test.sh          # 이름 규칙 회귀 테스트 (TC 88건)
+internal-plugins/marketplace-directory-structure/test/validate-directory-structure.test.sh  # 구조 규칙 회귀 테스트 (TC 47건)
 internal-plugins/plugin-versioning/test/validate-versioning.test.sh  # 버전 규칙 회귀 테스트 (TC 91건)
 ```
 

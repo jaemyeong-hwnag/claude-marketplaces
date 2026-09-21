@@ -276,12 +276,12 @@ main() {
               done | sort -u
         )
         while IFS= read -r d; do validate_name skill "$(basename "$d")"; done \
-          < <(find "$root" -type d -name skills -not -path '*/.git/*' \
+          < <(find "$root" -type d -name skills -not -path '*/.git/*' -not -path '*/.claude/worktrees/*' \
               -exec find {} -mindepth 1 -maxdepth 1 -type d \; 2>/dev/null)
         while IFS= read -r f; do validate_name command "$(basename "$f" .md)"; done \
-          < <(find "$root" -type f -path '*/commands/*.md' -not -path '*/.git/*' 2>/dev/null)
+          < <(find "$root" -type f -path '*/commands/*.md' -not -path '*/.git/*' -not -path '*/.claude/worktrees/*' 2>/dev/null)
         while IFS= read -r f; do validate_name agent "$(basename "$f" .md)"; done \
-          < <(find "$root" -type f -path '*/agents/*.md' -not -path '*/.git/*' 2>/dev/null)
+          < <(find "$root" -type f -path '*/agents/*.md' -not -path '*/.git/*' -not -path '*/.claude/worktrees/*' 2>/dev/null)
         validate_glossary "$GLOSSARY"
         ;;
       *) for arg in "$@"; do

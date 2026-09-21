@@ -41,7 +41,9 @@ internal-plugins/          # 내부용 (category: internal)
 | R-04 | 플러그인은 `public-plugins/<이름>/` 또는 `internal-plugins/<이름>/` **바로 아래**에만 둔다 | 위반 시 차단 |
 | R-05 | `CLAUDE.md` 가 없으면 경고한다 | 경고 |
 
-루트의 다른 파일·디렉터리(`.git/`, `.idea/`, `.agent-tasks/` …)는 검사하지 않는다. 열거되지 않은 것을 막지 않는다.
+루트의 다른 파일·디렉터리(`.git/`, `.idea/`, `.agent-tasks/`, `.github/` …)는 검사하지 않는다. 열거되지 않은 것을 막지 않는다.
+
+`.claude/worktrees/` 는 Claude Code 가 워크트리를 만드는 자리다. 그 안은 저장소의 사본이므로 `R-04` 가 보지 않는다 (`.claude/plugins/` 와 같은 이유).
 
 ## 2. 개별 플러그인
 

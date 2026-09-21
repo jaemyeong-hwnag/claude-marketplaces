@@ -169,7 +169,7 @@ validate_marketplace() {
         err "$rel: 플러그인은 public-plugins/ 또는 internal-plugins/ 아래에 둡니다 (R-04)" ;;
     esac
   done < <(find "$root" -type f -name plugin.json -path '*/.claude-plugin/*' \
-             -not -path '*/.git/*' -not -path "$root/.claude/plugins/*" 2>/dev/null | sort)
+             -not -path '*/.git/*' -not -path "$root/.claude/plugins/*" -not -path "$root/.claude/worktrees/*" 2>/dev/null | sort)
 }
 
 validate_all() { # $1=루트

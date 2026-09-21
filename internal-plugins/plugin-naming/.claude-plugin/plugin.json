@@ -1,7 +1,7 @@
 {
   "name": "plugin-naming",
   "description": "플러그인·스킬·커맨드·에이전트 이름을 kebab-case 규칙과 glossary 사전으로 강제한다. 이름만 다루며 배포·배치 정책은 관여하지 않는다.",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "author": {
     "name": "황재명",
     "email": "woaudsla@gmail.com"

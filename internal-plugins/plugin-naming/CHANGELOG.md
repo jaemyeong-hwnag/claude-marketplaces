@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.2.0
+
+- 사전에 `versioning` · `authoring` · `dependency` · `workflow` 추가 (`quality`). `semver` · `deps` · `flow` 등을 `deny` 로 막으므로 **전에 통과하던 이름이 막힐 수 있다** — `0.x` 라 MINOR
+- `--all` 이 `.claude/worktrees/` 안을 보지 않는다. 워크트리의 사본이 메인 검사를 깨지 않게
+- 회귀 테스트 TC 2건 추가 (86 → 88)
+
 ## 0.1.1
 
 - `plugin.json` 에서 `"hooks": "./hooks/hooks.json"` 제거 — 표준 경로는 자동 로드되므로 중복으로 판정돼 **훅 로딩 전체가 실패하고 있었다** (`claude plugin list` 에 `Hook load failed: Duplicate hooks file detected`). 이 버전부터 훅이 실제로 동작한다

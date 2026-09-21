@@ -334,6 +334,15 @@ rm -rf "$TMP/repo4"; mkdir -p "$TMP/repo4/internal-plugins/utils" "$TMP/repo4/pu
 run --all "$TMP/repo4"
 expect_code 2; expect_out "plugin 'utils'"; expect_out "plugin 'helpers'"
 
+tc TC-085 "전체 검사는 .claude/worktrees/ 안을 보지 않는다"
+rm -rf "$TMP/repo5"; mkdir -p "$TMP/repo5/.claude/worktrees/12-x/.claude/skills/utils" "$TMP/repo5/.claude/worktrees/12-x/commands" "$TMP/repo5/.claude/worktrees/12-x/agents"
+touch "$TMP/repo5/.claude/worktrees/12-x/.claude/skills/utils/SKILL.md" "$TMP/repo5/.claude/worktrees/12-x/commands/review.md" "$TMP/repo5/.claude/worktrees/12-x/agents/reviewer.md"
+run --all "$TMP/repo5"; expect_code 0; expect_noout "utils"
+
+tc TC-086 "워크트리 밖의 같은 위반은 여전히 잡는다"
+mkdir -p "$TMP/repo5/.claude/skills/utils"; touch "$TMP/repo5/.claude/skills/utils/SKILL.md"
+run --all "$TMP/repo5"; expect_code 2; expect_out "skill 'utils'"
+
 section "== J. 슬롯 =="
 
 tc TC-090 "슬롯 네 개는 통과한다"

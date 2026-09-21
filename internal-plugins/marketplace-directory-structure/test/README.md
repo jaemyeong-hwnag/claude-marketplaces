@@ -13,7 +13,7 @@ test/validate-directory-structure.test.sh TC-D1    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. 세션 없이 돌아가므로 커밋 전 검증에 그대로 쓴다.
 
-## 자동 TC (45건)
+## 자동 TC (47건)
 
 ### A. 플러그인 필수 파일
 
@@ -69,6 +69,8 @@ test/validate-directory-structure.test.sh TC-D1    # ID 접두사로 필터
 | TC-D35 | CLAUDE.md 가 없으면 경고만 한다 | 통과 (0) | 메시지: `CLAUDE.md 가 없습니다` |
 | TC-D36 | 플러그인이 *-plugins 밖에 있으면 막는다 | 차단 (2) | 메시지: `아래에 둡니다` |
 | TC-D37 | 플러그인이 한 단계 더 깊으면 막는다 | 차단 (2) | 메시지: `바로 아래에 둡니다` |
+| TC-D38 | `.claude/worktrees/` 안의 플러그인은 `R-04` 로 보지 않는다 | 통과 (0) | 워크트리는 저장소의 사본이다 |
+| TC-D39 | 그 밖의 `.claude/` 아래 플러그인은 여전히 막는다 | 차단 (2) | 메시지: `(R-04)` |
 
 ### E. 훅 모드 (stdin JSON)
 

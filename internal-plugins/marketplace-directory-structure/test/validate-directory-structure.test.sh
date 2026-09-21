@@ -217,6 +217,14 @@ tc TC-D37 "플러그인이 한 단계 더 깊으면 막는다"
 R="$(make_root deep)"; put_plugin "$R" internal-plugins/group order-sync
 run --marketplace "$R"; expect_code 2; expect_out "바로 아래에 둡니다"
 
+tc TC-D38 ".claude/worktrees/ 안의 플러그인은 R-04 로 보지 않는다"
+R="$(make_root worktree)"; put_plugin "$R" .claude/worktrees/12-x/internal-plugins order-sync
+run --marketplace "$R"; expect_code 0
+
+tc TC-D39 "그 밖의 .claude/ 아래 플러그인은 여전히 막는다"
+put_plugin "$R" .claude/misc order-sync
+run --marketplace "$R"; expect_code 2; expect_out "(R-04)"
+
 echo "== E. 훅 모드 =="
 
 tc TC-D40 "위반 위치에 쓰려 하면 차단한다"
