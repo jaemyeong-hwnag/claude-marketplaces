@@ -2,6 +2,8 @@
 
 ## 미출시
 
+- `plugin-versioning` 내부 플러그인 추가 — 버전 값과 CHANGELOG · marketplace 엔트리 · git 태그의 정합성을 검증한다
+- `plugin-naming` 사전에 `versioning` 추가 (`quality`), 줄임말 `semver` 는 `deny`
 - `marketplace-directory-structure` 내부 플러그인 추가 — 마켓플레이스 루트와 플러그인의 디렉터리 구조를 검증한다
 - 루트와 각 플러그인에 `CHANGELOG.md` 추가 (구조 규칙 `R-02` · `P-01`)
 

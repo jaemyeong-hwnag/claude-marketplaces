@@ -11,12 +11,13 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 디렉터리와 선언이 어긋나면 `.claude/hooks/validate-plugin-scope.sh` 가 막는다 — 미등록, `category` 불일치, `source` 불일치, 유령 항목.
 
 ```bash
+internal-plugins/plugin-versioning/scripts/validate-versioning.sh --all .  # 버전 정합성
 .claude/hooks/validate-plugin-scope.sh .   # 배치·배포 정책
 test/validate-plugin-scope.test.sh         # 배치 정책 회귀 테스트
 test/sync-internal-plugins.test.sh         # 동기화 훅 회귀 테스트
 ```
 
-> 이름 규칙은 `plugin-naming` 이, 디렉터리 구조는 `marketplace-directory-structure` 가, 배치·배포 정책은 저장소가 담당한다. 서로 섞지 않는다.
+> 이름 규칙은 `plugin-naming` 이, 디렉터리 구조는 `marketplace-directory-structure` 가, 버전은 `plugin-versioning` 이, 배치·배포 정책은 저장소가 담당한다. 서로 섞지 않는다.
 
 ## 수록 플러그인
 
@@ -24,6 +25,7 @@ test/sync-internal-plugins.test.sh         # 동기화 훅 회귀 테스트
 |---|---|---|
 | [`plugin-naming`](internal-plugins/plugin-naming) | `internal-plugins/` | 플러그인·스킬·커맨드·에이전트 이름을 네이밍 규칙과 glossary 사전으로 강제한다 |
 | [`marketplace-directory-structure`](internal-plugins/marketplace-directory-structure) | `internal-plugins/` | 마켓플레이스 루트와 플러그인의 디렉터리 구조를 강제한다 |
+| [`plugin-versioning`](internal-plugins/plugin-versioning) | `internal-plugins/` | 버전 값과 CHANGELOG · marketplace 엔트리 · git 태그의 정합성을 강제한다 |
 
 ## 배포용 플러그인 설치 (다른 저장소에서)
 
@@ -91,11 +93,25 @@ internal-plugins/marketplace-directory-structure/scripts/validate-directory-stru
 internal-plugins/marketplace-directory-structure/test/validate-directory-structure.test.sh
 ```
 
+## 버전 관리 규칙
+
+버전 값과 그 값이 남는 자리(`plugin.json` · `CHANGELOG.md` · marketplace 엔트리 · git 태그)의 정합성은 `plugin-versioning` 이 강제한다.
+
+- 규칙: [`versioning-rules.md`](internal-plugins/plugin-versioning/references/versioning-rules.md)
+
+```bash
+internal-plugins/plugin-versioning/scripts/validate-versioning.sh --all .
+internal-plugins/plugin-versioning/test/validate-versioning.test.sh
+```
+
+올림 등급(PATCH/MINOR/MAJOR)은 기계가 판정하지 않는다. `version-update` 스킬이 판단한다.
+릴리즈 태그는 `claude plugin tag --push` 로 만든다 — `{플러그인명}--v{버전}` 형식과 엔트리 정합성을 CLI 가 함께 검증한다.
+
 ## 플러그인 추가 절차
 
 1. 이름을 정한다 (`name-create` 스킬).
 2. 배포용은 `public-plugins/<이름>/`, 내부용은 `internal-plugins/<이름>/` 에 만든다 (`plugin-directory-create` 스킬).
-3. `.claude-plugin/plugin.json` · `README.md` · `CHANGELOG.md` 를 작성한다.
+3. `.claude-plugin/plugin.json` · `README.md` · `CHANGELOG.md` 를 작성한다. 초기 버전은 `0.1.0` 이고 CHANGELOG 에 그 항목이 있어야 한다.
    - 배포용: `marketplace.json` 에 `category: "public"` 으로 등록하고 푸시한다.
    - 내부용: SessionStart 훅이 알아서 등록·설치한다.
 4. 검증과 테스트를 돌린다.
