@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.3.0
+
+### Added
+- 판단 5번 — 기존 이름과 헷갈리거나 기능이 겹치지 않는가. 훅의 판단 요청과 `naming-reviewer` 에 `marketplace.json` 대조 절차
+- eval 케이스 둘 — 스킬 발동 · 훅 차단 (`evals/`). `plugin-workflow` 의 `eval-all.sh` 로 돈다
+
+### Fixed
+- 규칙 원본의 "판단할 것은 셋이다" 가 실제 목록(넷)과 맞지 않던 것
+
 ## 0.2.1
 
 ### Changed

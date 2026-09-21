@@ -412,6 +412,10 @@ tc TC-129 "판단 요청이 범용 단어를 묻는다"
 run_stdin '{"hook_event_name":"PreToolUse","tool_input":{"file_path":"/x/internal-plugins/plugin-directory-structure/README.md"}}'
 expect_out "범용 단어를 쓰지 않았는가"
 
+tc TC-130 "판단 요청이 기존 이름 · 기능 겹침을 묻는다"
+run_stdin '{"hook_event_name":"PreToolUse","tool_input":{"file_path":"/x/internal-plugins/plugin-directory-structure/README.md"}}'
+expect_out "기존 이름과 헷갈리거나 기능이 겹치지 않는가"
+
 tc TC-123 "훅 모드는 판단을 additionalContext 로 넘긴다"
 run_stdin '{"hook_event_name":"PreToolUse","tool_input":{"file_path":"/x/internal-plugins/plugin-directory-structure/README.md"}}'
 expect_code 0; expect_out "additionalContext"; expect_out "plugin 'plugin-directory-structure'"

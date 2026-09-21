@@ -42,6 +42,7 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 �
 | `references/glossary.json` | 기본 단어 사전 (`use` / `deny` / `meaning`) |
 | `scripts/validate-naming.sh` | 기계 검증. 훅과 CLI 겸용 |
 | `test/` | 회귀 테스트와 TC 명세 |
+| `evals/` | `claude plugin eval` 케이스 — 이름 짓기 스킬 발동 · 한 단어 이름 차단. `plugin-workflow` 의 `eval-all.sh` 로 돈다 |
 
 ## 동작
 

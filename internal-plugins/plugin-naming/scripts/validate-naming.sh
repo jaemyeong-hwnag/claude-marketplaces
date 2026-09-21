@@ -232,6 +232,7 @@ emit_judgments_json() {
   body="$body"$'\n'"  2. 슬롯이 실제 대상·범위와 맞는가 — 넓지도 좁지도 않은가"
   body="$body"$'\n'"  3. 무엇을 다루는지 말하지 않는 범용 단어를 쓰지 않았는가 (utils, manager, data, misc …)"
   body="$body"$'\n'"  4. 무엇을 하는지와 이름이 같은 것을 말하는가 (plugin.json 의 description 과 대조)"
+  body="$body"$'\n'"  5. 기존 이름과 헷갈리거나 기능이 겹치지 않는가 (marketplace.json 의 이름·description 과 대조 — 겹치면 기존 플러그인에 스킬을 더한다)"
   body="$body"$'\n'"옳지 않다고 판단하면 이름을 다시 만드세요. 기준: $PLUGIN_ROOT/references/naming-rules.md 의 'AI 가 판단할 것'"
   jq -n --arg c "$body" '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $c}}'
 }
