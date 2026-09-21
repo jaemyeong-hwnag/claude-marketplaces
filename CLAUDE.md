@@ -69,11 +69,13 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 - 신규 플러그인은 `0.1.0` 부터 시작한다. `0.0.x` 는 쓰지 않는다.
 - `plugin.json` 의 현재 버전이 `CHANGELOG.md` 에 `## {버전}` 항목으로 있어야 한다. 항목은 내림차순이고 `## 미출시` 는 맨 위에만 온다.
 - marketplace 엔트리가 `version` 을 선언하면 `plugin.json` 과 같아야 한다. 어긋나면 **엔트리를 고친다** — 설치 시점에는 `plugin.json` 이 이긴다.
-- 릴리즈 태그는 `{플러그인명}--v{버전}` 이다. `claude plugin tag --push` 가 형식과 정합성을 함께 본다.
+- 플러그인 파일을 바꿨으면 버전을 올린다 (`V-14`). PR 전에 `--since origin/main` 으로 본다.
+- 버전을 올릴 때는 **CHANGELOG 먼저**, 그다음 `plugin.json`. `0.x` 에서는 호환성을 깨도 MINOR 를 올린다.
+- 릴리즈 태그는 `{플러그인명}--v{버전}` 이고 **main 에서, 머지 뒤에** 단다. `claude plugin tag --push` 가 형식과 정합성을 함께 본다.
 - 올림 등급(PATCH/MINOR/MAJOR)은 기계가 판정하지 않는다. `version-update` 스킬이 판단한다.
 
 훅은 두 갈래다. `PreToolUse` 는 버전 값이 그 자체로 틀렸을 때만 차단하고, CHANGELOG 정합성은 `PostToolUse` 로 알리기만 한다.
-버전을 올리고 CHANGELOG 를 쓰는 데 두 번의 편집이 필요하므로 첫 편집부터 막으면 아무것도 못 한다.
+버전을 올리고 CHANGELOG 를 쓰는 데 두 번의 편집이 필요하다. 순서를 거꾸로 밟는 경우까지 첫 편집부터 막으면 아무것도 못 한다.
 
 ## 작업 규칙
 
@@ -129,7 +131,7 @@ test/validate-plugin-scope.test.sh                                   # 배치 �
 test/sync-internal-plugins.test.sh                                   # 동기화 훅 TC 30건
 internal-plugins/plugin-naming/test/validate-naming.test.sh          # 이름 규칙 회귀 테스트 (TC 88건)
 internal-plugins/marketplace-directory-structure/test/validate-directory-structure.test.sh  # 구조 규칙 회귀 테스트 (TC 47건)
-internal-plugins/plugin-versioning/test/validate-versioning.test.sh  # 버전 규칙 회귀 테스트 (TC 91건)
+internal-plugins/plugin-versioning/test/validate-versioning.test.sh  # 버전 규칙 회귀 테스트 (TC 117건)
 ```
 
 `Write` / `Edit` 에 훅이 걸려 있어 규칙을 어기는 이름으로는 파일이 만들어지지 않는다.

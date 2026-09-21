@@ -10,6 +10,7 @@
 #   validate-versioning.sh --all [루트]          루트 + 모든 플러그인 + 태그
 #   validate-versioning.sh --marketplace [루트]  루트 엔트리만
 #   validate-versioning.sh --tag [루트]          git 태그만
+#   validate-versioning.sh --since <ref> [루트]  ref 이후 바뀐 플러그인이 버전을 올렸는가 (V-14)
 #
 # 종료 코드: 0 통과 / 2 위반(훅에서 차단) / 1 실행 오류
 set -uo pipefail
@@ -120,22 +121,46 @@ check_changelog() { # $1=CHANGELOG 경로 $2=현재 버전 $3=라벨
   done
 
   if [ -n "$cur" ] && is_semver "$cur" && [ "$found" = 0 ]; then
-    err "$label/CHANGELOG.md: plugin.json 의 version '$cur' 에 해당하는 '## $cur' 항목이 없습니다 (V-06)"
+    err "$label/CHANGELOG.md: 현재 version '$cur' 에 해당하는 '## $cur' 항목이 없습니다 (V-06)"
   fi
   return 0
 }
 
 # ---- V-11 : dependencies ---------------------------------------------------
+# Claude Code 가 받는 semver 범위 (node-semver 문법의 부분집합):
+#   ~1.0.0  ^1.2  >=1.0.0 <2.0.0  =2.1.0  1.2.3 - 2.3.4  2.x  2.1.*  *  ^2.0.0-0  a || b
+PARTIAL_RE='(x|X|\*|0|[1-9][0-9]*)(\.(x|X|\*|0|[1-9][0-9]*)(\.(x|X|\*|0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?)?)?'
+is_semver_range() { # $1=범위
+  local set="$1" part tok rest
+  [ -n "${set//[[:space:]]/}" ] || return 1
+  # '||' 로 나눈 각 조각이 비어 있으면 안 된다
+  rest="$set||"
+  while [ -n "$rest" ]; do
+    part="${rest%%||*}"; rest="${rest#*||}"
+    # node-semver 처럼 연산자 뒤 공백을 붙인다: '>= 1.0.0' → '>=1.0.0'
+    part="$(printf '%s' "$part" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/(<=|>=|<|>|=|~|\^)[[:space:]]+/\1/g')"
+    [ -n "$part" ] || return 1
+    if [[ "$part" =~ ^${PARTIAL_RE}[[:space:]]+-[[:space:]]+${PARTIAL_RE}$ ]]; then
+      continue
+    fi
+    # 따옴표 없는 for 는 '*' 를 파일 이름으로 확장한다. read -a 는 글롭하지 않는다.
+    local -a toks=()
+    read -r -a toks <<< "$part"
+    for tok in "${toks[@]}"; do
+      [[ "$tok" =~ ^(~|\^|<=|>=|<|>|=)?${PARTIAL_RE}$ ]] || return 1
+    done
+  done
+  return 0
+}
+
 check_dependencies() { # $1=plugin.json $2=라벨
   local file="$1" label="$2" line dep ver
   while IFS= read -r line; do
     [ -n "$line" ] || continue
     dep="${line%%$'\t'*}"; ver="${line#*$'\t'}"
     [ -n "$ver" ] && [ "$ver" != "null" ] || continue
-    # ~1.0.0 · ^1.2.0 · >=1.0.0 <2.0.0 · 1.0.0 · * 를 허용한다
-    if ! [[ "$ver" =~ ^([*]|([~^]|[<>]=?|=)?[0-9]+(\.[0-9]+){0,2}([[:space:]]+([<>]=?|=)?[0-9]+(\.[0-9]+){0,2})*)$ ]]; then
+    is_semver_range "$ver" || \
       err "$label: dependencies '$dep' 의 version '$ver' 은 semver 범위 문자열이 아닙니다 (V-11)"
-    fi
   done < <(jq -r '(.dependencies // [])[] | select(type == "object")
                   | "\(.name // "?")\t\(.version // "")"' "$file" 2>/dev/null)
 }
@@ -179,6 +204,11 @@ validate_marketplace() { # $1=루트
   if [ -n "$meta" ] && ! is_semver "$meta"; then
     err "marketplace.json: metadata.version '$meta' 이 MAJOR.MINOR.PATCH 형식이 아닙니다 (V-10)"
   fi
+  # 루트 CHANGELOG 도 같은 형식이다. 현재 버전은 metadata.version. 파일이 없는 것은 구조 규칙(R-02)의 몫이다.
+  if [ -r "$root/CHANGELOG.md" ]; then
+    is_semver "$meta" || meta=""
+    check_changelog "$root/CHANGELOG.md" "$meta" "마켓플레이스 루트"
+  fi
 
   while IFS= read -r line; do
     [ -n "$line" ] || continue
@@ -218,19 +248,46 @@ validate_tags() { # $1=루트
       err "태그 '$tag': 버전 부분 '$ver' 이 MAJOR.MINOR.PATCH 형식이 아닙니다 (V-12)"
       continue
     fi
-    found=0
+    # 플러그인이 지금 없어도 태그는 과거의 릴리즈다. 형식만 본다.
+    # 있으면 태그가 매니페스트보다 앞서는지 본다.
     for d in "$root"/*plugins/"$name"; do
       manifest="$d/.claude-plugin/plugin.json"
       [ -r "$manifest" ] || continue
-      found=1
       man_ver="$(jq -r '.version // ""' "$manifest" 2>/dev/null)"
       is_semver "$man_ver" || continue
       ver_gt "$ver" "$man_ver" && \
         err "태그 '$tag': plugin.json 의 version 은 '$man_ver' 입니다 — 태그가 매니페스트보다 앞설 수 없습니다 (V-13)"
     done
-    [ "$found" = 1 ] || err "태그 '$tag': '$name' 플러그인이 없습니다 (V-12)"
   done < <(git -C "$root" tag 2>/dev/null)
   return 0
+}
+
+# ---- V-14 : 바뀌었으면 올렸는가 ------------------------------------------
+# ref 이후 플러그인 디렉터리의 어떤 파일이든 바뀌었으면 version 이 올라가야 한다.
+# ref 에 없던 플러그인은 새 플러그인이다 (V-03 이 본다).
+validate_since() { # $1=ref $2=루트
+  local ref="$1" root="${2%/}" pd d rel old cur
+  command -v git >/dev/null 2>&1 || { err "--since: git 이 필요합니다"; return; }
+  git -C "$root" rev-parse --git-dir >/dev/null 2>&1 || { err "--since: $root 는 git 저장소가 아닙니다"; return; }
+  git -C "$root" rev-parse --verify -q "$ref^{commit}" >/dev/null || { err "--since: '$ref' 를 찾을 수 없습니다"; return; }
+
+  while IFS= read -r d; do
+    [ -r "$d/.claude-plugin/plugin.json" ] || continue
+    rel="${d#"$root"/}"
+    old="$(git -C "$root" show "$ref:$rel/.claude-plugin/plugin.json" 2>/dev/null | jq -r '.version // ""' 2>/dev/null)" || old=""
+    [ -n "$old" ] || continue
+    if git -C "$root" diff --quiet "$ref" -- "$rel" 2>/dev/null \
+       && [ -z "$(git -C "$root" ls-files --others --exclude-standard -- "$rel" 2>/dev/null)" ]; then
+      continue
+    fi
+    cur="$(jq -r '.version // ""' "$d/.claude-plugin/plugin.json" 2>/dev/null)"
+    is_semver "$cur" && is_semver "$old" || continue
+    ver_gt "$cur" "$old" || \
+      err "$rel: $ref 이후 파일이 바뀌었는데 version 이 '$old' → '$cur' 입니다 — 올려야 합니다 (V-14)"
+  done < <(
+    find "$root" -mindepth 1 -maxdepth 1 -type d -name '*plugins' -not -path '*/.git*' 2>/dev/null \
+      | while IFS= read -r pd; do find "$pd" -mindepth 1 -maxdepth 1 -type d 2>/dev/null; done | sort
+  )
 }
 
 validate_all() { # $1=루트
@@ -252,7 +309,7 @@ emit_notices_json() { # $1=이벤트명
   local body n
   body="버전 정합성 알림 (plugin-versioning) — 막지 않았습니다. 이어서 맞추세요."
   for n in "${NOTICES[@]}"; do body="$body"$'\n'"- $n"; done
-  body="$body"$'\n'"릴리즈 순서: plugin.json version → CHANGELOG 항목 → marketplace 엔트리 → 검증 → 커밋 → claude plugin tag --push"
+  body="$body"$'\n'"릴리즈 순서: CHANGELOG 항목 → plugin.json version → marketplace 엔트리 → 검증(--all, --since origin/main) → PR → 머지 → main 에서 태그"
   body="$body"$'\n'"기준: $RULES"
   jq -n --arg e "$1" --arg c "$body" \
     '{hookSpecificOutput: {hookEventName: $e, additionalContext: $c}}'
@@ -315,6 +372,8 @@ main() {
       --all)         validate_all "${2:-$PROJECT_DIR}" ;;
       --marketplace) validate_marketplace "${2:-$PROJECT_DIR}" ;;
       --tag)         validate_tags "${2:-$PROJECT_DIR}" ;;
+      --since)       [ -n "${2:-}" ] || die "--since 에는 ref 가 필요합니다 (예: --since origin/main)"
+                     validate_since "$2" "${3:-$PROJECT_DIR}" ;;
       *)             for arg in "$@"; do validate_plugin_dir "$arg"; done ;;
     esac
     report

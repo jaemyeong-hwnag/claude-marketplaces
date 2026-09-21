@@ -22,7 +22,7 @@ description: 플러그인 버전을 올리거나 릴리즈할 때 사용한다. 
 
 애매하면 **위로 올린다.** 되돌릴 때 비용이 더 크다.
 
-`0.x` 구간이라도 규칙은 같다. `0.1.0` → `0.2.0` 이 MINOR, `0.1.0` → `0.1.1` 이 PATCH 다.
+`0.x` 구간에서는 호환성을 깨도 `1.0.0` 으로 가지 않고 **MINOR 를 올린다**. `1.0.0` 은 안정화 선언에만 쓴다.
 
 ### 1.0.0 으로 올릴 때인가
 
@@ -38,23 +38,29 @@ description: 플러그인 버전을 올리거나 릴리즈할 때 사용한다. 
 순서를 바꾸면 중간 상태가 커밋에 남는다.
 
 ```
-1. plugin.json 의 version
-2. CHANGELOG.md 의 ## {새 버전} 항목   (## 미출시 가 있었으면 그것을 새 버전으로 바꾼다)
+1. CHANGELOG.md 의 ## {새 버전} 항목   (## 미출시 가 있었으면 그것을 새 버전으로 바꾼다)
+2. plugin.json 의 version
 3. marketplace.json 엔트리가 version 을 선언하고 있으면 같이 올린다
-4. 검증
-5. 커밋
-6. 태그
+4. 검증 — --all 과 --since origin/main
+5. 커밋 → PR → 머지
+6. 태그 — main 에서, 머지 뒤, 설치 확인 뒤
 ```
 
-`plugin.json` 을 저장하면 `PostToolUse` 훅이 CHANGELOG 항목이 없다고 알린다. **그 알림이 2번 단계를 잊지 않게 한다.**
+CHANGELOG 를 먼저 쓰면 중간 상태가 규칙을 한 번도 어기지 않는다. 거꾸로 `plugin.json` 을 먼저 저장하면 `PostToolUse` 훅이 CHANGELOG 항목이 없다고 알린다 — 그 알림이 안전망이다.
 
 ## 3. CHANGELOG 를 쓴다
 
 ```markdown
 ## 0.2.0
 
-- 무엇이 바뀌었는지 — 쓰는 쪽이 무엇을 다시 해야 하는지까지
+### Added
+- 무엇이 추가됐는지
+
+### Changed
+- 무엇이 달라졌는지 — 쓰는 쪽이 무엇을 다시 해야 하는지까지
 ```
+
+`### Added` / `Changed` / `Removed` / `Fixed` 로 나누면 등급이 드러난다. `Removed` 나 판정이 바뀐 `Changed` 가 있으면 MAJOR (`0.x` 면 MINOR).
 
 - "수정", "개선", "리팩터링" 만 적지 않는다. 무엇이 어떻게 달라졌는지 적는다.
 - MAJOR 항목에는 **무엇이 깨지는지**를 먼저 적는다.
@@ -64,11 +70,14 @@ description: 플러그인 버전을 올리거나 릴리즈할 때 사용한다. 
 
 ```bash
 "${CLAUDE_PLUGIN_ROOT}/scripts/validate-versioning.sh" --all "${CLAUDE_PROJECT_DIR:-.}"
+"${CLAUDE_PLUGIN_ROOT}/scripts/validate-versioning.sh" --since origin/main "${CLAUDE_PROJECT_DIR:-.}"
 ```
 
-종료 코드 0 이어야 커밋한다. `V-09`(엔트리 불일치)가 나오면 **엔트리 쪽을 고친다** — 설치 시점에는 `plugin.json` 이 이긴다.
+둘 다 종료 코드 0 이어야 커밋한다. `--since` 는 이번 변경에서 파일이 바뀐 플러그인이 모두 버전을 올렸는지 본다 (`V-14`). `V-09`(엔트리 불일치)가 나오면 **엔트리 쪽을 고친다** — 설치 시점에는 `plugin.json` 이 이긴다.
 
 ## 5. 태그를 단다
+
+**main 에서, PR 이 머지된 뒤, 설치 확인이 끝난 뒤에** 단다. 절차 전체는 `release-create` 스킬(`plugin-workflow`)이 한다.
 
 ```bash
 claude plugin tag --push
@@ -77,7 +86,7 @@ claude plugin tag --push
 CLI 가 `{플러그인명}--v{버전}` 형식으로 만들고, `plugin.json` 과 marketplace 엔트리가 일치하는지 함께 검증한다.
 직접 달아야 하면 형식을 지킨다: `git tag plugin-versioning--v0.1.0`.
 
-태그는 **커밋한 뒤** 단다. 태그가 매니페스트보다 앞서면 `V-13` 에 걸린다.
+브랜치에서 달지 않는다. 리베이스가 SHA 를 바꿔서 태그가 머지 뒤 어디에도 없는 커밋을 가리키게 된다. 태그가 매니페스트보다 앞서면 `V-13` 에 걸린다.
 
 ## 하지 않을 것
 

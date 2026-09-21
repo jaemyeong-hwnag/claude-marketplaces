@@ -12,7 +12,8 @@
 | 버전 값 | `V-01` semver 세 자리 · `V-02` version 필수 · `V-03` 초기 버전 `0.1.0` |
 | CHANGELOG | `V-04` 첫 줄 · `V-05` 항목 제목 · `V-06` 현재 버전 항목 존재 · `V-07` 내림차순 · `V-08` 중복 금지 |
 | 선언 위치 | `V-09` 엔트리 ↔ plugin.json 일치 · `V-10` marketplace metadata.version · `V-11` dependencies 범위 |
-| 태그 | `V-12` `{플러그인명}--v{버전}` · `V-13` 태그가 매니페스트보다 앞설 수 없음 |
+| 태그 | `V-12` `{플러그인명}--v{버전}` (형식만) · `V-13` 태그가 매니페스트보다 앞설 수 없음 |
+| 변경 | `V-14` 기준 ref 이후 파일이 바뀐 플러그인은 버전을 올려야 한다 (`--since`) |
 
 규칙 원본은 [`references/versioning-rules.md`](references/versioning-rules.md) 다. 충돌하면 그쪽이 우선한다.
 
@@ -48,6 +49,9 @@ scripts/validate-versioning.sh internal-plugins/plugin-versioning
 # 태그만
 scripts/validate-versioning.sh --tag .
 
+# PR 범위 — 바뀐 플러그인이 버전을 올렸는가
+scripts/validate-versioning.sh --since origin/main .
+
 # 회귀 테스트
 test/validate-versioning.test.sh
 ```
@@ -57,7 +61,7 @@ test/validate-versioning.test.sh
 ## 릴리즈
 
 ```bash
-# 1. 등급 판단 → 2. plugin.json → 3. CHANGELOG → 4. 엔트리 → 5. 검증 → 6. 커밋
+# 1. 등급 판단 → 2. CHANGELOG → 3. plugin.json → 4. 엔트리 → 5. 검증 → 6. 커밋·PR·머지 → 7. main 에서
 claude plugin tag --push
 ```
 

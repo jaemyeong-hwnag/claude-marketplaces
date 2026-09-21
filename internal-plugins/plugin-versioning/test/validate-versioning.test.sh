@@ -331,9 +331,9 @@ tc TC-V65 "태그의 버전 부분 형식을 검사한다 (V-12)"
 R="$(make_git_root gt6 0.2.0)"; git -C "$R" tag order-sync--v1.0
 run --tag "$R"; expect_code 2; expect_out "버전 부분 '1.0'"
 
-tc TC-V66 "없는 플러그인의 태그를 막는다 (V-12)"
+tc TC-V66 "지금은 없는 플러그인의 태그는 형식만 본다 (V-12)"
 R="$(make_git_root gt7 0.2.0)"; git -C "$R" tag ghost-sync--v0.1.0
-run --tag "$R"; expect_code 2; expect_out "플러그인이 없습니다"
+run --tag "$R"; expect_code 0; expect_no_out
 
 tc TC-V67 "태그가 하나도 없으면 통과한다"
 R="$(make_git_root gt8 0.2.0)"
@@ -476,6 +476,123 @@ run "$(make_plugin '"0.1.0"')/"; expect_code 0
 tc TC-V98 "위반 출력이 규칙 원본 경로를 알려준다"
 run "$(make_plugin '"0.0.1"' $'# CHANGELOG\n\n## 0.0.1\n')"
 expect_out "versioning-rules.md"
+
+echo "== H. dependencies 범위 확장 (V-11) =="
+
+dep_plugin() { # $1=범위 → 플러그인 경로
+  make_plugin_raw "$(jq -nc --arg v "$1" '{name:"order-sync",version:"0.1.0",dependencies:[{name:"a-sync",version:$v}]}')"
+}
+
+tc TC-V100 "|| 로 이은 범위를 허용한다"
+run "$(dep_plugin '^1.0.0 || ^2.0.0')"; expect_code 0
+
+tc TC-V101 "prerelease opt-in 범위를 허용한다"
+run "$(dep_plugin '^2.0.0-0')"; expect_code 0
+
+tc TC-V102 "x 와일드카드를 허용한다"
+run "$(dep_plugin '2.x')"; expect_code 0
+
+tc TC-V103 "* 와일드카드 자리를 허용한다"
+run "$(dep_plugin '2.1.*')"; expect_code 0
+
+tc TC-V104 "하이픈 범위를 허용한다"
+run "$(dep_plugin '1.2.3 - 2.3.4')"; expect_code 0
+
+tc TC-V105 "연산자 뒤 공백을 허용한다"
+run "$(dep_plugin '>= 1.0.0 < 2.0.0')"; expect_code 0
+
+tc TC-V106 "|| 뒤가 비면 막는다"
+run "$(dep_plugin '^1.0.0 ||')"; expect_code 2; expect_out "(V-11)"
+
+tc TC-V107 "~> 같은 다른 생태계 연산자를 막는다"
+run "$(dep_plugin '~>1.0')"; expect_code 2; expect_out "(V-11)"
+
+tc TC-V108 "선행 0 을 막는다"
+run "$(dep_plugin '01.0.0')"; expect_code 2; expect_out "(V-11)"
+
+tc TC-V109 "* 한 글자가 파일 이름으로 확장되지 않는다"
+touch "$TMP/a-file-that-would-glob"
+( cd "$TMP" && "$SCRIPT" "$(dep_plugin '*')" >/dev/null 2>&1 ); CODE=$?
+expect_code 0
+
+echo "== I. 루트 CHANGELOG =="
+
+root_with_log() { # $1=이름 $2=metadata.version $3=CHANGELOG 본문 → 루트
+  local r; r="$(make_root "$1" "$(jq -nc --arg v "$2" '{name:"x",owner:{name:"y"},metadata:{version:$v},plugins:[]}')")"
+  printf '%s' "$3" > "$r/CHANGELOG.md"; printf '%s' "$r"
+}
+
+tc TC-V110 "루트 CHANGELOG 가 metadata.version 항목을 가지면 통과한다"
+run --marketplace "$(root_with_log rl1 0.2.0 $'# CHANGELOG\n\n## 미출시\n\n## 0.2.0\n\n## 0.1.0\n')"; expect_code 0
+
+tc TC-V111 "루트 CHANGELOG 에 metadata.version 항목이 없으면 막는다 (V-06)"
+run --marketplace "$(root_with_log rl2 0.2.0 $'# CHANGELOG\n\n## 0.1.0\n')"
+expect_code 2; expect_out "마켓플레이스 루트"; expect_out "(V-06)"
+
+tc TC-V112 "루트 CHANGELOG 의 형식도 본다 (V-04)"
+run --marketplace "$(root_with_log rl3 0.1.0 $'# Changelog\n\n## 0.1.0\n')"
+expect_code 2; expect_out "(V-04)"
+
+tc TC-V113 "루트 CHANGELOG 의 순서도 본다 (V-07)"
+run --marketplace "$(root_with_log rl4 0.2.0 $'# CHANGELOG\n\n## 0.1.0\n\n## 0.2.0\n')"
+expect_code 2; expect_out "(V-07)"
+
+tc TC-V114 "metadata.version 이 없으면 V-06 은 보지 않는다"
+R="$(make_root rl5 '{"name":"x","owner":{"name":"y"},"plugins":[]}')"; printf '# CHANGELOG\n\n## 미출시\n' > "$R/CHANGELOG.md"
+run --marketplace "$R"; expect_code 0
+
+tc TC-V115 "루트 CHANGELOG 가 없으면 여기서는 보지 않는다 (R-02 의 몫)"
+run --marketplace "$(make_root rl6 '{"name":"x","owner":{"name":"y"},"metadata":{"version":"0.1.0"},"plugins":[]}')"; expect_code 0
+
+echo "== J. 바뀌었으면 올렸는가 (V-14) =="
+
+since_root() { # $1=이름 → 0.1.0 플러그인 하나를 커밋한 git 루트. 기준 태그 base
+  local r; r="$(make_git_root "$1" 0.1.0)"; git -C "$r" tag base; printf '%s' "$r"
+}
+set_version() { # $1=루트 $2=버전 — plugin.json 과 CHANGELOG 를 같이 올린다
+  printf '{ "name": "order-sync", "version": "%s" }' "$2" > "$1/internal-plugins/order-sync/.claude-plugin/plugin.json"
+  printf '# CHANGELOG\n\n## %s\n\n## 0.1.0\n' "$2" > "$1/internal-plugins/order-sync/CHANGELOG.md"
+}
+
+tc TC-V120 "바뀐 것이 없으면 통과한다"
+R="$(since_root sn1)"; run --since base "$R"; expect_code 0; expect_no_out
+
+tc TC-V121 "추적 중인 파일을 고치고 버전을 그대로 두면 막는다 (V-14)"
+R="$(since_root sn2)"; printf '\n- 새 규칙\n' >> "$R/internal-plugins/order-sync/CHANGELOG.md"
+run --since base "$R"; expect_code 2; expect_out "'0.1.0' → '0.1.0'"; expect_out "(V-14)"
+
+tc TC-V122 "파일을 바꾸고 버전을 올리면 통과한다"
+R="$(since_root sn3)"; echo "새 규칙" > "$R/internal-plugins/order-sync/README.md"; set_version "$R" 0.1.1
+run --since base "$R"; expect_code 0
+
+tc TC-V123 "버전을 내리면 막는다 (V-14)"
+R="$(since_root sn4)"; set_version "$R" 0.2.0; git -C "$R" commit -qam up; git -C "$R" tag base2
+set_version "$R" 0.1.5
+run --since base2 "$R"; expect_code 2; expect_out "(V-14)"
+
+tc TC-V124 "커밋한 변경도 본다"
+R="$(since_root sn5)"; printf '\n- x\n' >> "$R/internal-plugins/order-sync/CHANGELOG.md"; git -C "$R" commit -qam change
+[ "$TC_ON" = 1 ] && { [ -z "$(git -C "$R" status --porcelain)" ] || fail_tc "커밋되지 않았다 — 픽스처가 틀렸다"; }
+run --since base "$R"; expect_code 2; expect_out "(V-14)"
+
+tc TC-V125 "아직 add 하지 않은 새 파일도 변경으로 본다"
+R="$(since_root sn6)"; mkdir -p "$R/internal-plugins/order-sync/skills/x"; echo "x" > "$R/internal-plugins/order-sync/skills/x/SKILL.md"
+run --since base "$R"; expect_code 2; expect_out "(V-14)"
+
+tc TC-V126 "ref 에 없던 새 플러그인은 V-14 로 보지 않는다"
+R="$(since_root sn7)"; put_plugin "$R" item-sync 0.1.0
+run --since base "$R"; expect_code 0
+
+tc TC-V127 "다른 플러그인의 변경은 이 플러그인의 버전을 요구하지 않는다"
+R="$(since_root sn8)"; put_plugin "$R" item-sync 0.1.0; git -C "$R" add -A; git -C "$R" commit -qm item; git -C "$R" tag base3
+printf '\n- x\n' >> "$R/internal-plugins/item-sync/CHANGELOG.md"
+run --since base3 "$R"; expect_code 2; expect_out "internal-plugins/item-sync"; expect_not "internal-plugins/order-sync:"
+
+tc TC-V128 "없는 ref 는 오류를 낸다"
+R="$(since_root sn9)"; run --since no-such-ref "$R"; expect_code 2; expect_out "찾을 수 없습니다"
+
+tc TC-V129 "--since 에 ref 가 없으면 실행 오류다"
+run --since; expect_code 1; expect_out "ref 가 필요합니다"
 
 flush_tc
 echo

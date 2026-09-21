@@ -8,6 +8,12 @@ description: 플러그인 버전과 CHANGELOG · marketplace 엔트리 · 태그
 "${CLAUDE_PLUGIN_ROOT}/scripts/validate-versioning.sh" --all "${CLAUDE_PROJECT_DIR:-.}"
 ```
 
+브랜치 작업 중이면 이번 변경의 범위도 본다 (`V-14` — 파일이 바뀐 플러그인은 버전을 올려야 한다):
+
+```bash
+"${CLAUDE_PLUGIN_ROOT}/scripts/validate-versioning.sh" --since origin/main "${CLAUDE_PROJECT_DIR:-.}"
+```
+
 인자가 주어졌으면 그 경로만 검사한다: `$ARGUMENTS`
 
 결과를 이렇게 정리해 보고한다.
