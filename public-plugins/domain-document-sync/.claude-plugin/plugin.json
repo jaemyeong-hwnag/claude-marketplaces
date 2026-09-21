@@ -1,0 +1,16 @@
+{
+  "name": "domain-document-sync",
+  "description": "도메인 지식 문서를 3계층(카탈로그 _index → 도메인 메타 _meta → 개념 concept)으로 두고 코드와 맞춰 둔다 — 언어·프레임워크 무관한 코드 분석으로 문서 생성, 필요한 도메인만 읽기, 편집 규약 주입, 코드 변경 시 문서 동기 게이트.",
+  "version": "0.1.0",
+  "author": {
+    "name": "황재명",
+    "email": "woaudsla@gmail.com"
+  },
+  "homepage": "https://github.com/jaemyeong-hwnag/claude-marketplaces",
+  "keywords": [
+    "domain",
+    "documentation",
+    "knowledge-base",
+    "sync"
+  ]
+}
