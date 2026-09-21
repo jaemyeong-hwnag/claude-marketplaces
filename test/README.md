@@ -84,6 +84,8 @@ test/sync-internal-plugins.test.sh    # 내부 플러그인 동기화 (TC-Y)
 | TC-Y31 | internal 엔트리 description 을 plugin.json 에 맞춘다 | 파일 반영 |
 | TC-Y32 | public 엔트리 description 은 건드리지 않는다 | 파일 유지 |
 | TC-Y33 | plugin.json 에 description 이 없으면 엔트리를 비우지 않는다 | 파일 유지 |
+| TC-Y34 | `enabledPlugins` 키 순서를 정렬해 둔다 | 재설치가 키를 맨 뒤로 보내 생기는 diff 방지 |
+| TC-Y35 | 이미 정렬돼 있으면 파일을 다시 쓰지 않는다 | 수정 시각 유지 |
 
 ## 등록 메타데이터
 

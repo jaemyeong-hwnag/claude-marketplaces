@@ -291,6 +291,20 @@ jq '.plugins |= map(.description = "기존 설명")' "$P/.claude-plugin/marketpl
 run_hook
 [ "$(jq -r '.plugins[0].description' "$P/.claude-plugin/marketplace.json")" = "기존 설명" ] || fail_tc "비워짐"
 
+echo "== settings.json 안정성 =="
+
+tc TC-Y34 "enabledPlugins 키 순서를 정렬해 둔다"
+setup key-order; add_plugin "$P" order-sync; add_plugin "$P" item-sync; market_registered; synced order-sync; synced item-sync
+printf '{"enabledPlugins":{"order-sync@test-marketplace":true,"item-sync@test-marketplace":true}}' > "$P/.claude/settings.json"
+run_hook
+[ "$(jq -r '.enabledPlugins | keys_unsorted | join(",")' "$P/.claude/settings.json")" = "item-sync@test-marketplace,order-sync@test-marketplace" ] || fail_tc "정렬되지 않음"
+
+tc TC-Y35 "이미 정렬돼 있으면 파일을 다시 쓰지 않는다"
+before="$(stat -f %m "$P/.claude/settings.json" 2>/dev/null || stat -c %Y "$P/.claude/settings.json")"; sleep 1
+run_hook
+after="$(stat -f %m "$P/.claude/settings.json" 2>/dev/null || stat -c %Y "$P/.claude/settings.json")"
+[ "$before" = "$after" ] || fail_tc "파일을 다시 썼다"
+
 flush_tc
 echo
 printf '통과 %d / 실패 %d\n' "$PASS" "$FAIL"

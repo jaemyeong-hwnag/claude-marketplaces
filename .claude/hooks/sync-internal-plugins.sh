@@ -186,6 +186,13 @@ for name in ${NAMES+"${NAMES[@]}"}; do
   fi
 done
 
+# 6-1. enabledPlugins 키를 정렬해 둔다.
+#      재설치(uninstall → install)는 키를 지웠다가 맨 뒤에 다시 넣는다. 그대로 두면 플러그인을
+#      고칠 때마다 settings.json 에 순서만 바뀐 diff 가 생긴다.
+if [ -r "$SETTINGS_FILE" ] && ! jq -e '(.enabledPlugins // {} | keys_unsorted) == (.enabledPlugins // {} | keys)' "$SETTINGS_FILE" >/dev/null 2>&1; then
+  jq_inplace "$SETTINGS_FILE" '.enabledPlugins |= (to_entries | sort_by(.key) | from_entries)' || true
+fi
+
 # 7. 로드 확인 — 설치는 됐는데 훅·매니페스트 로드가 실패한 것
 #    "❯ id" 다음 줄들의 "Error:" 를 그 id 에 붙인다.
 while IFS=$'\t' read -r eid emsg; do
