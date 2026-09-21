@@ -18,6 +18,7 @@
     ]
   },
   "enabledPlugins": {
+    "github-workflow@plugin-marketplace": true,
     "marketplace-directory-structure@plugin-marketplace": true,
     "plugin-authoring@plugin-marketplace": true,
     "plugin-dependency@plugin-marketplace": true,

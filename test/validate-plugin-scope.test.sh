@@ -177,6 +177,33 @@ R="$(make_repo author '{ "name": "order-sync", "source": "./public-plugins/order
 make_plugin "$R" public order-sync
 run "$R"; expect_code 0; expect_out "author 는 plugin.json 에"
 
+echo "== 의존성 활성화 키 =="
+
+dep_repo() { # $1=이름 $2=enabledPlugins JSON
+  R="$(make_repo "$1" '{ "name": "order-sync", "source": "./public-plugins/order-sync", "category": "public" },
+                     { "name": "order-release", "source": "./internal-plugins/order-release", "category": "internal" }')"
+  make_plugin "$R" public order-sync; make_plugin "$R" internal order-release
+  printf '{ "name": "order-release", "dependencies": ["order-sync"] }' > "$R/internal-plugins/order-release/.claude-plugin/plugin.json"
+  mkdir -p "$R/.claude"; printf '{ "enabledPlugins": %s }' "$2" > "$R/.claude/settings.json"
+}
+
+tc TC-S30 "켜 둔 internal 이 의존하는 public 의 활성화 키가 없으면 막는다 (#16)"
+dep_repo dep1 '{ "order-release@x-marketplace": true }'
+run "$R"; expect_code 2; expect_out "order-sync@x-marketplace"
+
+tc TC-S31 "의존성 키가 있으면 통과한다"
+dep_repo dep2 '{ "order-release@x-marketplace": true, "order-sync@x-marketplace": true }'
+run "$R"; expect_code 0
+
+tc TC-S32 "꺼 둔 internal 의 의존성은 보지 않는다"
+dep_repo dep3 '{ "order-release@x-marketplace": false }'
+run "$R"; expect_code 0
+
+tc TC-S33 "객체로 선언한 의존성도 본다"
+dep_repo dep4 '{ "order-release@x-marketplace": true }'
+printf '{ "name": "order-release", "dependencies": [{ "name": "order-sync", "version": "~0.1.0" }] }' > "$R/internal-plugins/order-release/.claude-plugin/plugin.json"
+run "$R"; expect_code 2; expect_out "order-sync@x-marketplace"
+
 flush_tc
 echo
 printf '통과 %d / 실패 %d\n' "$PASS" "$FAIL"

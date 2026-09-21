@@ -46,6 +46,10 @@ test/sync-internal-plugins.test.sh    # 내부 플러그인 동기화 (TC-Y)
 | TC-S27 | common 플러그인이 internal 이면 막는다 | 차단 (2) |
 | TC-S28 | common 플러그인이 public 이면 통과한다 | 통과 (0) |
 | TC-S29 | 엔트리의 author 는 경고만 한다 | 통과 (0) + 경고 |
+| TC-S30 | 켜 둔 internal 이 의존하는 public 의 활성화 키가 없으면 막는다 (#16) | 차단 (2) |
+| TC-S31 | 의존성 키가 있으면 통과한다 | 통과 (0) |
+| TC-S32 | 꺼 둔 internal 의 의존성은 보지 않는다 | 통과 (0) |
+| TC-S33 | 객체로 선언한 의존성도 본다 | 차단 (2) |
 
 ## TC-Y · 내부 플러그인 동기화 (`.claude/hooks/sync-internal-plugins.sh`)
 
@@ -99,6 +103,10 @@ test/sync-internal-plugins.test.sh    # 내부 플러그인 동기화 (TC-Y)
 | `author` · `version` | 엔트리에 두지 않는다 (`author` 는 경고) | `plugin.json` |
 
 `common-*` 플러그인은 배포가 목적이므로 `public-plugins/` 에만 둔다 (TC-S27).
+
+## 의존성의 활성화 키
+
+internal 플러그인이 public 플러그인에 의존하면, 설치할 때 Claude Code 가 의존성을 같이 설치하고 `.claude/settings.json` 의 `enabledPlugins` 에 키를 더한다. 그 키가 커밋에 없으면 main 에서 동기화 훅이 돈 뒤 작업 트리가 더러워지고 `release-plugins.sh` 가 멈춘다 (#16). 그래서 켜 둔 internal 플러그인의 의존성 키를 미리 요구한다 (TC-S30 ~ S33).
 
 ## 설치 기준과 워크트리
 

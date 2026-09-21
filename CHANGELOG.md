@@ -27,6 +27,7 @@
 - `plugin-versioning` — 릴리즈 순서를 CHANGELOG 먼저로, `V-12` 는 형식만, `V-11` 이 Claude Code 가 받는 범위를 모두 허용
 
 ### Fixed
+- `plugin-workflow` 의 의존성 `github-workflow` 활성화 키가 `settings.json` 에 없어 설치 뒤 main 이 더러워지던 것 (#16). 배치 검사가 켜 둔 internal 의 public 의존성 키를 요구한다
 - CLAUDE.md · README · test/README 가 로컬 디렉터리 플러그인이 캐시 사본으로 돈다고 잘못 설명하던 것 — 소스에서 그대로 로드된다. CLAUDE.md 는 관심사 표 하나로 줄여 규칙 요약이 스킬을 가리지 않게 했다 (#10)
 - 배치 검사에서 탭 구분 `read` 가 빈 칸을 합쳐 뒤 칸이 앞으로 밀리던 것
 - 범위가 `*` 한 글자면 파일 이름으로 확장돼 `V-11` 이 잘못 막던 것

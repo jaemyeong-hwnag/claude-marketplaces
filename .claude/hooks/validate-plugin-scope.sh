@@ -10,6 +10,7 @@
 #     - tags 는 .claude-plugin/tags.json 에 있어야 하고 2개 이하, 2개면 domain 1 + technology 1
 #     - 엔트리 description 은 plugin.json description 과 같다
 #     - common-* 플러그인은 public-plugins/ 에 둔다
+#     - 켜 둔 internal 플러그인이 의존하는 public 플러그인은 .claude/settings.json enabledPlugins 에 키가 있다
 #
 #   .claude/hooks/validate-plugin-scope.sh [루트]
 #
@@ -136,6 +137,27 @@ while IFS=$'\x1f' read -r n sp ccat tags author; do
 done < <(jq -r '.plugins[]? | select((.source | type) == "string")
                | [.name, .source, (.category // ""), (if .tags then (.tags | tojson) else "" end), (if has("author") then "1" else "" end)]
                | join("\u001f")' "$MARKETPLACE")
+
+# 3. 의존성의 활성화 키 — 켜 둔 internal 플러그인이 기대는 public 플러그인
+#    설치하면 Claude Code 가 의존성 키를 settings.json 에 더한다. 커밋에 없으면 main 이 설치 뒤 더러워진다.
+SETTINGS="$ROOT/.claude/settings.json"
+if [ -r "$SETTINGS" ] && jq empty "$SETTINGS" 2>/dev/null; then
+  MARKET="$(jq -r '.name // ""' "$MARKETPLACE")"
+  while IFS=$'\x1f' read -r owner dep; do
+    [ -n "$dep" ] || continue
+    jq -e --arg id "$dep@$MARKET" '(.enabledPlugins // {}) | has($id)' "$SETTINGS" >/dev/null || \
+      ERRORS+=(".claude/settings.json: '$owner' 가 의존하는 '$dep@$MARKET' 의 enabledPlugins 키가 없습니다 — 설치하면 Claude Code 가 더해 작업 트리가 더러워집니다. true 로 커밋하세요")
+  done < <(
+    for d in "$ROOT"/internal-plugins/*/; do
+      n="$(basename "$d")"
+      [ -r "$d/.claude-plugin/plugin.json" ] || continue
+      jq -e --arg id "$n@$MARKET" '.enabledPlugins[$id] == true' "$SETTINGS" >/dev/null 2>&1 || continue
+      jq -r --arg o "$n" '.dependencies // [] | .[] | (if type == "string" then . else .name end) | "\($o)\u001f\(.)"' "$d/.claude-plugin/plugin.json" 2>/dev/null
+    done | while IFS=$'\x1f' read -r o dep; do
+      [ -r "$ROOT/public-plugins/$dep/.claude-plugin/plugin.json" ] && printf '%s\x1f%s\n' "$o" "$dep"
+    done
+  )
+fi
 
 for w in ${WARNINGS+"${WARNINGS[@]}"}; do echo "⚠️  $w" >&2; done
 if [ "${#ERRORS[@]}" -gt 0 ]; then
