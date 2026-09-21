@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.1.1
+
+- `plugin.json` 에서 `"hooks": "./hooks/hooks.json"` 제거 — 표준 경로는 자동 로드되므로 중복으로 판정돼 **훅 로딩 전체가 실패하고 있었다** (`claude plugin list` 에 `Hook load failed: Duplicate hooks file detected`). 이 버전부터 훅이 실제로 동작한다
+
 ## 0.1.0
 
 - 버전 규칙 원본 `references/versioning-rules.md` 추가 (`V-01`~`V-13`)
