@@ -24,6 +24,18 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 
 플러그인에 저장소 정책을 넣지 않는다. 저장소 정책 스크립트에 이름 규칙을 넣지 않는다.
 
+## 마켓플레이스 등록 규칙
+
+`.claude/hooks/validate-plugin-scope.sh` 가 강제한다 (SessionStart 에도 돈다).
+
+- `category` 는 배치다 — `public` / `internal`, `.claude-plugin/categories.json` 에 있어야 한다.
+- 주제 분류는 `tags` 로 한다 — `.claude-plugin/tags.json` 에 있는 것만, 2개까지, 2개면 `domain` 1 + `technology` 1.
+- 새 태그는 그 태그로 묶일 플러그인이 3개 이상일 때 추가한다.
+- 엔트리 `description` 은 `plugin.json` 과 같다. 내부 플러그인은 sync 훅이 맞춘다.
+- `version` · `author` 는 엔트리에 쓰지 않는다 (`plugin.json` 이 원본).
+- `common-*` 플러그인은 `public-plugins/` 에만 둔다.
+- 이름 목록 파일(`plugins.json`)은 두지 않는다. `marketplace.json` 이 원본이다.
+
 ## 네이밍 규칙
 
 규칙은 `plugin-naming` 플러그인이 강제한다. 이 저장소에서는 SessionStart 훅이 설치 상태를 확인·복구하므로 항상 켜져 있다.
@@ -127,8 +139,8 @@ internal-plugins/plugin-naming/scripts/validate-naming.sh --glossary # 사전 �
 internal-plugins/marketplace-directory-structure/scripts/validate-directory-structure.sh --all .  # 디렉터리 구조
 internal-plugins/plugin-versioning/scripts/validate-versioning.sh --all .  # 버전 정합성
 .claude/hooks/validate-plugin-scope.sh .                             # 배치·배포 정책
-test/validate-plugin-scope.test.sh                                   # 배치 정책 TC 10건
-test/sync-internal-plugins.test.sh                                   # 동기화 훅 TC 30건
+test/validate-plugin-scope.test.sh                                   # 배치·등록 정책 TC 29건
+test/sync-internal-plugins.test.sh                                   # 동기화 훅 TC 33건
 internal-plugins/plugin-naming/test/validate-naming.test.sh          # 이름 규칙 회귀 테스트 (TC 88건)
 internal-plugins/marketplace-directory-structure/test/validate-directory-structure.test.sh  # 구조 규칙 회귀 테스트 (TC 47건)
 internal-plugins/plugin-versioning/test/validate-versioning.test.sh  # 버전 규칙 회귀 테스트 (TC 117건)

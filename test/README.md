@@ -27,6 +27,25 @@ test/sync-internal-plugins.test.sh    # 내부 플러그인 동기화 (TC-Y)
 | TC-S08 | marketplace.json 이 없으면 검사를 건너뛴다 | 통과 (0) |
 | TC-S09 | marketplace.json 이 깨져 있으면 막는다 | 차단 (2) |
 | TC-S10 | plugin.json 이 없는 디렉터리는 플러그인으로 보지 않는다 | 통과 (0) |
+| TC-S11 | 같은 이름이 둘이면 이름 중복으로 보고한다 | 차단 (2) |
+| TC-S12 | 중복일 때 엉뚱한 source · category 메시지를 내지 않는다 | 해당 메시지 없음 |
+| TC-S13 | categories.json 이 있으면 거기 있는 값만 허용한다 | 차단 (2) |
+| TC-S14 | categories.json 에 있으면 통과한다 | 통과 (0) |
+| TC-S15 | categories.json 이 정렬되지 않았으면 막는다 | 차단 (2) |
+| TC-S16 | categories.json 항목에 description 이 없으면 막는다 | 차단 (2) |
+| TC-S17 | tags.json 에 있는 태그는 통과한다 | 통과 (0) |
+| TC-S18 | tags.json 에 없는 태그를 막는다 | 차단 (2) |
+| TC-S19 | 태그 3개를 막는다 | 차단 (2) |
+| TC-S20 | 태그 2개가 둘 다 domain 이면 막는다 | 차단 (2) |
+| TC-S21 | domain 1 + technology 1 은 통과한다 | 통과 (0) |
+| TC-S22 | tags.json 없이 tags 를 쓰면 막는다 | 차단 (2) |
+| TC-S23 | tags.json 의 kind 가 틀리면 막는다 | 차단 (2) |
+| TC-S24 | tags.json 의 대문자 이름을 막는다 | 차단 (2) |
+| TC-S25 | 엔트리 description 이 plugin.json 과 다르면 막는다 | 차단 (2) |
+| TC-S26 | 엔트리 description 이 같으면 통과한다 | 통과 (0) |
+| TC-S27 | common 플러그인이 internal 이면 막는다 | 차단 (2) |
+| TC-S28 | common 플러그인이 public 이면 통과한다 | 통과 (0) |
+| TC-S29 | 엔트리의 author 는 경고만 한다 | 통과 (0) + 경고 |
 
 ## TC-Y · 내부 플러그인 동기화 (`.claude/hooks/sync-internal-plugins.sh`)
 
@@ -62,6 +81,20 @@ test/sync-internal-plugins.test.sh    # 내부 플러그인 동기화 (TC-Y)
 | TC-Y28 | `claude plugin list` 의 `Error:` 줄을 로드 실패로 보고한다 | `로드 실패` |
 | TC-Y29 | 다른 마켓플레이스 플러그인의 `Error:` 는 무시한다 | 보고 없음 |
 | TC-Y30 | `Error:` 는 바로 위 플러그인에 붙인다 | 해당 id 만 보고 |
+| TC-Y31 | internal 엔트리 description 을 plugin.json 에 맞춘다 | 파일 반영 |
+| TC-Y32 | public 엔트리 description 은 건드리지 않는다 | 파일 유지 |
+| TC-Y33 | plugin.json 에 description 이 없으면 엔트리를 비우지 않는다 | 파일 유지 |
+
+## 등록 메타데이터
+
+| 필드 | 규칙 | 원본 |
+|---|---|---|
+| `category` | 배치 — `public` / `internal`. 디렉터리와 같아야 한다 | `.claude-plugin/categories.json` (없으면 두 값) |
+| `tags` | 주제 — 2개까지, 2개면 `domain` 1 + `technology` 1 | `.claude-plugin/tags.json` |
+| `description` | `plugin.json` 과 같다. internal 은 sync 훅이 맞춘다 | `plugin.json` |
+| `author` · `version` | 엔트리에 두지 않는다 (`author` 는 경고) | `plugin.json` |
+
+`common-*` 플러그인은 배포가 목적이므로 `public-plugins/` 에만 둔다 (TC-S27).
 
 ## 설치 기준과 워크트리
 

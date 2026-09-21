@@ -10,6 +10,7 @@
 #
 # 규칙
 #   - enabledPlugins 에 키가 없으면 true 로 추가한다. 명시적 false 는 존중한다 (끈 플러그인은 설치도 건너뛴다).
+#   - internal 엔트리의 description 은 plugin.json 을 따른다.
 #   - 디렉터리가 사라진 internal 엔트리는 marketplace.json · enabledPlugins 에서 지우고 설치본을 제거한다.
 #   - 설치본은 **마켓플레이스 소스 디렉터리**와 비교한다. 워크트리처럼 소스가 이 작업 트리가 아니면
 #     작업 트리의 변경은 머지 뒤에 반영되므로 재설치하지 않는다.
@@ -126,6 +127,19 @@ for name in ${NAMES+"${NAMES[@]}"}; do
       CHANGED+=("marketplace.json 에 '$name' 등록")
     else
       PROBLEMS+=("marketplace.json 에 '$name' 등록 실패")
+    fi
+  fi
+
+  # 4-1. 엔트리 description 은 plugin.json 을 따른다 (validate-plugin-scope 가 일치를 요구한다)
+  pdesc="$(jq -r '.description // ""' "$PLUGIN_DIR/$name/.claude-plugin/plugin.json" 2>/dev/null)"
+  edesc="$(jq -r --arg n "$name" '.plugins[]? | select(.name == $n) | .description // ""' "$MARKETPLACE_FILE" 2>/dev/null)"
+  if [ -n "$pdesc" ] && [ "$pdesc" != "$edesc" ] \
+     && jq -e --arg n "$name" 'any(.plugins[]?; .name == $n and .category == "internal")' "$MARKETPLACE_FILE" >/dev/null 2>&1; then
+    if jq_inplace "$MARKETPLACE_FILE" --arg n "$name" --arg d "$pdesc" \
+         '.plugins |= map(if .name == $n then .description = $d else . end)'; then
+      CHANGED+=("marketplace.json '$name' description 을 plugin.json 에 맞춤")
+    else
+      PROBLEMS+=("marketplace.json '$name' description 갱신 실패")
     fi
   fi
 

@@ -268,6 +268,29 @@ printf '  ❯ item-sync@test-marketplace\n    Status: enabled\n  ❯ order-sync@
 run_hook
 expect_out "'order-sync@test-marketplace' 로드 실패"; expect_noout "'item-sync@test-marketplace' 로드 실패"
 
+echo "== 엔트리 description =="
+
+tc TC-Y31 "internal 엔트리 description 을 plugin.json 에 맞춘다"
+setup desc-sync; add_plugin "$P" order-sync; market_registered; synced order-sync
+printf '{ "name": "order-sync", "description": "새 설명" }' > "$P/internal-plugins/order-sync/.claude-plugin/plugin.json"
+cp "$P/internal-plugins/order-sync/.claude-plugin/plugin.json" "$P/installed-order-sync/.claude-plugin/plugin.json"
+run_hook
+expect_code 0; expect_out "description 을 plugin.json 에 맞춤"
+[ "$(jq -r '.plugins[] | select(.name=="order-sync") | .description' "$P/.claude-plugin/marketplace.json")" = "새 설명" ] || fail_tc "갱신되지 않음"
+
+tc TC-Y32 "public 엔트리 description 은 건드리지 않는다"
+setup desc-public; add_plugin "$P" order-sync; market_registered; synced order-sync
+mkdir -p "$P/public-plugins/far-sync/.claude-plugin"; printf '{ "name": "far-sync", "description": "원본" }' > "$P/public-plugins/far-sync/.claude-plugin/plugin.json"
+jq '.plugins += [{"name":"far-sync","source":"./public-plugins/far-sync","category":"public","description":"다른 설명"}]' "$P/.claude-plugin/marketplace.json" > "$P/m.tmp" && mv "$P/m.tmp" "$P/.claude-plugin/marketplace.json"
+run_hook
+[ "$(jq -r '.plugins[] | select(.name=="far-sync") | .description' "$P/.claude-plugin/marketplace.json")" = "다른 설명" ] || fail_tc "public 을 고침"
+
+tc TC-Y33 "plugin.json 에 description 이 없으면 엔트리를 비우지 않는다"
+setup desc-empty; add_plugin "$P" order-sync; market_registered; synced order-sync
+jq '.plugins |= map(.description = "기존 설명")' "$P/.claude-plugin/marketplace.json" > "$P/m.tmp" && mv "$P/m.tmp" "$P/.claude-plugin/marketplace.json"
+run_hook
+[ "$(jq -r '.plugins[0].description' "$P/.claude-plugin/marketplace.json")" = "기존 설명" ] || fail_tc "비워짐"
+
 flush_tc
 echo
 printf '통과 %d / 실패 %d\n' "$PASS" "$FAIL"

@@ -1,0 +1,82 @@
+[
+  {
+    "name": "database",
+    "kind": "domain",
+    "description": "DB 연동/쿼리/마이그레이션"
+  },
+  {
+    "name": "deployment",
+    "kind": "domain",
+    "description": "배포/인프라/IaC"
+  },
+  {
+    "name": "development",
+    "kind": "domain",
+    "description": "코드/프레임워크/SDK 개발"
+  },
+  {
+    "name": "docker",
+    "kind": "technology",
+    "description": "Docker 컨테이너"
+  },
+  {
+    "name": "git",
+    "kind": "technology",
+    "description": "Git 워크플로우"
+  },
+  {
+    "name": "github",
+    "kind": "technology",
+    "description": "GitHub 연동"
+  },
+  {
+    "name": "gitlab",
+    "kind": "technology",
+    "description": "GitLab 연동"
+  },
+  {
+    "name": "jira",
+    "kind": "technology",
+    "description": "Jira 연동"
+  },
+  {
+    "name": "k8s",
+    "kind": "technology",
+    "description": "Kubernetes 오케스트레이션"
+  },
+  {
+    "name": "monitoring",
+    "kind": "domain",
+    "description": "APM/로깅/알림"
+  },
+  {
+    "name": "notion",
+    "kind": "technology",
+    "description": "Notion 연동"
+  },
+  {
+    "name": "productivity",
+    "kind": "domain",
+    "description": "문서/협업/프로젝트 관리"
+  },
+  {
+    "name": "react",
+    "kind": "technology",
+    "description": "React/Next.js"
+  },
+  {
+    "name": "security",
+    "kind": "domain",
+    "description": "보안 스캔/취약점 체크"
+  },
+  {
+    "name": "spring",
+    "kind": "technology",
+    "description": "Spring Boot/Framework"
+  },
+  {
+    "name": "vercel",
+    "kind": "technology",
+    "description": "Vercel 플랫폼"
+  }
+]
