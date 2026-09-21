@@ -36,7 +36,7 @@ case "$1 $2" in
       add)  [ "${STUB_ADD_FAIL:-0}" = 1 ] && exit 1; exit 0 ;;
       *) exit 0 ;;
     esac ;;
-  "plugin list")      cat "$STUB_PLUGINS" ;;
+  "plugin list")      if [ "${3:-}" = "--json" ]; then cat "$STUB_PLUGINS"; else cat "${STUB_PLUGINS_TEXT:-/dev/null}"; fi ;;
   "plugin install")   [ "${STUB_INSTALL_FAIL:-0}" = 1 ] && exit 1; exit 0 ;;
   "plugin uninstall") exit 0 ;;
   *) exit 0 ;;
@@ -53,6 +53,7 @@ setup() { # $1=케이스명 → 빈 프로젝트를 만들고 전역 변수를 �
   export STUB_CALLS="$CALLS"
   STUB_MARKETS="$P/markets.json"; printf '[]' > "$STUB_MARKETS"; export STUB_MARKETS
   STUB_PLUGINS="$P/plugins.json"; printf '[]' > "$STUB_PLUGINS"; export STUB_PLUGINS
+  STUB_PLUGINS_TEXT="$P/plugins.txt"; : > "$STUB_PLUGINS_TEXT"; export STUB_PLUGINS_TEXT
   unset STUB_ADD_FAIL STUB_INSTALL_FAIL
 }
 add_plugin() { # $1=프로젝트 $2=이름
@@ -60,6 +61,21 @@ add_plugin() { # $1=프로젝트 $2=이름
   printf '{ "name": "%s" }' "$2" > "$1/internal-plugins/$2/.claude-plugin/plugin.json"
 }
 market_registered() { printf '[{"name":"test-marketplace","source":"directory"}]' > "$STUB_MARKETS"; }
+market_registered_at() { # $1=설치 기준 디렉터리
+  printf '[{"name":"test-marketplace","source":"directory","path":"%s"}]' "$1" > "$STUB_MARKETS"
+}
+register_entry() { # $1=이름 $2=category(기본 internal) $3=source 디렉터리(기본 internal-plugins)
+  jq --arg n "$1" --arg c "${2:-internal}" --arg d "${3:-internal-plugins}" \
+    '.plugins += [{"name":$n,"source":("./" + $d + "/" + $n),"category":$c}]' \
+    "$P/.claude-plugin/marketplace.json" > "$P/m.tmp" && mv "$P/m.tmp" "$P/.claude-plugin/marketplace.json"
+}
+synced() { # $1=이름 — 등록·활성·설치까지 끝난 상태로 만든다 (설치본 = 작업 트리 사본)
+  cp -R "$P/internal-plugins/$1" "$P/installed-$1"
+  register_entry "$1"
+  jq --arg id "$1@test-marketplace" '.enabledPlugins[$id] = true' "$P/.claude/settings.json" > "$P/s.tmp" && mv "$P/s.tmp" "$P/.claude/settings.json"
+  jq --arg id "$1@test-marketplace" --arg p "$P/installed-$1" \
+    '. + [{"id":$id,"enabled":true,"scope":"project","installPath":$p}]' "$STUB_PLUGINS" > "$P/p.tmp" && mv "$P/p.tmp" "$STUB_PLUGINS"
+}
 plugin_installed() { # $1=id $2=installPath
   printf '[{"id":"%s","enabled":true,"scope":"project","installPath":"%s"}]' "$1" "$2" > "$STUB_PLUGINS"
 }
@@ -150,6 +166,107 @@ jq '.plugins += [{"name":"order-sync","source":"./internal-plugins/order-sync","
 printf '{"enabledPlugins":{"order-sync@test-marketplace":true}}' > "$P/.claude/settings.json"
 OUT="$(CLAUDE_PROJECT_DIR="$P" "$HOOK" --quiet 2>&1)"; CODE=$?
 expect_code 0; [ -z "$OUT" ] || fail_tc "출력이 있으면 안 됨: $OUT"
+
+echo "== 끄기 · 정리 =="
+
+tc TC-Y15 "명시적 false 는 true 로 되돌리지 않는다"
+setup keep-false; add_plugin "$P" order-sync; market_registered; register_entry order-sync
+printf '{"enabledPlugins":{"order-sync@test-marketplace":false}}' > "$P/.claude/settings.json"
+run_hook
+expect_code 0
+[ "$(jq -r '.enabledPlugins["order-sync@test-marketplace"]' "$P/.claude/settings.json")" = "false" ] || fail_tc "false 가 true 로 바뀜"
+
+tc TC-Y16 "끈 플러그인은 설치하지 않고 알린다"
+expect_nocall "plugin install"; expect_out "꺼져 있다"
+
+tc TC-Y17 "디렉터리가 사라진 internal 엔트리를 marketplace.json 에서 지운다"
+setup gone; add_plugin "$P" order-sync; market_registered; synced order-sync
+register_entry ghost-sync
+jq '.enabledPlugins["ghost-sync@test-marketplace"] = true' "$P/.claude/settings.json" > "$P/s.tmp" && mv "$P/s.tmp" "$P/.claude/settings.json"
+jq '. + [{"id":"ghost-sync@test-marketplace","enabled":true,"scope":"project","installPath":"/nowhere"}]' "$STUB_PLUGINS" > "$P/p.tmp" && mv "$P/p.tmp" "$STUB_PLUGINS"
+run_hook
+expect_code 0; expect_out "'ghost-sync' 제거"
+jq -e 'any(.plugins[]; .name == "ghost-sync")' "$P/.claude-plugin/marketplace.json" >/dev/null && fail_tc "엔트리가 남아 있음"
+jq -e 'any(.plugins[]; .name == "order-sync")' "$P/.claude-plugin/marketplace.json" >/dev/null || fail_tc "살아 있는 엔트리까지 지움"
+
+tc TC-Y18 "사라진 플러그인의 enabledPlugins 키도 지운다"
+jq -e '.enabledPlugins | has("ghost-sync@test-marketplace")' "$P/.claude/settings.json" >/dev/null && fail_tc "키가 남아 있음"
+jq -e '.enabledPlugins["order-sync@test-marketplace"] == true' "$P/.claude/settings.json" >/dev/null || fail_tc "살아 있는 키까지 지움"
+
+tc TC-Y19 "사라진 플러그인의 설치본을 --prune 으로 제거한다"
+expect_call "plugin uninstall ghost-sync@test-marketplace --scope project --prune -y"
+
+tc TC-Y20 "public 엔트리는 디렉터리가 없어도 건드리지 않는다"
+setup gone-public; add_plugin "$P" order-sync; market_registered; synced order-sync
+register_entry far-sync public public-plugins
+run_hook
+expect_code 0
+jq -e 'any(.plugins[]; .name == "far-sync")' "$P/.claude-plugin/marketplace.json" >/dev/null || fail_tc "public 엔트리를 지움"
+expect_nocall "uninstall far-sync"
+
+tc TC-Y21 "플러그인이 전부 사라져도 정리는 한다"
+setup all-gone; mkdir -p "$P/internal-plugins"; market_registered; register_entry ghost-sync
+run_hook
+expect_code 0; expect_out "'ghost-sync' 제거"
+[ "$(jq '.plugins | length' "$P/.claude-plugin/marketplace.json")" = "0" ] || fail_tc "엔트리가 남음"
+
+tc TC-Y22 "설치된 적 없는 사라진 플러그인은 uninstall 을 부르지 않는다"
+expect_nocall "plugin uninstall"
+
+echo "== 설치 기준 (워크트리) =="
+
+tc TC-Y23 "설치 기준이 다른 디렉터리면 작업 트리 변경으로 재설치하지 않는다"
+setup worktree; add_plugin "$P" order-sync
+M="$TMP/worktree-main"; rm -rf "$M"; mkdir -p "$M/internal-plugins"; cp -R "$P/internal-plugins/order-sync" "$M/internal-plugins/"
+market_registered_at "$M"; synced order-sync
+echo "워크트리에서 고친 내용" > "$P/internal-plugins/order-sync/new-rule.md"
+run_hook
+expect_code 0; expect_nocall "plugin uninstall"; expect_nocall "plugin install"
+
+tc TC-Y24 "설치 기준이 다르면 그 사실을 알린다"
+OUT="$(CLAUDE_PROJECT_DIR="$P" "$HOOK" 2>&1)"
+expect_out "머지 뒤 반영"
+
+tc TC-Y25 "설치 기준에 아직 없는 플러그인은 설치하지 않고 알린다"
+setup worktree-new; add_plugin "$P" order-sync; add_plugin "$P" brand-new
+M="$TMP/worktree-main2"; rm -rf "$M"; mkdir -p "$M/internal-plugins"; cp -R "$P/internal-plugins/order-sync" "$M/internal-plugins/"
+market_registered_at "$M"; synced order-sync
+run_hook
+expect_code 0; expect_nocall "install brand-new"; expect_out "'brand-new' 은 설치 기준"
+
+tc TC-Y26 "설치 기준 쪽이 설치본과 다르면 재설치한다"
+setup worktree-drift; add_plugin "$P" order-sync
+M="$TMP/worktree-main3"; rm -rf "$M"; mkdir -p "$M/internal-plugins"; cp -R "$P/internal-plugins/order-sync" "$M/internal-plugins/"
+market_registered_at "$M"; synced order-sync
+echo "main 에 머지된 변경" > "$M/internal-plugins/order-sync/merged.md"
+run_hook
+expect_code 0; expect_call "plugin uninstall order-sync"; expect_call "plugin install order-sync"
+
+tc TC-Y27 "설치 기준 경로가 이 작업 트리면 지금처럼 작업 트리와 비교한다"
+setup same-path; add_plugin "$P" order-sync; market_registered_at "$P"; synced order-sync
+echo "고침" > "$P/internal-plugins/order-sync/changed.md"
+run_hook
+expect_code 0; expect_call "plugin uninstall order-sync"; expect_noout "머지 뒤 반영"
+
+echo "== 로드 확인 =="
+
+tc TC-Y28 "claude plugin list 의 Error 줄을 로드 실패로 보고한다"
+setup load-error; add_plugin "$P" order-sync; market_registered; synced order-sync
+printf '  ❯ order-sync@test-marketplace\n    Version: 0.1.0\n    Error: Hook load failed: Duplicate hooks file detected\n' > "$STUB_PLUGINS_TEXT"
+run_hook
+expect_code 0; expect_out "'order-sync@test-marketplace' 로드 실패"; expect_out "Duplicate hooks file"
+
+tc TC-Y29 "다른 마켓플레이스 플러그인의 Error 는 무시한다"
+setup load-error-other; add_plugin "$P" order-sync; market_registered; synced order-sync
+printf '  ❯ other@else-marketplace\n    Error: boom\n  ❯ order-sync@test-marketplace\n    Status: enabled\n' > "$STUB_PLUGINS_TEXT"
+run_hook
+expect_code 0; expect_noout "로드 실패"; expect_out "1/1 설치됨"
+
+tc TC-Y30 "Error 는 바로 위 플러그인에 붙인다"
+setup load-error-order; add_plugin "$P" order-sync; add_plugin "$P" item-sync; market_registered; synced order-sync; synced item-sync
+printf '  ❯ item-sync@test-marketplace\n    Status: enabled\n  ❯ order-sync@test-marketplace\n    Error: bad manifest\n' > "$STUB_PLUGINS_TEXT"
+run_hook
+expect_out "'order-sync@test-marketplace' 로드 실패"; expect_noout "'item-sync@test-marketplace' 로드 실패"
 
 flush_tc
 echo
