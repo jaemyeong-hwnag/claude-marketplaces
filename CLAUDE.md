@@ -60,6 +60,7 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 - 엔트리 `description` 은 `plugin.json` 과 같다. `version` · `author` 는 엔트리에 쓰지 않는다
 - `common-*` 은 `public-plugins/` 에만 둔다
 - 배포용은 엔트리를 직접 등록한다. 내부용은 등록하지 않는다 — 세션 시작 훅이 한다
+- internal 이 의존하는 public 플러그인은 `.claude/settings.json` `enabledPlugins` 에 `true` 로 커밋한다 — 없으면 설치 뒤 main 이 더러워진다
 - 마켓플레이스 이름은 `claude` 로 시작할 수 없다 (공식 마켓플레이스 사칭으로 거부된다)
 
 ## 내부 플러그인
