@@ -30,7 +30,10 @@ cd "$ROOT" || exit 1
 
 # 1. 자리 확인
 [ "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" = "$MAIN" ] || fail "main 에서 돌린다 (W-10) — 지금 '$(git rev-parse --abbrev-ref HEAD 2>/dev/null)'"
-[ -z "$(git status --porcelain 2>/dev/null)" ] || fail "작업 트리가 깨끗하지 않다 — claude plugin tag 는 깨끗한 트리를 요구한다"
+# 추적 중인 파일의 변경은 어디든, 미추적 파일은 플러그인 디렉터리 안만 본다 — claude plugin tag 의 요구와 같다.
+# (.idea/ 같은 저장소 밖 미추적 파일이 릴리즈를 막지 않게)
+[ -z "$(git status --porcelain --untracked-files=no 2>/dev/null)" ] || fail "추적 중인 파일에 커밋하지 않은 변경이 있다"
+[ -z "$(git status --porcelain -- '*plugins/*' 2>/dev/null)" ] || fail "플러그인 디렉터리가 깨끗하지 않다 — claude plugin tag 는 깨끗한 플러그인 디렉터리를 요구한다"
 git fetch -q origin "$MAIN" 2>/dev/null || [ "$DRY" = 1 ] || fail "origin 에서 main 을 받아올 수 없다"
 if git rev-parse --verify -q "origin/$MAIN" >/dev/null; then
   [ "$(git rev-parse HEAD)" = "$(git rev-parse "origin/$MAIN")" ] || fail "HEAD 가 origin/main 과 다르다 — git pull --ff-only 먼저"

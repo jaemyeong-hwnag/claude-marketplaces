@@ -204,7 +204,7 @@ internal-plugins/marketplace-directory-structure/test/validate-directory-structu
 internal-plugins/plugin-versioning/test/validate-versioning.test.sh  # 버전 규칙 회귀 테스트 (TC 125건)
 internal-plugins/plugin-authoring/test/validate-authoring.test.sh    # 작성 규칙 회귀 테스트 (TC 74건)
 internal-plugins/plugin-dependency/test/validate-dependency.test.sh  # 의존성 회귀 테스트 (TC 55건)
-internal-plugins/plugin-workflow/test/validate-workflow.test.sh      # 개발 플로우 회귀 테스트 (TC 94건)
+internal-plugins/plugin-workflow/test/validate-workflow.test.sh      # 개발 플로우 회귀 테스트 (TC 96건)
 ```
 
 전부 한 번에 — 검증기 · 회귀 테스트 · `claude plugin validate --strict` 를 경로 규칙으로 찾아 돌리고 한 줄씩 요약한다:

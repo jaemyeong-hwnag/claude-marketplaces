@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.2.1
+
+### Fixed
+- `release-plugins.sh` 가 저장소 전체의 미추적 파일(`.idea/` 등)에 막히던 것. 추적 중인 파일의 변경과 **플러그인 디렉터리 안의** 미추적 파일만 본다 — `claude plugin tag` 의 요구와 같다
+
 ## 0.2.0
 
 ### Added

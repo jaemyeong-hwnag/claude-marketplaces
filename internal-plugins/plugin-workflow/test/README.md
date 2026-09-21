@@ -11,7 +11,7 @@ test/validate-workflow.test.sh TC-W5    # ID 접두사로 필터
 
 **실제 git 저장소**로 돈다 — 임시 bare 저장소를 `origin` 으로 두고 클론해서 main · 작업 브랜치 · 원격이 앞서 나간 상태를 만든다. `gh` · `claude` 는 PATH 스텁이라 GitHub 과 설치 상태를 건드리지 않는다.
 
-## 자동 TC (94건)
+## 자동 TC (96건)
 
 ### A. 템플릿 (W-01 · W-02)
 
@@ -120,7 +120,9 @@ test/validate-workflow.test.sh TC-W5    # ID 접두사로 필터
 | TC-W101 | branch-create 는 (받아온) origin/main 에서 브랜치와 워크트리를 만든다 — 로컬 main 이 뒤처져 있어도 |
 | TC-W102 | branch-create 는 이미 있는 워크트리를 거부한다 |
 | TC-W103 | release: main 이 아니면 거부한다 |
-| TC-W104 | release: 작업 트리가 더러우면 거부한다 |
+| TC-W104 | release: 추적 중인 파일에 변경이 있으면 거부한다 |
+| TC-W114 | release: 플러그인 디렉터리의 미추적 파일은 거부한다 |
+| TC-W115 | release: 플러그인 밖 미추적 파일(.idea/ 같은)은 막지 않는다 |
 | TC-W105 | release: HEAD 가 origin/main 과 다르면 거부한다 |
 | TC-W106 | release: 버전이 바뀐 플러그인이 없으면 할 것이 없다 |
 | TC-W107 | release --dry-run: 대상을 보여주고 아무것도 하지 않는다 |

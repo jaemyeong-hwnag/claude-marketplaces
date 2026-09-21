@@ -390,9 +390,17 @@ tc TC-W103 "release: main 이 아니면 거부한다"
 mkrel rl1; gitq "$W" checkout -q feature/7-order-sync
 run "$RP" --dry-run "$W"; expect_code 2; expect_out "main 에서 돌린다"
 
-tc TC-W104 "release: 작업 트리가 더러우면 거부한다"
-mkrel rl2; echo dirty > "$W/dirty.txt"
-run "$RP" --dry-run "$W"; expect_code 2; expect_out "깨끗하지 않다"
+tc TC-W104 "release: 추적 중인 파일에 변경이 있으면 거부한다"
+mkrel rl2; echo changed >> "$W/a.txt"
+run "$RP" --dry-run "$W"; expect_code 2; expect_out "커밋하지 않은 변경"
+
+tc TC-W114 "release: 플러그인 디렉터리의 미추적 파일은 거부한다"
+mkrel rl11; echo x > "$W/internal-plugins/order-sync/stray.md"
+run "$RP" --dry-run "$W"; expect_code 2; expect_out "플러그인 디렉터리가 깨끗하지 않다"
+
+tc TC-W115 "release: 플러그인 밖 미추적 파일(.idea/ 같은)은 막지 않는다"
+mkrel rl12; mkdir -p "$W/.idea"; echo x > "$W/.idea/workspace.xml"; echo x > "$W/.mcp.json"
+run "$RP" --dry-run "$W"; expect_code 0; expect_out "order-sync--v0.2.0"
 
 tc TC-W105 "release: HEAD 가 origin/main 과 다르면 거부한다"
 mkrel rl3; commit_file local.txt l
