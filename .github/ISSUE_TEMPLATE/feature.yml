@@ -1,0 +1,85 @@
+name: 피처
+description: 새 플러그인 · 스킬 · 조항 · 검사 추가, 또는 기존 판정 변경
+title: "[feature] "
+labels: ["feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        새 플러그인을 만들기 전에 기존 플러그인에 스킬·조항을 더하는 것으로 되는지 먼저 본다.
+        관심사 분리 표는 CLAUDE.md 에 있다.
+
+  - type: input
+    id: plugin
+    attributes:
+      label: 대상 플러그인
+      description: 기존 플러그인 이름, 또는 새 플러그인의 이름 후보. 저장소 정책이면 "저장소"
+      placeholder: plugin-versioning
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 범위
+      options:
+        - 기존 플러그인에 추가
+        - 기존 판정 변경 (호환성 깨짐)
+        - 새 내부 플러그인 (internal-plugins/)
+        - 새 배포용 플러그인 (public-plugins/)
+        - 저장소 정책 (.claude/hooks · CLAUDE.md · .github)
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 왜 필요한가
+      description: 지금 무엇이 안 되거나 무엇을 못 막는가
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 무엇을 추가하나
+      description: 조항 · 검사 · 스킬 단위로. 기계로 막을 것과 AI 가 판단할 것을 나눠 적는다
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 기존 플러그인으로 안 되는 이유
+      description: 범위가 "새 … 플러그인" 이면 반드시 적는다. 이미 CLI 가 하는 일이 아닌지도 적는다
+    validations:
+      required: false
+
+  - type: dropdown
+    id: bump
+    attributes:
+      label: 예상 버전 등급
+      options:
+        - MINOR — 조항·스킬·검사 추가
+        - MAJOR — 기존 판정 변경
+        - 새 플러그인 — 0.1.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: 완료 조건
+      value: |
+        - [ ] 규칙 원본(references/)에 조항
+        - [ ] 조항마다 차단 TC + 허용 TC
+        - [ ] CHANGELOG · 버전
+        - [ ] README · CLAUDE.md
+    validations:
+      required: true
+
+  - type: textarea
+    id: design
+    attributes:
+      label: 설계 요약
+      description: .agent-tasks/ 는 git 에 없다. 링크 대신 요점을 붙인다

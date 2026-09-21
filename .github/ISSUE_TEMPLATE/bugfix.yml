@@ -1,0 +1,69 @@
+name: 버그픽스
+description: 규칙 · 훅 · 스크립트가 의도와 다르게 동작한다
+title: "[bugfix] "
+labels: ["bugfix"]
+body:
+  - type: input
+    id: plugin
+    attributes:
+      label: 대상 플러그인
+      description: 플러그인 이름, 또는 저장소 훅이면 스크립트 이름
+      placeholder: plugin-versioning
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 판정 종류
+      options:
+        - 잘못 막음 — 통과해야 할 것을 막았다
+        - 못 막음 — 막아야 할 것을 통과시켰다
+        - 오류 — 스크립트가 실패·중단됐다
+        - 로드 실패 — 설치됐는데 훅·스킬이 안 뜬다
+        - 메시지 — 판정은 맞는데 안내가 틀렸다
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 무슨 일이 일어났나
+      description: 실제 출력을 그대로 붙인다
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대한 것
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: 최소 재현
+      description: 명령 한 줄, 또는 훅 입력 JSON. 이게 그대로 TC 가 된다
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: env
+    attributes:
+      label: 환경
+      value: |
+        $ claude --version
+
+        $ claude plugin list   # 대상 플러그인 부분만
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 더 알아야 할 것
+      description: 같은 결함이 다른 플러그인에도 있는지 본 결과가 있으면

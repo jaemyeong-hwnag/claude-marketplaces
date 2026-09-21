@@ -71,6 +71,16 @@
       "tags": [
         "development"
       ]
+    },
+    {
+      "name": "plugin-workflow",
+      "source": "./internal-plugins/plugin-workflow",
+      "category": "internal",
+      "description": "플러그인 변경이 이슈에서 릴리즈까지 가는 경로를 강제한다 — 이슈·PR 템플릿, 브랜치 이름, main 보호, 리베이스 뒤 머지 커밋, main 에서만 태그. 이름·위치·버전·작성 형식·의존 관계는 관여하지 않는다.",
+      "tags": [
+        "development",
+        "github"
+      ]
     }
   ]
 }
