@@ -58,7 +58,13 @@ fi
 NOTES_DIR="$(mktemp -d)"; trap 'rm -rf "$NOTES_DIR"' EXIT
 LOADERR=""
 if command -v claude >/dev/null 2>&1; then
-  LOADERR="$(claude plugin list 2>/dev/null | awk '/❯/ { id = $NF; next } /^[[:space:]]*Error:/ { sub(/^[[:space:]]*/, ""); print id " " $0 }')"
+  # --json 의 errors 필드 우선, 못 받으면 텍스트의 Error: 줄
+  LJ="$(claude plugin list --json 2>/dev/null)"
+  if printf '%s' "$LJ" | jq -e 'type == "array"' >/dev/null 2>&1; then
+    LOADERR="$(printf '%s' "$LJ" | jq -r '.[] | select((.errors // []) | length > 0) | "\(.id) Error: \(.errors[0])"')"
+  else
+    LOADERR="$(claude plugin list 2>/dev/null | awk '/❯/ { id = $NF; next } /^[[:space:]]*Error:/ { sub(/^[[:space:]]*/, ""); print id " " $0 }')"
+  fi
 fi
 for t in "${TARGETS[@]}"; do
   IFS='|' read -r name ver dir <<< "$t"
@@ -66,7 +72,8 @@ for t in "${TARGETS[@]}"; do
   printf '%s\n' "$LOADERR" | grep -q "^$name@$MARKET " && \
     fail "'$name@$MARKET' 로드 실패가 있다 — 설치 확인(10 단계)을 통과하지 못한 버전은 릴리즈하지 않는다: $(printf '%s\n' "$LOADERR" | grep "^$name@$MARKET " | head -1)"
   git rev-parse -q --verify "refs/tags/$tag" >/dev/null && fail "태그 '$tag' 가 이미 있다"
-  awk -v v="$ver" '/^```/ { f2 = !f2 } $0 == "## " v && !f2 { f = 1; next } /^## / && !f2 { if (f) exit } f' "$dir/CHANGELOG.md" > "$NOTES_DIR/$name.md" 2>/dev/null
+  # '## 0.2.0' 또는 '## 0.2.0 - 2026-09-18' (V-05)
+  awk -v v="$ver" '/^```/ { f2 = !f2 } ($0 == "## " v || index($0, "## " v " - ") == 1) && !f2 { f = 1; next } /^## / && !f2 { if (f) exit } f' "$dir/CHANGELOG.md" > "$NOTES_DIR/$name.md" 2>/dev/null
   [ -n "$(grep -v '^[[:space:]]*$' "$NOTES_DIR/$name.md")" ] || fail "$dir/CHANGELOG.md 에 '## $ver' 절이 없거나 비어 있다"
 done
 

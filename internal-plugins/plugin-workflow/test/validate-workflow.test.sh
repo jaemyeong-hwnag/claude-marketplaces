@@ -55,8 +55,13 @@ case "$1 $2" in
   "plugin tag")
     n="$(jq -r .name .claude-plugin/plugin.json)"; v="$(jq -r .version .claude-plugin/plugin.json)"
     git tag "$n--v$v" && git push -q origin "$n--v$v" 2>/dev/null ;;
-  "plugin list") cat "${STUB_LIST:-/dev/null}" ;;
+  "plugin list") if [ "${3:-}" = "--json" ]; then [ -n "${STUB_LIST_JSON:-}" ] && cat "$STUB_LIST_JSON" || echo '[]'; else cat "${STUB_LIST:-/dev/null}"; fi ;;
   "plugin validate") echo "✔ Validation passed" ;;
+  "plugin eval")
+    out=""; prev=""; for x in "$@"; do [ "$prev" = "--json" ] && out="$x"; prev="$x"; done
+    [ "${STUB_EVAL_NOJSON:-0}" = 1 ] && exit 1
+    [ -n "$out" ] && jq -n --arg s "${STUB_EVAL_SCORE:-1}" --arg e "${STUB_EVAL_ERR:-}" \
+      '{costUsd: 0.1, cases: [{name: "c", aggregates: {score: ($s | tonumber)}, arms: {with: [{error: (if $e == "" then null else $e end)}]}}]}' > "$out" ;;
 esac
 exit 0
 EOS
@@ -409,9 +414,13 @@ expect_call "gh release create order-sync--v0.2.0 --verify-tag --title order-syn
 expect_call "--latest=false"
 [ "$TC_ON" = 1 ] && { grep -qF "새 검사" "$STUB_NOTES_COPY" 2>/dev/null || fail_tc "노트에 0.2.0 절이 없다"; grep -qF "첫" "$STUB_NOTES_COPY" 2>/dev/null && fail_tc "노트에 0.1.0 절까지 들어갔다"; }
 
-tc TC-W109 "release: 설치본에 로드 에러가 있으면 거부한다"
-mkrel rl7; printf '  ❯ order-sync@x-marketplace\n    Error: Hook load failed\n' > "$TMP/list.txt"
-STUB_LIST="$TMP/list.txt" run "$RP" --dry-run "$W"; expect_code 2; expect_out "로드 실패가 있다"
+tc TC-W109 "release: 설치본에 로드 에러가 있으면 거부한다 (--json 의 errors)"
+mkrel rl7; printf '[{"id":"order-sync@x-marketplace","errors":["Hook load failed"]}]' > "$TMP/list.json"
+STUB_LIST_JSON="$TMP/list.json" run "$RP" --dry-run "$W"; expect_code 2; expect_out "로드 실패가 있다"
+
+tc TC-W113 "release: --json 을 못 받으면 텍스트의 Error 줄로 대신한다"
+mkrel rl10; printf 'not json' > "$TMP/bad.json"; printf '  ❯ order-sync@x-marketplace\n    Error: Hook load failed\n' > "$TMP/list.txt"
+STUB_LIST_JSON="$TMP/bad.json" STUB_LIST="$TMP/list.txt" run "$RP" --dry-run "$W"; expect_code 2; expect_out "로드 실패가 있다"
 
 tc TC-W110 "release: 태그가 이미 있으면 거부한다"
 mkrel rl8; gitq "$W" tag order-sync--v0.2.0
@@ -431,6 +440,62 @@ chmod +x "$R/internal-plugins/ok-sync/scripts/validate-ok.sh" "$R/internal-plugi
 run "$VA" "$R"; expect_code 0; expect_out "✅ internal-plugins/ok-sync/test/ok.test.sh — 통과 3 / 실패 0"
 printf '#!/usr/bin/env bash\necho "  - 무언가 틀렸다" >&2; exit 2\n' > "$R/.claude/hooks/validate-bad.sh"; chmod +x "$R/.claude/hooks/validate-bad.sh"
 run "$VA" "$R"; expect_code 1; expect_out "❌ .claude/hooks/validate-bad.sh — 무언가 틀렸다"
+
+echo "== H. eval 러너 =="
+
+EA="$PLUGIN_ROOT/scripts/eval-all.sh"
+mkevals() { # 플러그인 하나에 케이스 셋: 읽기 전용 · Write · scaffold(git)
+  R="$TMP/ev-$1"; rm -rf "$R"; local p="$R/internal-plugins/order-sync"
+  mkdir -p "$p/.claude-plugin" "$p/evals/read-case" "$p/evals/write-case" "$p/evals/git-case"
+  printf '{"name":"order-sync"}' > "$p/.claude-plugin/plugin.json"
+  printf -- '---\nallowed_tools: [Read, Skill]\n---\n\n질문\n' > "$p/evals/read-case/prompt.md"
+  printf -- '---\nallowed_tools: [Write]\n---\n\n만들어\n' > "$p/evals/write-case/prompt.md"
+  printf -- '---\nallowed_tools: [Write]\n---\n\n커밋해\n' > "$p/evals/git-case/prompt.md"
+  printf 'schema_version: "1.1"\nname: git-case\ncontext:\n  scaffold_script: fixture.sh\n' > "$p/evals/git-case/case.yaml"
+  printf '#!/usr/bin/env bash\ngit init -q .\n' > "$p/evals/git-case/fixture.sh"
+}
+call_of() { grep "plugin eval .*/$1/prompt.md" "$CALLS"; }
+
+tc TC-W120 "eval-all: 케이스마다 따로 돌리고 게시하지 않는다"
+mkevals a; : > "$CALLS"; run "$EA" "$R"; expect_code 0
+[ "$TC_ON" = 1 ] && { [ "$(grep -c 'plugin eval' "$CALLS")" = 3 ] || fail_tc "케이스 셋을 따로 돌려야 한다"; grep 'plugin eval' "$CALLS" | grep -qv -- '--no-publish' && fail_tc "--no-publish 가 빠진 실행이 있다"; }
+
+tc TC-W121 "eval-all: 읽기 전용 케이스에는 권한을 주지 않는다"
+[ "$TC_ON" = 1 ] && { call_of read-case | grep -q -- '--allow-tools' && fail_tc "읽기 전용에 권한을 줬다"; }; true
+
+tc TC-W122 "eval-all: Write 케이스에는 Write 만 준다"
+[ "$TC_ON" = 1 ] && { call_of write-case | grep -q -- '--allow-tools Write' || fail_tc "Write 가 없다"; call_of write-case | grep -q 'Bash' && fail_tc "Bash 를 줬다"; }; true
+
+tc TC-W123 "eval-all: git 을 쓰는 scaffold 케이스에는 Bash(git *) 와 --scaffold 를 준다"
+[ "$TC_ON" = 1 ] && { call_of git-case | grep -qF 'Bash(git *)' || fail_tc "Bash(git *) 가 없다"; call_of git-case | grep -q -- '--scaffold' || fail_tc "--scaffold 가 없다"; call_of read-case | grep -q -- '--scaffold' && fail_tc "다른 케이스에 --scaffold"; }; true
+
+tc TC-W130 "eval-all: allowed_tools 의 Bash 는 git 명령으로만 좁혀 준다"
+mkevals g; printf -- '---\nallowed_tools: [Bash]\n---\n\n돌려\n' > "$R/internal-plugins/order-sync/evals/read-case/prompt.md"
+: > "$CALLS"; run "$EA" "$R"
+[ "$TC_ON" = 1 ] && { call_of read-case | grep -qF -- '--allow-tools Bash(git *)' || fail_tc "Bash(git *) 로 좁혀지지 않았다: $(call_of read-case)"; }; true
+
+tc TC-W124 "eval-all: 결과를 플러그인 밖에 쓴다"
+[ "$TC_ON" = 1 ] && { [ -e "$R/internal-plugins/order-sync/evals/results" ] && fail_tc "플러그인 안에 results/ 가 생겼다"; grep 'plugin eval' "$CALLS" | grep -q -- "--output-dir $R" && fail_tc "출력이 저장소 안"; }; true
+
+tc TC-W125 "eval-all: --quick 은 1회 · 기준선 없이"
+mkevals b; : > "$CALLS"; run "$EA" --quick "$R"
+[ "$TC_ON" = 1 ] && { grep 'plugin eval' "$CALLS" | grep -qv -- '--runs 1 --ablation none' && fail_tc "--quick 인자가 빠졌다"; }; true
+
+tc TC-W126 "eval-all: 기준 미달이면 ❌ 와 종료 코드 1"
+mkevals c; STUB_EVAL_SCORE=0.5 run "$EA" "$R"; expect_code 1; expect_out "❌"
+
+tc TC-W127 "eval-all: Bash 샌드박스를 못 쓰는 환경은 실패가 아니라 환경 제한이다"
+mkevals d; STUB_EVAL_SCORE=0 STUB_EVAL_ERR="the Bash sandbox cannot reliably exclude it — a Bash-granting evaluation cannot run here" run "$EA" "$R"
+expect_code 0; expect_out "⚠️ 환경 제한"; expect_not "❌"
+
+tc TC-W128 "eval-all: 결과 JSON 이 없으면 실행 실패다"
+mkevals e; STUB_EVAL_NOJSON=1 run "$EA" "$R"; expect_code 1; expect_out "실행 실패"
+
+tc TC-W129 "eval-all: --plugin 으로 한 플러그인만"
+mkevals f; mkdir -p "$R/internal-plugins/item-sync/.claude-plugin" "$R/internal-plugins/item-sync/evals/x"; printf '{"name":"item-sync"}' > "$R/internal-plugins/item-sync/.claude-plugin/plugin.json"
+printf -- '---\n---\n\nq\n' > "$R/internal-plugins/item-sync/evals/x/prompt.md"
+: > "$CALLS"; run "$EA" --plugin item-sync "$R"
+[ "$TC_ON" = 1 ] && { [ "$(grep -c 'plugin eval' "$CALLS")" = 1 ] || fail_tc "item-sync 하나만 돌아야 한다"; }; true
 
 flush_tc
 echo

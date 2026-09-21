@@ -20,6 +20,8 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 �
 | issue-create | 작업 시작, 이슈 · 브랜치 · 워크트리 만들기 | 1 · 2 단계 — 타입 판단, 이슈 발행, `origin/main` 에서 브랜치 · 워크트리 |
 | pull-request-create | PR 올리기, 리베이스, 검증 | 4 ~ 8 단계 — 버전, 검증 · 테스트, 리베이스 뒤 재검증, 템플릿 PR |
 | release-create | 머지, 릴리즈, 태그, 정리 | 9 ~ 12 단계 — 머지 커밋, 설치 확인, 태그 · 릴리즈, 정리 |
+| plugin-create | 새 플러그인 만들기 | 필요성 판단 → 이름 → 디렉터리 → 버전 → README → 의존성 → 등록 → eval → 검증 → 설치 확인 |
+| plugin-delete | 플러그인 삭제 · 비활성화 | 역참조 확인 → 의존 끊기 → 디렉터리 · 등록 정리. 태그는 남긴다 |
 | /workflow-validate | 직접 호출 | 템플릿 · 현재 브랜치 · 최신 여부 |
 
 ## 포함된 훅
@@ -37,7 +39,9 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 �
 | `scripts/branch-create.sh` | 2 단계 — 규칙에 맞는 브랜치와 워크트리를 `origin/main` 에서 |
 | `scripts/verify-all.sh` | 5 · 6 단계 — 검증기 · 회귀 테스트 · `claude plugin validate` 를 경로 규칙으로 찾아 전부 |
 | `scripts/release-plugins.sh` | 11 단계 — 버전이 바뀐 플러그인마다 태그 · 릴리즈 (`--dry-run`) |
+| `scripts/eval-all.sh` | 모든 플러그인의 eval 케이스를 케이스 단위로 — 필요한 권한만 주고, 리포트는 게시하지 않는다 (`--quick`) |
 | `test/` | 회귀 테스트와 TC 명세 |
+| `evals/` | `claude plugin eval` 케이스 — PR · 생성 · 삭제 스킬 발동 · main 커밋 차단. `plugin-workflow` 의 `eval-all.sh` 로 돈다 |
 
 템플릿 자체는 GitHub 가 읽는 자리인 저장소 `.github/` 에 있다. 이 플러그인은 그 존재와 형식을 검사한다 (`W-01` · `W-02`).
 

@@ -1,17 +1,17 @@
 # 개발 플로우 테스트
 
-`validate-workflow.sh`(훅 · CLI) · `branch-create.sh` · `release-plugins.sh` · `verify-all.sh` 의 회귀 테스트.
+`validate-workflow.sh`(훅 · CLI) · `branch-create.sh` · `release-plugins.sh` · `verify-all.sh` · `eval-all.sh` 의 회귀 테스트. `eval-all.sh` 는 `claude plugin eval` 을 스텁으로 대신해 모델을 부르지 않는다.
 
 ## 실행
 
 ```bash
-test/validate-workflow.test.sh          # 전체 (~10초)
+test/validate-workflow.test.sh          # 전체 (~15초)
 test/validate-workflow.test.sh TC-W5    # ID 접두사로 필터
 ```
 
 **실제 git 저장소**로 돈다 — 임시 bare 저장소를 `origin` 으로 두고 클론해서 main · 작업 브랜치 · 원격이 앞서 나간 상태를 만든다. `gh` · `claude` 는 PATH 스텁이라 GitHub 과 설치 상태를 건드리지 않는다.
 
-## 자동 TC (82건)
+## 자동 TC (94건)
 
 ### A. 템플릿 (W-01 · W-02)
 
@@ -125,10 +125,27 @@ test/validate-workflow.test.sh TC-W5    # ID 접두사로 필터
 | TC-W106 | release: 버전이 바뀐 플러그인이 없으면 할 것이 없다 |
 | TC-W107 | release --dry-run: 대상을 보여주고 아무것도 하지 않는다 |
 | TC-W108 | release: 태그를 달고 CHANGELOG 절을 노트로 릴리즈한다 |
-| TC-W109 | release: 설치본에 로드 에러가 있으면 거부한다 |
+| TC-W109 | release: 설치본에 로드 에러가 있으면 거부한다 (--json 의 errors) |
+| TC-W113 | release: --json 을 못 받으면 텍스트의 Error 줄로 대신한다 |
 | TC-W110 | release: 태그가 이미 있으면 거부한다 |
 | TC-W111 | release: CHANGELOG 에 그 버전 절이 없으면 거부한다 |
 | TC-W112 | verify-all: 전부 통과하면 0, 실패가 있으면 1 과 ❌ 줄 |
+
+### H. eval 러너
+
+| ID | 케이스 |
+|---|---|
+| TC-W120 | eval-all: 케이스마다 따로 돌리고 게시하지 않는다 |
+| TC-W121 | eval-all: 읽기 전용 케이스에는 권한을 주지 않는다 |
+| TC-W122 | eval-all: Write 케이스에는 Write 만 준다 |
+| TC-W123 | eval-all: git 을 쓰는 scaffold 케이스에는 Bash(git *) 와 --scaffold 를 준다 |
+| TC-W130 | eval-all: allowed_tools 의 Bash 는 git 명령으로만 좁혀 준다 |
+| TC-W124 | eval-all: 결과를 플러그인 밖에 쓴다 |
+| TC-W125 | eval-all: --quick 은 1회 · 기준선 없이 |
+| TC-W126 | eval-all: 기준 미달이면 ❌ 와 종료 코드 1 |
+| TC-W127 | eval-all: Bash 샌드박스를 못 쓰는 환경은 실패가 아니라 환경 제한이다 |
+| TC-W128 | eval-all: 결과 JSON 이 없으면 실행 실패다 |
+| TC-W129 | eval-all: --plugin 으로 한 플러그인만 |
 
 ## 수동 TC (새 세션 필요)
 
@@ -165,6 +182,10 @@ test/validate-workflow.test.sh TC-W5    # ID 접두사로 필터
 | M18 release 노트 절 끊기 제거 | 1 |
 | M19 release 대상 고르기(버전 변경) 제거 | 1 |
 | M20 branch-create 가 origin/main 대신 로컬 HEAD 기준 | 1 (TC-W101 — 처음엔 살아남아 TC 를 보강했다) |
+| M21 eval: Bash 를 git 으로 좁히지 않음 | 1 (TC-W130 — 처음엔 살아남아 TC 를 보강했다) |
+| M22 eval: scaffold 의 git 권한 누락 | 1 |
+| M23 eval: 환경 제한 구분 제거 | 1 |
+| M24 eval: `--no-publish` 빠짐 | 1 |
 
 ## 알려진 한계
 
