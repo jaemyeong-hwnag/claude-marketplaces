@@ -57,6 +57,14 @@ if [ "${#TARGETS[@]}" -eq 0 ]; then
   exit 0
 fi
 
+# 직전 릴리즈 버전 — 이 플러그인의 태그 중 이번 버전보다 낮은 것 가운데 가장 높은 것. 없으면 빈 값
+prev_tag_version() { # $1=이름 $2=이번 버전
+  git tag -l "$1--v*" | sed "s/^$1--v//" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+    | awk -F. -v c="$2" 'BEGIN { split(c, C, ".") }
+        { if ($1+0 < C[1]+0 || ($1+0 == C[1]+0 && ($2+0 < C[2]+0 || ($2+0 == C[2]+0 && $3+0 < C[3]+0)))) print }' \
+    | sort -t. -k1,1n -k2,2n -k3,3n | tail -1
+}
+
 # 3. 사전 확인
 NOTES_DIR="$(mktemp -d)"; trap 'rm -rf "$NOTES_DIR"' EXIT
 LOADERR=""
@@ -75,8 +83,18 @@ for t in "${TARGETS[@]}"; do
   printf '%s\n' "$LOADERR" | grep -q "^$name@$MARKET " && \
     fail "'$name@$MARKET' 로드 실패가 있다 — 설치 확인(10 단계)을 통과하지 못한 버전은 릴리즈하지 않는다: $(printf '%s\n' "$LOADERR" | grep "^$name@$MARKET " | head -1)"
   git rev-parse -q --verify "refs/tags/$tag" >/dev/null && fail "태그 '$tag' 가 이미 있다"
-  # '## 0.2.0' 또는 '## 0.2.0 - 2026-09-18' (V-05)
-  awk -v v="$ver" '/^```/ { f2 = !f2 } ($0 == "## " v || index($0, "## " v " - ") == 1) && !f2 { f = 1; next } /^## / && !f2 { if (f) exit } f' "$dir/CHANGELOG.md" > "$NOTES_DIR/$name.md" 2>/dev/null
+  # 노트 = 이번 버전 절부터 직전 태그 버전의 절 앞까지. 태그가 한 번도 없었으면 끝까지 (첫 릴리즈).
+  # 제목은 '## 0.2.0' 또는 '## 0.2.0 - 2026-09-18' (V-05). 첫 제목은 릴리즈 제목과 겹치므로 뺀다.
+  prev="$(prev_tag_version "$name" "$ver")"
+  awk -v v="$ver" -v p="$prev" '
+    /^```/ { fence = !fence }
+    !fence && /^## / {
+      h = substr($0, 4); sub(/[[:space:]]+-[[:space:]].*$/, "", h)
+      if (!on) { if (h == v) on = 1; next }
+      if (p != "" && h == p) exit
+    }
+    on { print }
+  ' "$dir/CHANGELOG.md" > "$NOTES_DIR/$name.md" 2>/dev/null
   [ -n "$(grep -v '^[[:space:]]*$' "$NOTES_DIR/$name.md")" ] || fail "$dir/CHANGELOG.md 에 '## $ver' 절이 없거나 비어 있다"
 done
 
