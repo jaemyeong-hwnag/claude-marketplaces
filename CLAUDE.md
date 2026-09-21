@@ -53,6 +53,7 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 - `hooks/` 는 매니페스트(`*.json`)만, 실행 코드는 `scripts/*.sh` 에 둔다. 문서 모음은 `docs/` 가 아니라 `references/` 다.
 - `skills/` 아래에는 스킬 디렉터리만 두고 각 디렉터리에 `SKILL.md` 가 있어야 한다. 스킬 디렉터리 안쪽은 자유다.
 - `plugin.json` 의 `name` 은 디렉터리명과 같아야 한다.
+- `plugin.json` 에 `"hooks": "./hooks/hooks.json"` 을 적지 않는다. 표준 경로는 자동 로드되고, 적으면 중복으로 **훅 로딩 전체가 실패한다.** `claude plugin validate --strict` 는 못 잡고 `claude plugin list` 의 Error 줄에만 나온다.
 - 설계 메모·작업 문서는 플러그인 안이 아니라 `.agent-tasks/<주제>/` 에 둔다.
 - 마켓플레이스 루트 `.claude-plugin/` 에는 `marketplace.json` `tags.json` `categories.json` `plugins.json` `keywords.json` 만 둔다.
 
@@ -127,7 +128,7 @@ internal-plugins/plugin-versioning/scripts/validate-versioning.sh --all .  # 버
 test/validate-plugin-scope.test.sh                                   # 배치 정책 TC 10건
 test/sync-internal-plugins.test.sh                                   # 동기화 훅 TC 14건
 internal-plugins/plugin-naming/test/validate-naming.test.sh          # 이름 규칙 회귀 테스트 (TC 86건)
-internal-plugins/marketplace-directory-structure/test/validate-directory-structure.test.sh  # 구조 규칙 회귀 테스트 (TC 39건)
+internal-plugins/marketplace-directory-structure/test/validate-directory-structure.test.sh  # 구조 규칙 회귀 테스트 (TC 45건)
 internal-plugins/plugin-versioning/test/validate-versioning.test.sh  # 버전 규칙 회귀 테스트 (TC 91건)
 ```
 
