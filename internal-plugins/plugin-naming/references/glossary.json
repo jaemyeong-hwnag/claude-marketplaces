@@ -232,11 +232,27 @@
   ],
   "quality": [
     {
+      "use": "authoring",
+      "deny": [
+        "authorring",
+        "writing-rule"
+      ],
+      "meaning": "파일 내용을 쓰는 형식 규칙"
+    },
+    {
       "use": "coverage",
       "deny": [
         "cov"
       ],
       "meaning": "테스트 커버리지"
+    },
+    {
+      "use": "dependency",
+      "deny": [
+        "deps",
+        "dependancy"
+      ],
+      "meaning": "다른 것에 기대는 관계"
     },
     {
       "use": "naming",
@@ -279,6 +295,14 @@
         "version-rule"
       ],
       "meaning": "버전을 매기고 올리는 규칙"
+    },
+    {
+      "use": "workflow",
+      "deny": [
+        "flow",
+        "work-flow"
+      ],
+      "meaning": "변경이 시작부터 반영까지 거치는 절차"
     }
   ],
   "role": [
