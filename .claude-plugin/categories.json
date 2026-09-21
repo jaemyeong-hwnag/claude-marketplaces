@@ -1,0 +1,10 @@
+[
+  {
+    "name": "internal",
+    "description": "이 저장소 전용. internal-plugins/ 에 둔다"
+  },
+  {
+    "name": "public",
+    "description": "github 마켓플레이스로 배포한다. public-plugins/ 에 둔다"
+  }
+]

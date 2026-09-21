@@ -1,0 +1,86 @@
+{
+  "name": "plugin-marketplace",
+  "owner": {
+    "name": "황재명",
+    "email": "woaudsla@gmail.com"
+  },
+  "metadata": {
+    "description": "Claude Code 플러그인 모음. public-plugins/ 는 github 로 배포하는 플러그인, internal-plugins/ 는 이 저장소가 내부에서 쓰는 플러그인이다.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "plugin-naming",
+      "source": "./internal-plugins/plugin-naming",
+      "category": "internal",
+      "description": "플러그인·스킬·커맨드·에이전트 이름을 kebab-case 규칙과 glossary 사전으로 강제한다. 이름만 다루며 배포·배치 정책은 관여하지 않는다.",
+      "tags": [
+        "development"
+      ],
+      "keywords": [
+        "naming",
+        "convention",
+        "glossary",
+        "internal"
+      ]
+    },
+    {
+      "name": "marketplace-directory-structure",
+      "source": "./internal-plugins/marketplace-directory-structure",
+      "category": "internal",
+      "description": "마켓플레이스 루트와 개별 플러그인의 디렉터리 구조를 강제한다. 어떤 파일을 어디에 두는지만 다루며 이름 규칙·배치 정책은 관여하지 않는다.",
+      "tags": [
+        "development"
+      ],
+      "keywords": [
+        "directory",
+        "structure",
+        "marketplace",
+        "internal"
+      ]
+    },
+    {
+      "name": "plugin-versioning",
+      "source": "./internal-plugins/plugin-versioning",
+      "category": "internal",
+      "description": "플러그인 버전 값과 plugin.json · CHANGELOG.md · marketplace 엔트리 · git 태그의 정합성을 강제한다. 버전만 다루며 이름·디렉터리 구조·배포 정책은 관여하지 않는다.",
+      "tags": [
+        "development"
+      ],
+      "keywords": [
+        "versioning",
+        "changelog",
+        "tag",
+        "internal"
+      ]
+    },
+    {
+      "name": "plugin-authoring",
+      "source": "./internal-plugins/plugin-authoring",
+      "category": "internal",
+      "description": "플러그인 파일의 내용 형식을 강제한다 — 스킬·커맨드·에이전트 프런트매터, 스킬 본문·참조 문서 크기, README 절 구성과 실제 구성요소의 일치. 이름·위치·버전은 관여하지 않는다.",
+      "tags": [
+        "development"
+      ]
+    },
+    {
+      "name": "plugin-dependency",
+      "source": "./internal-plugins/plugin-dependency",
+      "category": "internal",
+      "description": "플러그인 사이의 의존 관계를 강제한다 — 존재 · 순환 · common 과 번들의 층 · 마켓플레이스 경계 · public→internal 금지 · 버전 범위 겹침. 범위 문자열 형식과 이름·위치는 관여하지 않는다.",
+      "tags": [
+        "development"
+      ]
+    },
+    {
+      "name": "plugin-workflow",
+      "source": "./internal-plugins/plugin-workflow",
+      "category": "internal",
+      "description": "플러그인 변경이 이슈에서 릴리즈까지 가는 경로를 강제한다 — 이슈·PR 템플릿, 브랜치 이름, main 보호, 리베이스 뒤 머지 커밋, main 에서만 태그. 이름·위치·버전·작성 형식·의존 관계는 관여하지 않는다.",
+      "tags": [
+        "development",
+        "github"
+      ]
+    }
+  ]
+}

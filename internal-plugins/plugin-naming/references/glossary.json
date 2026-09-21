@@ -1,0 +1,361 @@
+{
+  "abbreviation": [
+    {
+      "use": "api",
+      "deny": [
+        "apis",
+        "application-programming-interface"
+      ],
+      "meaning": "업계 표준 약어, 정식 명칭으로 사용"
+    },
+    {
+      "use": "cd",
+      "deny": [
+        "continuous-delivery",
+        "continuous-deployment"
+      ],
+      "meaning": "지속적 배포"
+    },
+    {
+      "use": "ci",
+      "deny": [
+        "continuous-integration"
+      ],
+      "meaning": "지속적 통합"
+    },
+    {
+      "use": "cli",
+      "deny": [
+        "commandline",
+        "command-line"
+      ],
+      "meaning": "커맨드라인 인터페이스"
+    },
+    {
+      "use": "http",
+      "deny": [
+        "hypertext-transfer-protocol"
+      ],
+      "meaning": "HTTP 프로토콜"
+    },
+    {
+      "use": "k8s",
+      "deny": [
+        "kube",
+        "kubernetes"
+      ],
+      "meaning": "쿠버네티스, 공식 약어"
+    },
+    {
+      "use": "mcp",
+      "deny": [
+        "model-context-protocol"
+      ],
+      "meaning": "Model Context Protocol"
+    },
+    {
+      "use": "sdk",
+      "deny": [
+        "software-development-kit"
+      ],
+      "meaning": "소프트웨어 개발 키트"
+    },
+    {
+      "use": "sql",
+      "deny": [
+        "structured-query-language"
+      ],
+      "meaning": "SQL"
+    }
+  ],
+  "action": [
+    {
+      "use": "create",
+      "deny": [
+        "make",
+        "add",
+        "new",
+        "register"
+      ],
+      "meaning": "생성"
+    },
+    {
+      "use": "delete",
+      "deny": [
+        "remove",
+        "destroy",
+        "erase"
+      ],
+      "meaning": "삭제"
+    },
+    {
+      "use": "generate",
+      "deny": [
+        "gen"
+      ],
+      "meaning": "산출물 자동 생성"
+    },
+    {
+      "use": "get",
+      "deny": [
+        "fetch",
+        "retrieve",
+        "load"
+      ],
+      "meaning": "단건 조회"
+    },
+    {
+      "use": "list",
+      "deny": [
+        "findall",
+        "all"
+      ],
+      "meaning": "목록 조회"
+    },
+    {
+      "use": "review",
+      "deny": [
+        "inspect",
+        "audit"
+      ],
+      "meaning": "판단이 필요한 검토"
+    },
+    {
+      "use": "sync",
+      "deny": [
+        "synchronize",
+        "mirror"
+      ],
+      "meaning": "동기화"
+    },
+    {
+      "use": "update",
+      "deny": [
+        "modify",
+        "change"
+      ],
+      "meaning": "수정"
+    },
+    {
+      "use": "validate",
+      "deny": [
+        "check",
+        "verify"
+      ],
+      "meaning": "규칙 위반 여부 기계 검증"
+    }
+  ],
+  "artifact": [
+    {
+      "use": "config",
+      "deny": [
+        "cfg",
+        "conf",
+        "configuration"
+      ],
+      "meaning": "설정 파일 또는 설정 값"
+    },
+    {
+      "use": "directory",
+      "deny": [
+        "dir",
+        "folder"
+      ],
+      "meaning": "디렉터리"
+    },
+    {
+      "use": "document",
+      "deny": [
+        "doc",
+        "docs"
+      ],
+      "meaning": "문서"
+    },
+    {
+      "use": "file",
+      "deny": [
+        "blob"
+      ],
+      "meaning": "파일"
+    },
+    {
+      "use": "glossary",
+      "deny": [
+        "dictionary",
+        "vocab"
+      ],
+      "meaning": "네이밍 사전"
+    },
+    {
+      "use": "name",
+      "deny": [
+        "identifier",
+        "label",
+        "title"
+      ],
+      "meaning": "식별에 쓰는 이름"
+    },
+    {
+      "use": "plugin",
+      "deny": [
+        "addon",
+        "extension",
+        "pkg"
+      ],
+      "meaning": "Claude Code 플러그인"
+    },
+    {
+      "use": "repository",
+      "deny": [
+        "repo"
+      ],
+      "meaning": "저장소"
+    },
+    {
+      "use": "template",
+      "deny": [
+        "tmpl",
+        "tpl"
+      ],
+      "meaning": "템플릿"
+    }
+  ],
+  "platform": [
+    {
+      "use": "git",
+      "deny": [
+        "vcs",
+        "scm"
+      ],
+      "meaning": "Git 버전 관리"
+    }
+  ],
+  "quality": [
+    {
+      "use": "authoring",
+      "deny": [
+        "authorring",
+        "writing-rule"
+      ],
+      "meaning": "파일 내용을 쓰는 형식 규칙"
+    },
+    {
+      "use": "coverage",
+      "deny": [
+        "cov"
+      ],
+      "meaning": "테스트 커버리지"
+    },
+    {
+      "use": "dependency",
+      "deny": [
+        "deps",
+        "dependancy"
+      ],
+      "meaning": "다른 것에 기대는 관계"
+    },
+    {
+      "use": "naming",
+      "deny": [
+        "nameing",
+        "name-rule"
+      ],
+      "meaning": "이름 짓기 규칙"
+    },
+    {
+      "use": "standard",
+      "deny": [
+        "std",
+        "preset"
+      ],
+      "meaning": "번들 플러그인 접미사"
+    },
+    {
+      "use": "structure",
+      "deny": [
+        "layout",
+        "scaffold",
+        "tree"
+      ],
+      "meaning": "구성 요소의 배치 구조"
+    },
+    {
+      "use": "test",
+      "deny": [
+        "spec",
+        "testing"
+      ],
+      "meaning": "테스트"
+    },
+    {
+      "use": "versioning",
+      "deny": [
+        "semver",
+        "versionning",
+        "version-rule"
+      ],
+      "meaning": "버전을 매기고 올리는 규칙"
+    },
+    {
+      "use": "workflow",
+      "deny": [
+        "flow",
+        "work-flow"
+      ],
+      "meaning": "변경이 시작부터 반영까지 거치는 절차"
+    }
+  ],
+  "role": [
+    {
+      "use": "reviewer",
+      "deny": [
+        "auditor",
+        "inspector"
+      ],
+      "meaning": "검토를 수행하는 주체"
+    }
+  ],
+  "time": [
+    {
+      "use": "date",
+      "deny": [
+        "day"
+      ],
+      "meaning": "날짜만 (LocalDate)"
+    },
+    {
+      "use": "datetime",
+      "deny": [
+        "at",
+        "timestamp",
+        "time"
+      ],
+      "meaning": "날짜와 시간 (LocalDateTime)"
+    },
+    {
+      "use": "duration",
+      "deny": [
+        "period",
+        "elapsed"
+      ],
+      "meaning": "소요 시간"
+    },
+    {
+      "use": "end",
+      "deny": [
+        "to",
+        "finish",
+        "until"
+      ],
+      "meaning": "기간 종료 접두사"
+    },
+    {
+      "use": "start",
+      "deny": [
+        "begin",
+        "from"
+      ],
+      "meaning": "기간 시작 접두사"
+    }
+  ]
+}
