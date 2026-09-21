@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.1
+
+### Added
+- eval 케이스 둘 — 스킬 발동 · 훅 차단 (`evals/`). `plugin-workflow` 의 `eval-all.sh` 로 돈다
+
 ## 0.1.0
 
 ### Added

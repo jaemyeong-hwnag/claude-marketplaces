@@ -33,6 +33,7 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 �
 | `references/dependency-rules.md` | 의존성 규칙 원본 (`D-01` ~ `D-11`) |
 | `scripts/validate-dependency.sh` | 기계 검증. 그래프 계산(순환 · 범위 교집합)은 jq 로 한다 — macOS 기본 bash 3.2 에는 연관 배열이 없다 |
 | `test/` | 회귀 테스트와 TC 명세 |
+| `evals/` | `claude plugin eval` 케이스 — 번들 안내 스킬 발동 · 순환 알림. `plugin-workflow` 의 `eval-all.sh` 로 돈다 |
 
 ## 무엇을 막나
 
