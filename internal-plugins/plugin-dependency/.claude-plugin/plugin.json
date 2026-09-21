@@ -1,0 +1,16 @@
+{
+  "name": "plugin-dependency",
+  "description": "플러그인 사이의 의존 관계를 강제한다 — 존재 · 순환 · common 과 번들의 층 · 마켓플레이스 경계 · public→internal 금지 · 버전 범위 겹침. 범위 문자열 형식과 이름·위치는 관여하지 않는다.",
+  "version": "0.1.0",
+  "author": {
+    "name": "황재명",
+    "email": "woaudsla@gmail.com"
+  },
+  "homepage": "https://github.com/jaemyeong-hwnag/claude-marketplaces",
+  "keywords": [
+    "dependency",
+    "graph",
+    "common",
+    "validate"
+  ]
+}
