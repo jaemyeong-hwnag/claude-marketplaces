@@ -194,15 +194,27 @@ if [ -r "$SETTINGS_FILE" ] && ! jq -e '(.enabledPlugins // {} | keys_unsorted) =
 fi
 
 # 7. 로드 확인 — 설치는 됐는데 훅·매니페스트 로드가 실패한 것
-#    "❯ id" 다음 줄들의 "Error:" 를 그 id 에 붙인다.
+#    claude plugin list --json 의 errors 필드를 본다 (훅 로드 실패는 errorDetails[].type = hook-load-failed).
+#    JSON 을 못 받으면 텍스트 출력의 "❯ id" 다음 "Error:" 줄로 대신한다.
+LISTJSON="$(claude plugin list --json 2>/dev/null)"
+if printf '%s' "$LISTJSON" | jq -e 'type == "array"' >/dev/null 2>&1; then
+  load_errors() {
+    # 이 마켓플레이스인지는 아래 루프가 JSON · 텍스트 경로 모두에 대해 거른다
+    printf '%s' "$LISTJSON" | jq -r '.[] | select((.errors // []) | length > 0) | "\(.id)\t\(.errors[0])"'
+  }
+else
+  load_errors() {
+    claude plugin list 2>/dev/null | awk '
+      /❯/ { id = $NF; next }
+      /^[[:space:]]*Error:/ { sub(/^[[:space:]]*Error:[[:space:]]*/, ""); if (id != "") print id "\t" $0 }
+    '
+  }
+fi
 while IFS=$'\t' read -r eid emsg; do
   [ -n "$eid" ] || continue
   case "$eid" in *"@$MARKET") ;; *) continue ;; esac
   PROBLEMS+=("'$eid' 로드 실패 — $emsg")
-done < <(claude plugin list 2>/dev/null | awk '
-  /❯/ { id = $NF; next }
-  /^[[:space:]]*Error:/ { sub(/^[[:space:]]*Error:[[:space:]]*/, ""); if (id != "") print id "\t" $0 }
-')
+done < <(load_errors)
 
 # 8. 보고
 if [ "${#CHANGED[@]}" -gt 0 ] || [ "${#PROBLEMS[@]}" -gt 0 ]; then

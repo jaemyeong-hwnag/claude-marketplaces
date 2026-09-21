@@ -36,7 +36,7 @@ case "$1 $2" in
       add)  [ "${STUB_ADD_FAIL:-0}" = 1 ] && exit 1; exit 0 ;;
       *) exit 0 ;;
     esac ;;
-  "plugin list")      if [ "${3:-}" = "--json" ]; then cat "$STUB_PLUGINS"; else cat "${STUB_PLUGINS_TEXT:-/dev/null}"; fi ;;
+  "plugin list")      if [ "${3:-}" = "--json" ]; then [ "${STUB_JSON_FAIL:-0}" = 1 ] && { echo "error: unknown option"; exit 1; }; cat "$STUB_PLUGINS"; else cat "${STUB_PLUGINS_TEXT:-/dev/null}"; fi ;;
   "plugin install")   [ "${STUB_INSTALL_FAIL:-0}" = 1 ] && exit 1; exit 0 ;;
   "plugin uninstall") exit 0 ;;
   *) exit 0 ;;
@@ -54,7 +54,7 @@ setup() { # $1=케이스명 → 빈 프로젝트를 만들고 전역 변수를 �
   STUB_MARKETS="$P/markets.json"; printf '[]' > "$STUB_MARKETS"; export STUB_MARKETS
   STUB_PLUGINS="$P/plugins.json"; printf '[]' > "$STUB_PLUGINS"; export STUB_PLUGINS
   STUB_PLUGINS_TEXT="$P/plugins.txt"; : > "$STUB_PLUGINS_TEXT"; export STUB_PLUGINS_TEXT
-  unset STUB_ADD_FAIL STUB_INSTALL_FAIL
+  unset STUB_ADD_FAIL STUB_INSTALL_FAIL STUB_JSON_FAIL
 }
 add_plugin() { # $1=프로젝트 $2=이름
   mkdir -p "$1/internal-plugins/$2/.claude-plugin"
@@ -250,23 +250,39 @@ expect_code 0; expect_call "plugin uninstall order-sync"; expect_noout "머지 �
 
 echo "== 로드 확인 =="
 
-tc TC-Y28 "claude plugin list 의 Error 줄을 로드 실패로 보고한다"
+plugin_error() { # $1=id $2=메시지 — 설치 목록(JSON)의 그 항목에 errors 를 단다
+  jq --arg id "$1" --arg e "$2" 'map(if .id == $id then . + {errors: [$e]} else . end)' "$STUB_PLUGINS" > "$P/p.tmp" && mv "$P/p.tmp" "$STUB_PLUGINS"
+}
+
+tc TC-Y28 "claude plugin list --json 의 errors 를 로드 실패로 보고한다"
 setup load-error; add_plugin "$P" order-sync; market_registered; synced order-sync
-printf '  ❯ order-sync@test-marketplace\n    Version: 0.1.0\n    Error: Hook load failed: Duplicate hooks file detected\n' > "$STUB_PLUGINS_TEXT"
+plugin_error order-sync@test-marketplace "Hook load failed: Duplicate hooks file detected"
 run_hook
 expect_code 0; expect_out "'order-sync@test-marketplace' 로드 실패"; expect_out "Duplicate hooks file"
 
-tc TC-Y29 "다른 마켓플레이스 플러그인의 Error 는 무시한다"
+tc TC-Y29 "다른 마켓플레이스 플러그인의 errors 는 무시한다"
 setup load-error-other; add_plugin "$P" order-sync; market_registered; synced order-sync
-printf '  ❯ other@else-marketplace\n    Error: boom\n  ❯ order-sync@test-marketplace\n    Status: enabled\n' > "$STUB_PLUGINS_TEXT"
+jq '. + [{"id":"other@else-marketplace","enabled":true,"errors":["boom"]}]' "$STUB_PLUGINS" > "$P/p.tmp" && mv "$P/p.tmp" "$STUB_PLUGINS"
 run_hook
 expect_code 0; expect_noout "로드 실패"; expect_out "1/1 설치됨"
 
-tc TC-Y30 "Error 는 바로 위 플러그인에 붙인다"
+tc TC-Y30 "errors 는 그 플러그인에만 붙인다"
 setup load-error-order; add_plugin "$P" order-sync; add_plugin "$P" item-sync; market_registered; synced order-sync; synced item-sync
-printf '  ❯ item-sync@test-marketplace\n    Status: enabled\n  ❯ order-sync@test-marketplace\n    Error: bad manifest\n' > "$STUB_PLUGINS_TEXT"
+plugin_error order-sync@test-marketplace "bad manifest"
 run_hook
 expect_out "'order-sync@test-marketplace' 로드 실패"; expect_noout "'item-sync@test-marketplace' 로드 실패"
+
+tc TC-Y36 "--json 을 못 받으면 텍스트의 Error 줄로 대신한다"
+setup load-error-text; add_plugin "$P" order-sync; market_registered; synced order-sync
+printf '  ❯ order-sync@test-marketplace\n    Version: 0.1.0\n    Error: Hook load failed\n' > "$STUB_PLUGINS_TEXT"
+export STUB_JSON_FAIL=1; run_hook; unset STUB_JSON_FAIL
+expect_code 0; expect_out "'order-sync@test-marketplace' 로드 실패"; expect_out "Hook load failed"
+
+tc TC-Y37 "텍스트로 대신할 때도 Error 는 바로 위 플러그인에 붙인다"
+setup load-error-text2; add_plugin "$P" order-sync; add_plugin "$P" item-sync; market_registered; synced order-sync; synced item-sync
+printf '  ❯ item-sync@test-marketplace\n    Status: enabled\n  ❯ order-sync@test-marketplace\n    Error: bad\n' > "$STUB_PLUGINS_TEXT"
+export STUB_JSON_FAIL=1; run_hook; unset STUB_JSON_FAIL
+expect_noout "'item-sync@test-marketplace' 로드 실패"; expect_out "'order-sync@test-marketplace' 로드 실패"
 
 echo "== 엔트리 description =="
 

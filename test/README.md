@@ -78,14 +78,16 @@ test/sync-internal-plugins.test.sh    # 내부 플러그인 동기화 (TC-Y)
 | TC-Y25 | 설치 기준에 아직 없는 플러그인은 설치하지 않고 알린다 | `install` 호출 없음 |
 | TC-Y26 | 설치 기준 쪽이 설치본과 다르면 재설치한다 | `uninstall` + `install` |
 | TC-Y27 | 설치 기준 경로가 이 작업 트리면 작업 트리와 비교한다 | 재설치, 알림 없음 |
-| TC-Y28 | `claude plugin list` 의 `Error:` 줄을 로드 실패로 보고한다 | `로드 실패` |
-| TC-Y29 | 다른 마켓플레이스 플러그인의 `Error:` 는 무시한다 | 보고 없음 |
-| TC-Y30 | `Error:` 는 바로 위 플러그인에 붙인다 | 해당 id 만 보고 |
+| TC-Y28 | `claude plugin list --json` 의 `errors` 를 로드 실패로 보고한다 | `로드 실패` |
+| TC-Y29 | 다른 마켓플레이스 플러그인의 `errors` 는 무시한다 | 보고 없음 |
+| TC-Y30 | `errors` 는 그 플러그인에만 붙인다 | 해당 id 만 보고 |
 | TC-Y31 | internal 엔트리 description 을 plugin.json 에 맞춘다 | 파일 반영 |
 | TC-Y32 | public 엔트리 description 은 건드리지 않는다 | 파일 유지 |
 | TC-Y33 | plugin.json 에 description 이 없으면 엔트리를 비우지 않는다 | 파일 유지 |
 | TC-Y34 | `enabledPlugins` 키 순서를 정렬해 둔다 | 재설치가 키를 맨 뒤로 보내 생기는 diff 방지 |
 | TC-Y35 | 이미 정렬돼 있으면 파일을 다시 쓰지 않는다 | 수정 시각 유지 |
+| TC-Y36 | `--json` 을 못 받으면 텍스트의 `Error:` 줄로 대신한다 | `로드 실패` |
+| TC-Y37 | 텍스트로 대신할 때도 `Error:` 는 바로 위 플러그인에 붙인다 | 해당 id 만 보고 |
 
 ## 등록 메타데이터
 
