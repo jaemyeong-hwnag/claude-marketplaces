@@ -270,6 +270,15 @@
         "testing"
       ],
       "meaning": "테스트"
+    },
+    {
+      "use": "versioning",
+      "deny": [
+        "semver",
+        "versionning",
+        "version-rule"
+      ],
+      "meaning": "버전을 매기고 올리는 규칙"
     }
   ],
   "role": [
