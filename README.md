@@ -11,13 +11,10 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 디렉터리와 선언이 어긋나면 `.claude/hooks/validate-plugin-scope.sh` 가 막는다 — 미등록, `category` 불일치, `source` 불일치, 유령 항목.
 
 ```bash
-internal-plugins/plugin-versioning/scripts/validate-versioning.sh --all .  # 버전 정합성
-.claude/hooks/validate-plugin-scope.sh .   # 배치·배포 정책
-test/validate-plugin-scope.test.sh         # 배치 정책 회귀 테스트
-test/sync-internal-plugins.test.sh         # 동기화 훅 회귀 테스트
+internal-plugins/plugin-workflow/scripts/verify-all.sh .   # 검증기 · 회귀 테스트 · claude plugin validate 전부
 ```
 
-> 이름 규칙은 `plugin-naming` 이, 디렉터리 구조는 `marketplace-directory-structure` 가, 버전은 `plugin-versioning` 이, 배치·배포 정책은 저장소가 담당한다. 서로 섞지 않는다.
+> 이름은 `plugin-naming`, 디렉터리 구조는 `marketplace-directory-structure`, 버전은 `plugin-versioning`, 파일 내용 형식은 `plugin-authoring`, 의존 관계는 `plugin-dependency`, 개발 플로우는 `plugin-workflow`, 배치·등록은 저장소 `.claude/hooks/` 가 담당한다. 서로 섞지 않는다.
 
 ## 수록 플러그인
 
@@ -26,6 +23,9 @@ test/sync-internal-plugins.test.sh         # 동기화 훅 회귀 테스트
 | [`plugin-naming`](internal-plugins/plugin-naming) | `internal-plugins/` | 플러그인·스킬·커맨드·에이전트 이름을 네이밍 규칙과 glossary 사전으로 강제한다 |
 | [`marketplace-directory-structure`](internal-plugins/marketplace-directory-structure) | `internal-plugins/` | 마켓플레이스 루트와 플러그인의 디렉터리 구조를 강제한다 |
 | [`plugin-versioning`](internal-plugins/plugin-versioning) | `internal-plugins/` | 버전 값과 CHANGELOG · marketplace 엔트리 · git 태그의 정합성을 강제한다 |
+| [`plugin-authoring`](internal-plugins/plugin-authoring) | `internal-plugins/` | 스킬·커맨드·에이전트 프런트매터와 README 절 구성 · 실제 구성요소의 일치를 강제한다 |
+| [`plugin-dependency`](internal-plugins/plugin-dependency) | `internal-plugins/` | 플러그인 사이의 의존 관계(순환 · 층 · 경계 · 범위 겹침)를 강제한다 |
+| [`plugin-workflow`](internal-plugins/plugin-workflow) | `internal-plugins/` | 이슈에서 릴리즈까지의 개발 플로우(템플릿 · 브랜치 · main 보호 · 머지 · 태그)를 강제한다 |
 
 ## 배포용 플러그인 설치 (다른 저장소에서)
 
@@ -107,13 +107,26 @@ internal-plugins/plugin-versioning/test/validate-versioning.test.sh
 올림 등급(PATCH/MINOR/MAJOR)은 기계가 판정하지 않는다. `version-update` 스킬이 판단한다.
 릴리즈 태그는 `claude plugin tag --push` 로 만든다 — `{플러그인명}--v{버전}` 형식과 엔트리 정합성을 CLI 가 함께 검증한다.
 
+## 작성 · 의존성 · 개발 플로우
+
+| 관심사 | 플러그인 | 규칙 원본 |
+|---|---|---|
+| 파일 안의 형식 — 프런트매터, description, README 템플릿 | `plugin-authoring` | [`authoring-rules.md`](internal-plugins/plugin-authoring/references/authoring-rules.md) |
+| 플러그인 사이의 의존 — 순환, common · 번들, public → internal 금지 | `plugin-dependency` | [`dependency-rules.md`](internal-plugins/plugin-dependency/references/dependency-rules.md) |
+| 이슈 → 브랜치 → PR → 머지 → 릴리즈 | `plugin-workflow` | [`workflow-rules.md`](internal-plugins/plugin-workflow/references/workflow-rules.md) |
+
+이슈 폼과 PR 템플릿은 GitHub 가 읽는 자리인 [`.github/`](.github) 에 있다 — `feature` · `bugfix` 두 가지.
+
 ## 플러그인 추가 절차
+
+개발 플로우의 "작업" 단계 안에서 한다 (`issue-create` → … → `release-create`).
 
 1. 이름을 정한다 (`name-create` 스킬).
 2. 배포용은 `public-plugins/<이름>/`, 내부용은 `internal-plugins/<이름>/` 에 만든다 (`plugin-directory-create` 스킬).
 3. `.claude-plugin/plugin.json` · `README.md` · `CHANGELOG.md` 를 작성한다. 초기 버전은 `0.1.0` 이고 CHANGELOG 에 그 항목이 있어야 한다.
    - 배포용: `marketplace.json` 에 `category: "public"` 으로 등록하고 푸시한다.
    - 내부용: SessionStart 훅이 알아서 등록·설치한다.
-4. 검증과 테스트를 돌린다.
+4. README 를 템플릿대로 쓴다 (`document-create` 스킬). 의존성이 있으면 `dependency-update` 스킬.
+5. `verify-all.sh` 로 전부 돌린다.
 
 > 마켓플레이스 이름은 `claude` 로 시작할 수 없다. 공식 마켓플레이스 사칭으로 거부된다.

@@ -17,6 +17,9 @@
   settings.json            # 마켓플레이스 등록 · 플러그인 활성화 · 훅 등록
   hooks/
     {hook-name}.sh         # 저장소 정책 훅
+.github/                   # GitHub 이 읽는 이슈 폼 · PR 템플릿 (plugin-workflow 가 형식을 본다)
+  ISSUE_TEMPLATE/
+  PULL_REQUEST_TEMPLATE/
 .agent-tasks/              # 진행 중인 피처 문서 (git 미추적)
   {주제}/
     {문서}.md
