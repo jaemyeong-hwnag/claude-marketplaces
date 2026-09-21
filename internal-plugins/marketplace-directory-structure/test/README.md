@@ -13,7 +13,7 @@ test/validate-directory-structure.test.sh TC-D1    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. 세션 없이 돌아가므로 커밋 전 검증에 그대로 쓴다.
 
-## 자동 TC (39건)
+## 자동 TC (45건)
 
 ### A. 플러그인 필수 파일
 
@@ -26,7 +26,13 @@ test/validate-directory-structure.test.sh TC-D1    # ID 접두사로 필터
 | TC-D05 | CHANGELOG.md 가 없으면 막는다 | 차단 (2) | 메시지: `CHANGELOG.md 가 없습니다` |
 | TC-D06 | plugin.json 이 깨져 있으면 막는다 | 차단 (2) | 메시지: `JSON 파싱 실패` |
 | TC-D07 | plugin.json 의 name 이 디렉터리명과 다르면 막는다 | 차단 (2) | 메시지: `디렉터리명과 같아야 합니다` |
-| TC-D08 | plugin.json 의 hooks 가 가리키는 파일이 없으면 막는다 | 차단 (2) | 메시지: `hooks 가 가리키는` |
+| TC-D08 | plugin.json 의 hooks 가 가리키는 파일이 없으면 막는다 (P-04) | 차단 (2) | 메시지: `hooks 가 가리키는`. 예시 경로는 추가 훅 파일(`extra-events.json`) |
+| TC-D09 | plugin.json 의 hooks 가 표준 경로를 가리키면 막는다 (P-09) | 차단 (2) | 메시지: `자동 로드되므로 중복` |
+| TC-D09a | `./` 없이 `hooks/hooks.json` 으로 적어도 막는다 | 차단 (2) | `(P-09)` |
+| TC-D09b | 배열로 적은 표준 경로도 막는다 | 차단 (2) | `(P-09)` |
+| TC-D09c | 표준 경로가 아닌 추가 훅 파일은 허용한다 | 통과 (0) | 과잉 차단 방지 |
+| TC-D09d | hooks 를 아예 안 적으면 통과한다 | 통과 (0) | 과잉 차단 방지 |
+| TC-D09e | hooks 가 인라인 객체면 경로로 보지 않는다 | 통과 (0) | - |
 
 ### B. 파일 위치
 
@@ -109,10 +115,21 @@ test/validate-directory-structure.test.sh; echo "exit=$?"
 cp /tmp/vds.bak scripts/validate-directory-structure.sh && test/validate-directory-structure.test.sh
 ```
 
+아래 변이는 모두 실패로 검출되는 것을 확인했다.
+
+| 변이 | 검출된 실패 |
+|---|---|
+| M1 `P-06` 알 수 없는 디렉터리 무력화 | 2 |
+| M2 `P-03` name 일치 무력화 | 1 |
+| M3 `P-09` 표준 경로 검사 무력화 | 3 |
+| M4 `P-01` CHANGELOG 필수 무력화 | 2 |
+| M5 `P-07` hooks/*.json 무력화 | 2 |
+| M6 `P-08` skills 하위 무력화 | 1 |
+
 ## TC 추가 규칙
 
 - 규칙(`references/directory-structure-rules.md`)에 조항을 추가하면 TC 도 같이 추가한다. 조항 번호를 TC 설명에 남긴다.
-- ID 구간을 지킨다. A 필수파일 `TC-D0x` / B 위치 `TC-D1x` / C 스킬 `TC-D2x` / D 루트 `TC-D3x` / E 훅 `TC-D4x` / F CLI `TC-D5x`.
+- ID 구간을 지킨다. A 필수파일·매니페스트 `TC-D0x` (한 조항에 케이스가 여럿이면 `TC-D09a` 처럼 접미사) / B 위치 `TC-D1x` / C 스킬 `TC-D2x` / D 루트 `TC-D3x` / E 훅 `TC-D4x` / F CLI `TC-D5x`.
 - 막는 TC 만 늘리지 않는다. "허용해야 하는 케이스"를 쌍으로 넣어야 과잉 차단을 잡는다.
 
 ## 알려진 한계 (실패로 보지 말 것)

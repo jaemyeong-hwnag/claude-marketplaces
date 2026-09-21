@@ -82,6 +82,7 @@ internal-plugins/          # 내부용 (category: internal)
 | P-06 | 디렉터리는 `.claude-plugin` · `skills` · `hooks` · `scripts` · `commands` · `references` · `agents` · `test` 만 쓴다 |
 | P-07 | 각 디렉터리에 두는 파일 확장자는 아래 표를 따른다 |
 | P-08 | `skills/` 아래에는 스킬 디렉터리만 두고, 각 디렉터리에 `SKILL.md` 가 있어야 한다 |
+| P-09 | `plugin.json` 의 `hooks` 로 표준 경로 `hooks/hooks.json` 을 가리키지 않는다 — 자동 로드된다 |
 
 | 디렉터리 | 둘 수 있는 것 |
 |---|---|
@@ -95,6 +96,24 @@ internal-plugins/          # 내부용 (category: internal)
 | `test/` | `*.test.sh`, `README.md` |
 
 `{...}` 자리의 이름이 올바른지는 이 규칙이 판단하지 않는다. `plugin-naming` 의 몫이다.
+
+### P-09 — hooks 는 선언하지 않는다
+
+`hooks/hooks.json` 은 Claude Code 가 **자동으로 읽는다.** `plugin.json` 에서 다시 가리키면 중복으로 보고
+**그 플러그인의 훅 로딩 전체가 실패한다.** 플러그인은 설치·활성화된 채로 남아 훅만 조용히 죽는다.
+
+```
+Hook load failed: Duplicate hooks file detected: ./hooks/hooks.json resolves to already-loaded file ...
+The standard hooks/hooks.json is loaded automatically, so manifest.hooks should only reference additional hook files.
+```
+
+```json
+{ "name": "order-sync", "version": "0.1.0" }                          // O — hooks/hooks.json 은 자동
+{ "name": "order-sync", "hooks": "./hooks/hooks.json" }               // X — 중복, 훅이 죽는다
+{ "name": "order-sync", "hooks": "./hooks/extra-events.json" }        // O — 표준 경로가 아닌 추가 파일
+```
+
+`claude plugin validate --strict` 는 이것을 잡지 못한다. `claude plugin list` 의 Error 줄에만 나온다.
 
 ## 3. 디렉터리 생성 순서
 

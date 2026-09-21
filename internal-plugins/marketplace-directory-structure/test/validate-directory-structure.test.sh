@@ -86,10 +86,39 @@ tc TC-D07 "plugin.json 의 name 이 디렉터리명과 다르면 막는다"
 P="$(make_plugin order-sync)"; printf '{ "name": "order-send" }' > "$P/.claude-plugin/plugin.json"
 run "$P"; expect_code 2; expect_out "디렉터리명과 같아야 합니다"
 
-tc TC-D08 "plugin.json 의 hooks 가 가리키는 파일이 없으면 막는다"
+tc TC-D08 "plugin.json 의 hooks 가 가리키는 파일이 없으면 막는다 (P-04)"
 P="$(make_plugin order-sync)"
-printf '{ "name": "order-sync", "hooks": "./hooks/hooks.json" }' > "$P/.claude-plugin/plugin.json"
+printf '{ "name": "order-sync", "hooks": "./hooks/extra-events.json" }' > "$P/.claude-plugin/plugin.json"
 run "$P"; expect_code 2; expect_out "hooks 가 가리키는"
+
+tc TC-D09 "plugin.json 의 hooks 가 표준 경로를 가리키면 막는다 (P-09)"
+P="$(make_plugin order-sync)"; mkdir -p "$P/hooks"; printf '{}' > "$P/hooks/hooks.json"
+printf '{ "name": "order-sync", "version": "0.1.0", "hooks": "./hooks/hooks.json" }' > "$P/.claude-plugin/plugin.json"
+run "$P"; expect_code 2; expect_out "자동 로드되므로 중복"; expect_out "(P-09)"
+
+tc TC-D09a "슬래시 접두사 없이 적어도 막는다 (P-09)"
+P="$(make_plugin order-sync)"; mkdir -p "$P/hooks"; printf '{}' > "$P/hooks/hooks.json"
+printf '{ "name": "order-sync", "hooks": "hooks/hooks.json" }' > "$P/.claude-plugin/plugin.json"
+run "$P"; expect_code 2; expect_out "(P-09)"
+
+tc TC-D09b "배열로 적은 표준 경로도 막는다 (P-09)"
+P="$(make_plugin order-sync)"; mkdir -p "$P/hooks"; printf '{}' > "$P/hooks/hooks.json"
+printf '{ "name": "order-sync", "hooks": ["./hooks/hooks.json"] }' > "$P/.claude-plugin/plugin.json"
+run "$P"; expect_code 2; expect_out "(P-09)"
+
+tc TC-D09c "표준 경로가 아닌 추가 훅 파일은 허용한다 (P-09 과잉 차단 방지)"
+P="$(make_plugin order-sync)"; mkdir -p "$P/hooks"; printf '{}' > "$P/hooks/extra-events.json"
+printf '{ "name": "order-sync", "hooks": "./hooks/extra-events.json" }' > "$P/.claude-plugin/plugin.json"
+run "$P"; expect_code 0
+
+tc TC-D09d "hooks 를 아예 안 적으면 통과한다 (P-09 과잉 차단 방지)"
+P="$(make_plugin order-sync)"; mkdir -p "$P/hooks"; printf '{}' > "$P/hooks/hooks.json"
+run "$P"; expect_code 0
+
+tc TC-D09e "hooks 가 인라인 객체면 경로로 보지 않는다"
+P="$(make_plugin order-sync)"
+printf '{ "name": "order-sync", "hooks": { "PreToolUse": [] } }' > "$P/.claude-plugin/plugin.json"
+run "$P"; expect_code 0
 
 echo "== B. 파일 위치 =="
 

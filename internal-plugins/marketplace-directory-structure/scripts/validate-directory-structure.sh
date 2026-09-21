@@ -108,11 +108,21 @@ validate_plugin_dir() {
       declared="$(jq -r '.name // ""' "$manifest")"
       [ "$declared" = "$name" ] || \
         err "$name: plugin.json 의 name 이 '$declared' 입니다 — 디렉터리명과 같아야 합니다 (P-03)"
-      hooks_rel="$(jq -r '.hooks // ""' "$manifest")"
-      case "$hooks_rel" in
-        ./*) [ -r "$dir/${hooks_rel#./}" ] || \
-               err "$name: plugin.json 의 hooks 가 가리키는 $hooks_rel 이 없습니다 (P-04)" ;;
-      esac
+      # hooks 는 문자열·배열 어느 쪽도 될 수 있다. 문자열 경로만 훑는다.
+      while IFS= read -r hooks_rel; do
+        [ -n "$hooks_rel" ] || continue
+        case "${hooks_rel#./}" in
+          hooks/hooks.json)
+            err "$name: plugin.json 의 hooks 가 표준 경로 $hooks_rel 을 가리킵니다 — 자동 로드되므로 중복이 되어 훅 로딩 전체가 실패합니다. 이 필드를 지우세요 (P-09)"
+            continue ;;
+        esac
+        case "$hooks_rel" in
+          ./*) [ -r "$dir/${hooks_rel#./}" ] || \
+                 err "$name: plugin.json 의 hooks 가 가리키는 $hooks_rel 이 없습니다 (P-04)" ;;
+        esac
+      done < <(jq -r 'if (.hooks|type) == "string" then .hooks
+                      elif (.hooks|type) == "array" then (.hooks[] | select(type == "string"))
+                      else empty end' "$manifest" 2>/dev/null)
     fi
   fi
 

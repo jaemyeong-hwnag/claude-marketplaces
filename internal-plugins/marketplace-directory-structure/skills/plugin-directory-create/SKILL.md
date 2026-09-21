@@ -17,7 +17,7 @@ description: 플러그인 디렉터리를 만들거나 구성요소를 추가할
 
    | 파일 | 내용 |
    |---|---|
-   | `.claude-plugin/plugin.json` | `name` 은 디렉터리명과 같아야 한다 |
+   | `.claude-plugin/plugin.json` | `name` 은 디렉터리명과 같아야 한다. `hooks` 필드로 `./hooks/hooks.json` 을 가리키지 않는다 (P-09) |
    | `README.md` | 무엇을 하는 플러그인인가, 구성 표, 설치, 동작 |
    | `CHANGELOG.md` | `## 0.1.0` 초기 항목 |
 
@@ -44,7 +44,9 @@ description: 플러그인 디렉터리를 만들거나 구성요소를 추가할
    ```bash
    internal-plugins/marketplace-directory-structure/scripts/validate-directory-structure.sh --all .
    internal-plugins/plugin-naming/scripts/validate-naming.sh --all .
+   internal-plugins/plugin-versioning/scripts/validate-versioning.sh --all .
    .claude/hooks/validate-plugin-scope.sh .
+   claude plugin list    # 설치 후 Error 줄이 없어야 한다. --strict 검증이 못 잡는 훅 로딩 실패가 여기 나온다
    ```
 
 ## 자주 틀리는 것
@@ -54,6 +56,7 @@ description: 플러그인 디렉터리를 만들거나 구성요소를 추가할
 | 설계 메모를 플러그인에 둔다 | `<플러그인>/NOTES.md` | `.agent-tasks/<주제>/*.md` |
 | 스킬에 딸린 스크립트 | `skills/<스킬명>.md` 옆 | `skills/<스킬명>/` 안 (스킬 디렉터리 안쪽은 자유) |
 | 훅 스크립트 | `hooks/<이름>.sh` | `scripts/<이름>.sh`, `hooks/` 는 매니페스트만 |
+| 훅 매니페스트 연결 | `plugin.json` 에 `"hooks": "./hooks/hooks.json"` | 적지 않는다. `hooks/hooks.json` 은 자동 로드되고, 적으면 중복으로 훅 전체가 죽는다 (P-09) |
 | 테스트 픽스처 | `test/fixture.json` | 테스트 스크립트가 임시 디렉터리에 만든다 |
 | 문서 모음 | `docs/` | `references/` |
 

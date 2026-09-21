@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.2.0
+
+- `P-09` 추가 — `plugin.json` 의 `hooks` 로 표준 경로 `hooks/hooks.json` 을 가리키면 막는다. 문자열·배열 표기 모두 잡고, 표준 경로가 아닌 추가 훅 파일은 허용한다
+- `plugin.json` 에서 `"hooks": "./hooks/hooks.json"` 제거 — 표준 경로는 자동 로드되므로 중복으로 판정돼 **훅 로딩 전체가 실패하고 있었다** (`claude plugin list` 에 `Hook load failed: Duplicate hooks file detected`). 이 버전부터 훅이 실제로 동작한다
+- `plugin-directory-create` 스킬에 `P-09` 와 설치 후 `claude plugin list` 확인 단계 추가
+- `TC-D08` 이 `P-04` 를 검사하면서 결함 패턴(`./hooks/hooks.json`)을 예시로 쓰던 것을 추가 훅 파일 경로로 교체
+- 회귀 테스트 TC 6건 추가 (39 → 45)
+
 ## 0.1.0
 
 - 디렉터리 구조 규칙 원본 `references/directory-structure-rules.md` 추가 (루트 `R-01`~`R-05`, 플러그인 `P-01`~`P-08`)
