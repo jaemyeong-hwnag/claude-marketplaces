@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.4.0
+
+### Added
+- 사전 `action` 에 `merge` (#12) — `github-workflow` 의 `pull-request-merge` 스킬
+
 ## 0.3.1
 
 ### Fixed

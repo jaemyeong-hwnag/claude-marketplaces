@@ -113,6 +113,13 @@
       "meaning": "목록 조회"
     },
     {
+      "use": "merge",
+      "deny": [
+        "combine"
+      ],
+      "meaning": "병합"
+    },
+    {
       "use": "review",
       "deny": [
         "inspect",
