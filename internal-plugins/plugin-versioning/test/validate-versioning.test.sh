@@ -594,6 +594,32 @@ R="$(since_root sn9)"; run --since no-such-ref "$R"; expect_code 2; expect_out "
 tc TC-V129 "--since 에 ref 가 없으면 실행 오류다"
 run --since; expect_code 1; expect_out "ref 가 필요합니다"
 
+echo "== K. 날짜가 붙은 항목 (V-05) =="
+
+tc TC-V130 "'## {버전} - YYYY-MM-DD' 를 허용한다"
+run "$(make_plugin '"0.2.0"' $'# CHANGELOG\n\n## 0.2.0 - 2026-09-18\n\n## 0.1.0 - 2026-09-15\n')"; expect_code 0
+
+tc TC-V131 "날짜가 있는 항목과 없는 항목을 섞어도 된다"
+run "$(make_plugin '"0.2.0"' $'# CHANGELOG\n\n## 미출시\n\n## 0.2.0 - 2026-09-18\n\n## 0.1.0\n')"; expect_code 0
+
+tc TC-V132 "날짜 형식이 틀리면 막는다"
+run "$(make_plugin '"0.2.0"' $'# CHANGELOG\n\n## 0.2.0 - 09/18\n')"; expect_code 2; expect_out "날짜는 YYYY-MM-DD"
+
+tc TC-V133 "없는 달 · 날을 막는다"
+run "$(make_plugin '"0.2.0"' $'# CHANGELOG\n\n## 0.2.0 - 2026-13-01\n')"; expect_code 2; expect_out "날짜는 YYYY-MM-DD"
+
+tc TC-V134 "대괄호는 날짜가 있어도 막는다"
+run "$(make_plugin '"0.2.0"' $'# CHANGELOG\n\n## [0.2.0] - 2026-09-18\n')"; expect_code 2; expect_out "(V-05)"
+
+tc TC-V135 "공백 없이 붙인 날짜는 막는다"
+run "$(make_plugin '"0.2.0"' $'# CHANGELOG\n\n## 0.2.0-2026-09-18\n')"; expect_code 2; expect_out "(V-05)"
+
+tc TC-V136 "날짜가 붙은 항목에서도 현재 버전을 찾는다 (V-06)"
+run "$(make_plugin '"0.3.0"' $'# CHANGELOG\n\n## 0.2.0 - 2026-09-18\n')"; expect_code 2; expect_out "(V-06)"
+
+tc TC-V137 "날짜가 붙은 항목끼리도 순서를 본다 (V-07)"
+run "$(make_plugin '"0.2.0"' $'# CHANGELOG\n\n## 0.1.0 - 2026-09-15\n\n## 0.2.0 - 2026-09-18\n')"; expect_code 2; expect_out "(V-07)"
+
 flush_tc
 echo
 printf '통과 %d / 실패 %d' "$PASS" "$FAIL"

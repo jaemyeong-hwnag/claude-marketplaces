@@ -1,7 +1,7 @@
 {
   "name": "plugin-versioning",
   "description": "플러그인 버전 값과 plugin.json · CHANGELOG.md · marketplace 엔트리 · git 태그의 정합성을 강제한다. 버전만 다루며 이름·디렉터리 구조·배포 정책은 관여하지 않는다.",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "author": {
     "name": "황재명",
     "email": "woaudsla@gmail.com"

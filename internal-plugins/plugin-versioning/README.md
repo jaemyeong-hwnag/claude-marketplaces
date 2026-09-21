@@ -35,6 +35,7 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 �
 | `references/versioning-rules.md` | 규칙 원본 |
 | `scripts/validate-versioning.sh` | 기계 검증 (훅 모드 + CLI 모드) |
 | `test/` | 회귀 테스트와 TC 명세 |
+| `evals/` | `claude plugin eval` 케이스 — 등급 판단 스킬 발동 · `0.0.x` 차단. `plugin-workflow` 의 `eval-all.sh` 로 돈다 |
 
 ## 무엇을 막나
 

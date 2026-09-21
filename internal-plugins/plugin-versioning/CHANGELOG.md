@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.3.0
+
+### Added
+- `V-05` — 날짜가 붙은 항목 `## 0.2.0 - YYYY-MM-DD` 를 허용한다 (선택)
+- eval 케이스 둘 — 스킬 발동 · 훅 차단 (`evals/`). `plugin-workflow` 의 `eval-all.sh` 로 돈다
+
+### Fixed
+- 날짜를 떼어 내는 중 `is_semver` 의 `=~` 가 `BASH_REMATCH` 를 덮어쓰던 것 (작성 중 발견)
+
 ## 0.2.1
 
 ### Changed

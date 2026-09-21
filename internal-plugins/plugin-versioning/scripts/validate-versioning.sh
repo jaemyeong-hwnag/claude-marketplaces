@@ -76,7 +76,7 @@ changelog_headings() { # $1=파일
 }
 
 check_changelog() { # $1=CHANGELOG 경로 $2=현재 버전 $3=라벨
-  local file="$1" cur="$2" label="$3" first h prev="" seen_ver=0 found=0
+  local file="$1" cur="$2" label="$3" first h prev="" seen_ver=0 found=0 v dt
   local -a heads=()
 
   if [ ! -r "$file" ]; then
@@ -102,8 +102,17 @@ check_changelog() { # $1=CHANGELOG 경로 $2=현재 버전 $3=라벨
       seen_ver=1
     elif is_semver "$h"; then
       vers+=("$h")
+    elif [[ "$h" =~ ^([^[:space:]]+)[[:space:]]-[[:space:]](.+)$ ]] \
+         && { v="${BASH_REMATCH[1]}"; dt="${BASH_REMATCH[2]}"; is_semver "$v"; }; then
+      # 날짜는 선택이다: '## 0.2.0 - 2026-09-18'
+      # 캡처는 is_semver 를 부르기 전에 받는다 — 그 안의 =~ 가 BASH_REMATCH 를 덮어쓴다
+      if [[ "$dt" =~ ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ ]]; then
+        vers+=("$v")
+      else
+        err "$label/CHANGELOG.md: 항목 '## $h' — 날짜는 YYYY-MM-DD 입니다 (V-05)"
+      fi
     else
-      err "$label/CHANGELOG.md: 항목 '## $h' — 제목은 '## {버전}' 또는 '## $UNRELEASED' 여야 합니다 (V-05)"
+      err "$label/CHANGELOG.md: 항목 '## $h' — 제목은 '## {버전}' · '## {버전} - YYYY-MM-DD' · '## $UNRELEASED' 중 하나입니다 (V-05)"
     fi
     idx=$((idx+1))
   done

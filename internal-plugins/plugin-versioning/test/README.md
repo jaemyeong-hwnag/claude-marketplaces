@@ -14,7 +14,7 @@ test/validate-versioning.test.sh TC-V3    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. 세션 없이 돌아가므로 커밋 전 검증에 그대로 쓴다.
 
-## 자동 TC (117건)
+## 자동 TC (125건)
 
 ### A. 버전 값 (`V-01` ~ `V-03`)
 
@@ -183,6 +183,19 @@ test/validate-versioning.test.sh TC-V3    # ID 접두사로 필터
 | TC-V128 | 없는 ref 는 오류를 낸다 | 차단 (2) | `찾을 수 없습니다` |
 | TC-V129 | `--since` 에 ref 가 없으면 실행 오류다 | 오류 (1) | `ref 가 필요합니다` |
 
+### K. 날짜가 붙은 항목 (`V-05`)
+
+| ID | 케이스 | 기대 | 추가 확인 |
+|---|---|---|---|
+| TC-V130 | `## {버전} - YYYY-MM-DD` 를 허용한다 | 통과 (0) | - |
+| TC-V131 | 날짜가 있는 항목과 없는 항목을 섞어도 된다 | 통과 (0) | - |
+| TC-V132 | 날짜 형식이 틀리면 막는다 | 차단 (2) | `날짜는 YYYY-MM-DD` |
+| TC-V133 | 없는 달 · 날을 막는다 | 차단 (2) | `2026-13-01` |
+| TC-V134 | 대괄호는 날짜가 있어도 막는다 | 차단 (2) | `(V-05)` |
+| TC-V135 | 공백 없이 붙인 날짜는 막는다 | 차단 (2) | `0.2.0-2026-09-18` |
+| TC-V136 | 날짜가 붙은 항목에서도 현재 버전을 찾는다 | 차단 (2) | `(V-06)` |
+| TC-V137 | 날짜가 붙은 항목끼리도 순서를 본다 | 차단 (2) | `(V-07)` |
+
 ## 수동 TC (새 세션 필요)
 
 훅 등록·스킬 자동 발동은 세션이 있어야 확인된다. `.claude/settings.json` 은 세션 시작 시점에 로드되므로 반드시 새 세션에서 돌린다.
@@ -226,11 +239,12 @@ cp /tmp/vv.bak scripts/validate-versioning.sh && test/validate-versioning.test.s
 | M12 `\|\|` 분리 무력화 | 1 |
 | M13 미추적 파일 무시 | 1 (TC-V125) |
 | M14 연산자 뒤 공백 정규화 제거 | 1 |
+| M15 날짜 캡처를 `is_semver` 뒤에 받음 (`BASH_REMATCH` 덮어쓰기 버그 재현) | 3 |
 
 ## TC 추가 규칙
 
 - 규칙(`references/versioning-rules.md`)에 조항을 추가하면 TC 도 같이 추가한다. 조항 번호를 TC 설명에 남긴다.
-- ID 구간을 지킨다. A 값 `TC-V0x`~`TC-V1x` / B CHANGELOG `TC-V2x`~`TC-V3x` / C 엔트리 `TC-V4x`~`TC-V5x` / D 태그 `TC-V6x` / E Pre 훅 `TC-V7x` / F Post 훅 `TC-V8x` / G CLI `TC-V9x` / H 범위 `TC-V10x` / I 루트 CHANGELOG `TC-V11x` / J `V-14` `TC-V12x`.
+- ID 구간을 지킨다. A 값 `TC-V0x`~`TC-V1x` / B CHANGELOG `TC-V2x`~`TC-V3x` / C 엔트리 `TC-V4x`~`TC-V5x` / D 태그 `TC-V6x` / E Pre 훅 `TC-V7x` / F Post 훅 `TC-V8x` / G CLI `TC-V9x` / H 범위 `TC-V10x` / I 루트 CHANGELOG `TC-V11x` / J `V-14` `TC-V12x` / K 날짜 `TC-V13x`.
 - 막는 TC 만 늘리지 않는다. "허용해야 하는 케이스"를 쌍으로 넣어야 과잉 차단을 잡는다.
 
 ## 알려진 한계 (실패로 보지 말 것)
