@@ -202,7 +202,7 @@ test/sync-internal-plugins.test.sh                                   # 동기화
 internal-plugins/plugin-naming/test/validate-naming.test.sh          # 이름 규칙 회귀 테스트 (TC 90건)
 internal-plugins/marketplace-directory-structure/test/validate-directory-structure.test.sh  # 구조 규칙 회귀 테스트 (TC 54건)
 internal-plugins/plugin-versioning/test/validate-versioning.test.sh  # 버전 규칙 회귀 테스트 (TC 125건)
-internal-plugins/plugin-authoring/test/validate-authoring.test.sh    # 작성 규칙 회귀 테스트 (TC 74건)
+internal-plugins/plugin-authoring/test/validate-authoring.test.sh    # 작성 규칙 회귀 테스트 (TC 76건)
 internal-plugins/plugin-dependency/test/validate-dependency.test.sh  # 의존성 회귀 테스트 (TC 55건)
 internal-plugins/plugin-workflow/test/validate-workflow.test.sh      # 개발 플로우 회귀 테스트 (TC 101건)
 ```

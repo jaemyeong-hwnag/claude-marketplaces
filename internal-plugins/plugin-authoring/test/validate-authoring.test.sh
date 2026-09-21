@@ -263,6 +263,14 @@ tc TC-A36 "hooks.json 이 있는데 ## 포함된 훅 이 없으면 막는다 (A-
 P="$(make_plugin)"; readme_drop "$P" "포함된 훅"
 run "$P"; expect_code 2; expect_out "'## 포함된 훅' 절이 없습니다"
 
+tc TC-A38a "스킬만 있고 커맨드가 없어도 ## 포함된 스킬 을 요구한다 (A-22, #8)"
+P="$(make_plugin)"; rm -rf "$P/commands"; readme_drop "$P" "포함된 스킬"
+run "$P"; expect_code 2; expect_out "'## 포함된 스킬' 절이 없습니다"
+
+tc TC-A38b "커맨드만 있고 스킬이 없어도 ## 포함된 스킬 을 요구한다 (A-22, #8)"
+P="$(make_plugin)"; rm -rf "$P/skills"; readme_drop "$P" "포함된 스킬"
+run "$P"; expect_code 2; expect_out "'## 포함된 스킬' 절이 없습니다"
+
 tc TC-A37 "스킬 · 에이전트 · 훅이 없으면 그 절도 필요 없다 (A-22 과잉 차단 방지)"
 P="$(make_plugin)"; rm -rf "$P/skills" "$P/commands" "$P/agents" "$P/hooks"
 readme_drop "$P" "포함된 스킬"; readme_drop "$P" "포함된 에이전트"; readme_drop "$P" "포함된 훅"
