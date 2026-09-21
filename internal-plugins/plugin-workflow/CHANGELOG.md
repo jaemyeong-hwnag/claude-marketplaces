@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.2.4
+
+### Fixed
+- `release-create` 스킬이 옛 노트 범위("그 버전의 절")를 안내하던 것 (#6). 직전 태그 이후의 절 전부, 첫 한꺼번에 릴리즈할 때의 `--since`, GitHub 가 Latest 를 스스로 정한다는 것을 적었다
+
 ## 0.2.3
 
 ### Fixed
