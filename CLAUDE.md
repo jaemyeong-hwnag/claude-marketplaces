@@ -64,7 +64,7 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 요약 — 충돌하면 규칙 원본이 우선한다.
 
 - 플러그인 루트에는 `README.md` · `CHANGELOG.md` · `LICENSE` · `.gitignore` 만 둔다. `.claude-plugin/plugin.json` · `README.md` · `CHANGELOG.md` 는 필수다.
-- 디렉터리는 `.claude-plugin` · `skills` · `hooks` · `scripts` · `commands` · `references` · `agents` · `test` 만 쓴다.
+- 디렉터리는 `.claude-plugin` · `skills` · `hooks` · `scripts` · `commands` · `references` · `agents` · `test` · `evals` 만 쓴다. `evals/` 에는 케이스 디렉터리(`prompt.md` 또는 `case.yaml`)만 둔다.
 - `hooks/` 는 매니페스트(`*.json`)만, 실행 코드는 `scripts/*.sh` 에 둔다. 문서 모음은 `docs/` 가 아니라 `references/` 다.
 - `skills/` 아래에는 스킬 디렉터리만 두고 각 디렉터리에 `SKILL.md` 가 있어야 한다. 스킬 디렉터리 안쪽은 자유다.
 - `plugin.json` 의 `name` 은 디렉터리명과 같아야 한다.
@@ -82,7 +82,7 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 
 - 버전은 `MAJOR.MINOR.PATCH` 세 자리다. `v` 접두사·prerelease·build·선행 0 을 쓰지 않는다.
 - 신규 플러그인은 `0.1.0` 부터 시작한다. `0.0.x` 는 쓰지 않는다.
-- `plugin.json` 의 현재 버전이 `CHANGELOG.md` 에 `## {버전}` 항목으로 있어야 한다. 항목은 내림차순이고 `## 미출시` 는 맨 위에만 온다.
+- `plugin.json` 의 현재 버전이 `CHANGELOG.md` 에 `## {버전}` 항목으로 있어야 한다 (날짜는 선택: `## {버전} - YYYY-MM-DD`). 항목은 내림차순이고 `## 미출시` 는 맨 위에만 온다.
 - marketplace 엔트리가 `version` 을 선언하면 `plugin.json` 과 같아야 한다. 어긋나면 **엔트리를 고친다** — 설치 시점에는 `plugin.json` 이 이긴다.
 - 플러그인 파일을 바꿨으면 버전을 올린다 (`V-14`). PR 전에 `--since origin/main` 으로 본다.
 - 버전을 올릴 때는 **CHANGELOG 먼저**, 그다음 `plugin.json`. `0.x` 에서는 호환성을 깨도 MINOR 를 올린다.
@@ -136,6 +136,7 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 - SKILL.md · 커맨드 · 에이전트 · README 를 쓸 때는 `document-create` 스킬을 따른다.
 - 의존성을 추가·변경·삭제할 때는 `dependency-update` 스킬을 따른다.
 - 작업 시작은 `issue-create`, PR 은 `pull-request-create`, 머지·릴리즈는 `release-create` 스킬을 따른다.
+- 플러그인을 새로 만들 때는 `plugin-create`, 지우거나 끌 때는 `plugin-delete` 스킬을 따른다. 위치만 정할 때는 `plugin-directory-create`.
 - 이름 검토는 `/naming-review` 또는 `naming-reviewer` 에이전트를 쓴다.
 - 구조 검토는 `/directory-structure-validate` 를 쓴다.
 - 버전 검토는 `/versioning-validate` 를 쓴다.
@@ -159,7 +160,7 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 - `enabledPlugins` 에 키가 없을 때만 `true` 로 추가한다. **명시적 `false` 는 끈 것이다** — 되돌리지 않고 설치도 건너뛴다.
 - 디렉터리를 지운 내부 플러그인은 엔트리 · 활성화 키 · 설치본을 훅이 치운다. 디렉터리만 지우면 된다.
 - 내부 엔트리의 `description` 은 훅이 `plugin.json` 에 맞춘다.
-- 끝에 `claude plugin list` 의 `Error:` 줄을 보고한다 — 정적 검증이 못 잡는 로드 실패가 여기 나온다.
+- 끝에 `claude plugin list --json` 의 `errors` 를 보고한다 (못 받으면 텍스트의 `Error:` 줄) — 정적 검증이 못 잡는 로드 실패가 여기 나온다.
 
 이 저장소는 마켓플레이스를 로컬 디렉터리(`.`) 소스로 등록한다. 커밋·푸시는 필요 없다.
 다만 설치본은 `~/.claude/plugins/cache/` 로 복사되므로 **고친 내용은 다음 세션부터 적용된다.**
@@ -197,13 +198,13 @@ internal-plugins/plugin-dependency/scripts/validate-dependency.sh --all .  # 의
 internal-plugins/plugin-workflow/scripts/validate-workflow.sh --templates . # 이슈·PR 템플릿
 .claude/hooks/validate-plugin-scope.sh .                             # 배치·배포 정책
 test/validate-plugin-scope.test.sh                                   # 배치·등록 정책 TC 29건
-test/sync-internal-plugins.test.sh                                   # 동기화 훅 TC 35건
-internal-plugins/plugin-naming/test/validate-naming.test.sh          # 이름 규칙 회귀 테스트 (TC 88건)
-internal-plugins/marketplace-directory-structure/test/validate-directory-structure.test.sh  # 구조 규칙 회귀 테스트 (TC 47건)
-internal-plugins/plugin-versioning/test/validate-versioning.test.sh  # 버전 규칙 회귀 테스트 (TC 117건)
+test/sync-internal-plugins.test.sh                                   # 동기화 훅 TC 37건
+internal-plugins/plugin-naming/test/validate-naming.test.sh          # 이름 규칙 회귀 테스트 (TC 89건)
+internal-plugins/marketplace-directory-structure/test/validate-directory-structure.test.sh  # 구조 규칙 회귀 테스트 (TC 54건)
+internal-plugins/plugin-versioning/test/validate-versioning.test.sh  # 버전 규칙 회귀 테스트 (TC 125건)
 internal-plugins/plugin-authoring/test/validate-authoring.test.sh    # 작성 규칙 회귀 테스트 (TC 74건)
 internal-plugins/plugin-dependency/test/validate-dependency.test.sh  # 의존성 회귀 테스트 (TC 55건)
-internal-plugins/plugin-workflow/test/validate-workflow.test.sh      # 개발 플로우 회귀 테스트 (TC 82건)
+internal-plugins/plugin-workflow/test/validate-workflow.test.sh      # 개발 플로우 회귀 테스트 (TC 94건)
 ```
 
 전부 한 번에 — 검증기 · 회귀 테스트 · `claude plugin validate --strict` 를 경로 규칙으로 찾아 돌리고 한 줄씩 요약한다:
@@ -211,6 +212,17 @@ internal-plugins/plugin-workflow/test/validate-workflow.test.sh      # 개발 �
 ```bash
 internal-plugins/plugin-workflow/scripts/verify-all.sh .
 ```
+
+스킬 발동 · 훅 차단은 eval 로 본다 — 모델을 실제로 부르므로 비용이 든다 (빠른 모드 약 $2).
+
+```bash
+internal-plugins/plugin-workflow/scripts/eval-all.sh --quick .   # 케이스당 1회
+internal-plugins/plugin-workflow/scripts/eval-all.sh .           # 케이스당 3회 + 플러그인 없는 기준선과 비교
+```
+
+- 리포트는 **게시하지 않는다** (`--no-publish`). `claude plugin eval` 의 기본값은 claude.ai 게시다.
+- 결과는 플러그인 밖(`$TMPDIR/plugin-evals/`)에 쓴다. 플러그인 안에 `results/` 가 생기면 sync 훅이 재설치한다.
+- Bash 가 필요한 케이스는 Bash 샌드박스가 있어야 돈다. Docker Desktop 의 `~/.docker/cli-plugins` 링크가 있는 머신에서는 ⚠️ 환경 제한으로 표시된다.
 
 `Write` / `Edit` 에 훅이 걸려 있어 규칙을 어기는 이름으로는 파일이 만들어지지 않는다.
 훅이 막으면 이름을 우회하지 말고 사전이 지시한 단어로 바꾼다.

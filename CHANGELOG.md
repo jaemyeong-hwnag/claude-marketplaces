@@ -3,6 +3,11 @@
 ## 미출시
 
 ### Added
+- eval 자동화 — 플러그인마다 스킬 발동 · 훅 차단 케이스, `eval-all.sh`(케이스 단위 권한, `--no-publish`, 결과는 플러그인 밖). 구조 규칙 `P-10`
+- `plugin-create` · `plugin-delete` 스킬 — 생성 체크리스트, 역참조부터 시작하는 삭제 순서
+- `V-05` — CHANGELOG 항목에 날짜(`## x.y.z - YYYY-MM-DD`)를 붙일 수 있다
+- 이름 판단 5번 — 기존 이름과 헷갈리거나 기능이 겹치지 않는가
+- 로드 확인을 `claude plugin list --json` 의 `errors` 로 (훅 로드 실패가 `errorDetails[].type = hook-load-failed` 로 나오는 것을 실측)
 - `plugin-authoring` 내부 플러그인 — 스킬·커맨드·에이전트 프런트매터, 본문·참조 크기, README 절 구성과 실제 구성요소의 일치
 - `plugin-dependency` 내부 플러그인 — 존재 · 순환 · common 과 번들의 층 · 마켓플레이스 경계 · public → internal 금지 · 범위 겹침
 - `plugin-workflow` 내부 플러그인 — 이슈 · 브랜치 · PR · 머지 · 태그의 12 단계 플로우를 `PreToolUse(Bash)` 훅으로. `verify-all.sh` · `release-plugins.sh` · `branch-create.sh`

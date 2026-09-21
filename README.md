@@ -11,7 +11,8 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 디렉터리와 선언이 어긋나면 `.claude/hooks/validate-plugin-scope.sh` 가 막는다 — 미등록, `category` 불일치, `source` 불일치, 유령 항목.
 
 ```bash
-internal-plugins/plugin-workflow/scripts/verify-all.sh .   # 검증기 · 회귀 테스트 · claude plugin validate 전부
+internal-plugins/plugin-workflow/scripts/verify-all.sh .     # 검증기 · 회귀 테스트 · claude plugin validate 전부
+internal-plugins/plugin-workflow/scripts/eval-all.sh --quick . # 스킬 발동 · 훅 차단 eval (모델 호출, 게시 안 함)
 ```
 
 > 이름은 `plugin-naming`, 디렉터리 구조는 `marketplace-directory-structure`, 버전은 `plugin-versioning`, 파일 내용 형식은 `plugin-authoring`, 의존 관계는 `plugin-dependency`, 개발 플로우는 `plugin-workflow`, 배치·등록은 저장소 `.claude/hooks/` 가 담당한다. 서로 섞지 않는다.
