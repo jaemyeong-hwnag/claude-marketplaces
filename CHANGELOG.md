@@ -3,6 +3,7 @@
 ## 미출시
 
 ### Added
+- `domain-document-sync` public 플러그인 — 도메인 지식 문서를 3계층(`_index` → `_meta` → concept)으로 두고 코드와 맞춰 둔다. 도메인 ↔ 코드 매핑을 `_meta.md` 프런트매터 `code:` 글롭으로 해 언어 · 프레임워크를 가정하지 않는다. 도메인 문서를 코드와 맞춰 두는 플러그인이다 (#14)
 - 언어별 코드 네이밍 public 플러그인 여섯 — `java-naming` · `kotlin-naming` · `typescript-naming` · `node-naming` · `python-naming` · `go-naming`. 각 언어 공식 가이드가 분명히 정한 모양만 `PreToolUse(Write|Edit)` 로 막고(편집 전과 비교해 새로 생긴 위반만), 갈리는 관례는 경고, 단어 선택은 `{언어}-name-create` 스킬이 판단한다 (#13)
 - `github-workflow` public 플러그인 — `plugin-workflow` 에서 이슈 · 브랜치 · PR · 머지 플로우와 훅(`W-01` ~ `W-10`)을 떼어 다른 저장소도 설치할 수 있게 했다. 기본 브랜치를 `origin/HEAD` 에서 읽고, 템플릿 설치 스킬과 머지 · 정리 스킬을 더했다. `plugin-workflow` 는 이것에 의존한다 (#12)
 - eval 자동화 — 플러그인마다 스킬 발동 · 훅 차단 케이스, `eval-all.sh`(케이스 단위 권한, `--no-publish`, 결과는 플러그인 밖). 구조 규칙 `P-10`
