@@ -26,8 +26,12 @@ else
 fi
 
 KEBAB_RE='^[a-z0-9]+(-[a-z0-9]+)*$'
-# 슬롯은 {대상}-{범위}-{관심사}-{목적} 네 개가 상한이다
-MAX_SEGMENTS=4
+# 슬롯은 {대상}-{범위}-{관심사}-{목적} 네 개이고, 슬롯마다 1 ~ 3 단어다 (kotlin-spring = 대상 한 슬롯).
+# 대상과 범위는 같은 등급이라 기계가 경계를 모른다 — 둘을 합쳐 6 단어까지 보고, 나누는 건 AI 가 판단한다.
+MAX_SLOT_WORDS=3
+MAX_SUBJECT_WORDS=$((MAX_SLOT_WORDS * 2))
+# Claude Code 의 스킬 · 에이전트 이름 상한
+MAX_NAME_LENGTH=64
 
 ERRORS=()
 WARNINGS=()
@@ -60,6 +64,20 @@ slot_rank() { # $1=단어 → 등급
 slot_label() { # $1=등급 → 이름
   case "$1" in 3) echo "목적" ;; 2) echo "관심사" ;; *) echo "대상·범위" ;; esac
 }
+# 단어를 슬롯별로 묶어 보여준다. $1=단어들(공백 구분) $2=등급들(공백 구분)
+# → "대상·범위 [kotlin-spring-api] 관심사 [naming] 목적 [validate]"
+slot_breakdown() {
+  local -a ws=($1) rs=($2)
+  local r i out="" part
+  for r in 1 2 3; do
+    part=""
+    for ((i = 0; i < ${#ws[@]}; i++)); do
+      [ "${rs[$i]}" = "$r" ] && part="${part:+$part-}${ws[$i]}"
+    done
+    out="${out:+$out }$(slot_label "$r") [${part:--}]"
+  done
+  printf '%s' "$out"
+}
 
 lookup_deny() { # $1=단어 → "deny\tuse\tcat\tmeaning" 또는 빈 문자열
   printf '%s\n' "$DENY_TABLE" | awk -F'\t' -v w="$1" '$1 == w { print; exit }'
@@ -87,15 +105,35 @@ validate_name() {
     rest="${rest#*-}"
   done
 
-  # 슬롯 상한: {대상}-{범위}-{관심사}-{목적}
-  if [ "${#segs[@]}" -gt "$MAX_SEGMENTS" ]; then
-    ERRORS+=("$label: 단어가 ${#segs[@]} 개입니다 — {대상}-{범위}-{관심사}-{목적} 네 개까지만 쓰세요")
+  if [ "${#name}" -gt "$MAX_NAME_LENGTH" ]; then
+    ERRORS+=("$label: 이름이 ${#name} 자입니다 — ${MAX_NAME_LENGTH} 자까지만 쓸 수 있습니다. 슬롯을 더하지 말고 대상을 좁히세요")
+  fi
+
+  # 단어마다 슬롯 등급을 매긴다. 상한 · 순서 · 슬롯 표시가 모두 이 등급을 쓴다.
+  local -a ranks=()
+  local s n1=0 n2=0 n3=0
+  for s in "${segs[@]}"; do
+    ranks+=("$(slot_rank "$s")")
+    case "${ranks[${#ranks[@]}-1]}" in 1) n1=$((n1 + 1)) ;; 2) n2=$((n2 + 1)) ;; 3) n3=$((n3 + 1)) ;; esac
+  done
+  local breakdown
+  breakdown="$(slot_breakdown "${segs[*]}" "${ranks[*]}")"
+
+  # 슬롯별 상한: 슬롯마다 3 단어. 대상·범위는 합쳐서 6 단어.
+  if [ "$n1" -gt "$MAX_SUBJECT_WORDS" ]; then
+    ERRORS+=("$label: 대상·범위가 $n1 단어입니다 — 대상 ${MAX_SLOT_WORDS} + 범위 ${MAX_SLOT_WORDS} 단어까지만 쓰세요 ($breakdown)")
+  fi
+  if [ "$n2" -gt "$MAX_SLOT_WORDS" ]; then
+    ERRORS+=("$label: 관심사가 $n2 단어입니다 — 슬롯마다 ${MAX_SLOT_WORDS} 단어까지만 쓰세요 ($breakdown)")
+  fi
+  if [ "$n3" -gt "$MAX_SLOT_WORDS" ]; then
+    ERRORS+=("$label: 목적이 $n3 단어입니다 — 슬롯마다 ${MAX_SLOT_WORDS} 단어까지만 쓰세요 ($breakdown)")
   fi
 
   # 단독 사용 금지: 한 단어짜리 이름은 종류를 불문하고 막는다.
   # 언어·프레임워크·범용 단어를 목록으로 열거하지 않아도 구조로 전부 걸린다.
   if [ "${#segs[@]}" -lt 2 ]; then
-    ERRORS+=("$label: 한 단어 이름은 쓸 수 없습니다 — {대상}-{범위}-{관심사}-{목적} 중 최소 두 슬롯을 쓰세요 (예: ${name}-naming)")
+    ERRORS+=("$label: 한 단어 이름은 쓸 수 없습니다 — {대상}-{범위}-{관심사}-{목적} 중 최소 두 단어를 쓰세요 (예: ${name}-naming)")
   fi
 
   # 맥락 중복
@@ -138,7 +176,7 @@ validate_name() {
   # 슬롯 순서: {대상}-{범위}-{관심사}-{목적} 순으로만 놓을 수 있다
   local prev_rank=0 cur_rank i2
   for ((i2 = 0; i2 < ${#segs[@]}; i2++)); do
-    cur_rank="$(slot_rank "${segs[$i2]}")"
+    cur_rank="${ranks[$i2]}"
     if [ "$cur_rank" -lt "$prev_rank" ]; then
       ERRORS+=("$label: 슬롯 순서 위반 — '${segs[$i2]}'($(slot_label "$cur_rank"))가 $(slot_label "$prev_rank") 뒤에 왔습니다. {대상}-{범위}-{관심사}-{목적} 순으로 쓰세요")
       break
@@ -148,7 +186,8 @@ validate_name() {
 
   # 기계 규칙과 무관하게, 만들어진 이름은 전부 AI 판단 대상이다.
   # 이름이 옳은지는 무엇을 만드는가에 달렸고 그건 스크립트가 알 수 없다.
-  JUDGMENTS+=("$kind '$name'")
+  # 슬롯 구분을 같이 넘겨, 단어가 어느 슬롯으로 읽혔는지 드러낸다.
+  JUDGMENTS+=("$kind '$name' — $breakdown")
 
   # 앞 단어의 줄임말 의심은 경고로만 남긴다
   local idx
@@ -229,7 +268,7 @@ emit_judgments_json() {
   for j in "${JUDGMENTS[@]}"; do body="$body"$'\n'"- $j"; done
   body="$body"$'\n'"판단할 것:"
   body="$body"$'\n'"  1. 이름만 보고 무엇을 가리키는지 한 문장으로 말할 수 있는가 (무슨 structure 인가, 무슨 name 인가)"
-  body="$body"$'\n'"  2. 슬롯이 실제 대상·범위와 맞는가 — 넓지도 좁지도 않은가"
+  body="$body"$'\n'"  2. 슬롯이 실제 대상·범위와 맞는가 — 넓지도 좁지도 않은가. 대상·범위 단어를 대상과 범위로 어디서 나누는지 말할 수 있고, 각각 ${MAX_SLOT_WORDS} 단어 이내인가"
   body="$body"$'\n'"  3. 무엇을 다루는지 말하지 않는 범용 단어를 쓰지 않았는가 (utils, manager, data, misc …)"
   body="$body"$'\n'"  4. 무엇을 하는지와 이름이 같은 것을 말하는가 (plugin.json 의 description 과 대조)"
   body="$body"$'\n'"  5. 기존 이름과 헷갈리거나 기능이 겹치지 않는가 (marketplace.json 의 이름·description 과 대조 — 겹치면 기존 플러그인에 스킬을 더한다)"

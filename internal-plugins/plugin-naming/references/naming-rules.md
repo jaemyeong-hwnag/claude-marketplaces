@@ -7,7 +7,8 @@
 
 - kebab-case (소문자 + 하이픈)만 사용한다.
 - 슬롯은 `{대상}-{범위}-{관심사}-{목적}` 네 개다. **필요한 슬롯만 쓰되 순서는 바꾸지 않는다.**
-- 최소 두 슬롯, 최대 네 슬롯.
+- **슬롯 하나는 1 ~ 3 단어다.** `kotlin-spring`(언어 + 프레임워크)은 대상 한 슬롯이다.
+- 이름 전체는 최소 두 단어, 최대 64자.
 
 | 슬롯 | 뜻 | 사전 카테고리 | 예 |
 |---|---|---|---|
@@ -17,11 +18,14 @@
 | 목적 | 무엇을 하려는가 | `action`·`role` | `validate`, `create`, `sync`, `reviewer` |
 
 ```
-plugin-naming               대상 + 관심사
-name-create                 대상 + 목적
-spring-naming               대상 + 관심사
-notion-document-sync        대상 + 범위 + 목적
-document-naming-validate    대상 + 관심사 + 목적
+plugin-naming                       대상 + 관심사
+name-create                         대상 + 목적
+spring-naming                       대상 + 관심사
+notion-document-sync                대상 + 범위 + 목적
+document-naming-validate            대상 + 관심사 + 목적
+kotlin-spring-naming                대상(2) + 관심사
+kotlin-spring-api-naming-validate   대상(2) + 범위 + 관심사 + 목적
+plugin-naming-create-validate       대상 + 관심사 + 목적(2)
 ```
 
 - 공통 플러그인은 `common-{관심사}`.
@@ -29,7 +33,32 @@ document-naming-validate    대상 + 관심사 + 목적
 - 번들 플러그인은 `{역할}-standard`.
   - `backend-standard`, `frontend-standard`
 
-다섯 단어 이상은 막는다. 길어지면 슬롯을 더하지 말고 대상을 좁힌다.
+### 슬롯별 상한
+
+| 슬롯 | 상한 | 기계 판정 |
+|---|---|---|
+| 대상 | 3 단어 | 대상·범위를 합쳐 **6 단어**까지 (둘은 같은 등급이라 경계를 기계가 모른다) |
+| 범위 | 3 단어 | 〃 |
+| 관심사 | 3 단어 | `quality` 단어가 **3 개**까지 |
+| 목적 | 3 단어 | `action`·`role` 단어가 **3 개**까지 |
+
+상한은 허용일 뿐 목표가 아니다. 한 슬롯에 여러 단어를 쓰는 건 **한 단어로는 대상이 특정되지 않을 때**뿐이다 (`kotlin-spring` — 코틀린으로 쓴 스프링).
+길어지면 슬롯을 더하지 말고 대상을 좁힌다. 64자를 넘으면 Claude Code 가 스킬 · 에이전트 이름으로 받지 않는다.
+
+### 슬롯 구분은 이렇게 읽는다
+
+구분자는 하이픈 하나뿐이다 (`--` 같은 다른 구분자는 플러그인 이름 kebab-case 검사에 걸린다). 그래서 **단어가 어느 슬롯인지는 사전 카테고리로 읽는다.**
+
+```
+kotlin-spring-api-naming-validate
+└──── 대상·범위 ───┘ └관심사┘ └목적─┘
+ kotlin-spring │ api
+    대상        범위        ← 여기는 AI 가 나눈다
+```
+
+- 관심사 · 목적은 사전 카테고리로 경계가 정해진다 — 기계가 나눈다.
+- 대상과 범위의 경계는 **이름을 짓는 쪽이 밝힌다.** `name-create` 는 슬롯 표를 같이 내고, `naming-reviewer` 는 경계를 한 문장으로 말할 수 있는지 판정한다.
+- 검증기는 통과한 이름마다 `대상·범위 [kotlin-spring-api] 관심사 [naming] 목적 [validate]` 처럼 읽은 결과를 보여준다. 의도와 다르게 읽혔으면 단어나 사전 카테고리가 틀린 것이다.
 
 ### 슬롯은 사전 카테고리로 판정한다
 
@@ -57,7 +86,8 @@ document-naming-validate    대상 + 관심사 + 목적
 | 언어명 단독 사용 | `java`, `kotlin`, `react` |
 | 프레임워크명 단독 사용 | `spring`, `nextjs` |
 | 맥락 중복 | `spring-spring-boot-naming` |
-| 슬롯 다섯 개 이상 | `plugin-document-config-naming-review` |
+| 슬롯 하나가 네 단어 이상 (대상·범위는 합쳐 일곱 이상) | `plugin-naming-create-review-sync-validate` (목적 4) |
+| 64자 초과 | - |
 | 슬롯 순서 위반 | `review-standard`, `glossary-update-plugin` |
 | 끝 단어가 사전에 없음 | `plugin-banana`, `order-service` |
 
@@ -80,7 +110,7 @@ document-naming-validate    대상 + 관심사 + 목적
 
 | | 담당 | 무엇을 |
 |---|---|---|
-| 정량 | `validate-naming.sh` (차단) | kebab-case, 슬롯 2~4개, 슬롯 순서, `deny` 단어, 끝 단어 미등록 |
+| 정량 | `validate-naming.sh` (차단) | kebab-case, 최소 두 단어 · 64자, 슬롯별 단어 수, 슬롯 순서, `deny` 단어, 끝 단어 미등록 |
 | 판단 | AI (`naming-reviewer`, `name-create`) | 이름이 **무엇을 가리키는지 알 수 있는가**, 범위가 맞는가, 범용 단어가 아닌가, 설명과 이름이 맞는가 |
 
 ### AI 가 판단할 것
@@ -97,6 +127,8 @@ document-naming-validate    대상 + 관심사 + 목적
    - `spring-name` → 무슨 이름인가? 프로젝트 이름이라면 `spring-project-name`.
 2. **슬롯이 실제 대상·범위와 맞는가.** 넓지도 좁지도 않아야 한다.
    `spring-boot-config` 처럼 프레임워크 풀네임을 그대로 쓴 것도 여기서 잡는다.
+   대상·범위 단어를 **대상과 범위로 어디서 나누는지 말할 수 있어야 하고, 각각 3 단어 이내**여야 한다.
+   `kotlin-spring-api-naming` → 대상 `kotlin-spring`, 범위 `api`. 나눌 수 없으면 대상을 좁힌다.
 3. **무엇을 다루는지 말하지 않는 범용 단어를 쓰지 않았는가.** `utils`, `manager`, `data`, `misc`, `helper` 같은 것들.
    목록으로 막지 않는다 — 어떤 맥락에서는 `data` 가 정확한 단어일 수도 있으므로 매번 판단한다.
 4. **무엇을 하는지와 이름이 같은 것을 말하는가.** `plugin.json` 의 `description` 과 대조한다.
