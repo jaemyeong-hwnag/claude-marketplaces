@@ -14,7 +14,7 @@ VERBOSE=1 test/validate-naming.test.sh  # 통과 케이스의 출력까지 표�
 
 종료 코드 0 이면 전체 통과다. 세션 없이 돌아가므로 커밋 전 검증에 그대로 쓴다.
 
-## 자동 TC (96건)
+## 자동 TC (101건)
 
 ### A. 형식 (kebab-case)
 
@@ -95,6 +95,11 @@ VERBOSE=1 test/validate-naming.test.sh  # 통과 케이스의 출력까지 표�
 | TC-060 | PreToolUse 위반이면 종료 코드 2 로 차단한다 | 차단 (2) | - |
 | TC-061 | PreToolUse 준수면 통과시킨다 | 통과 (0) | - |
 | TC-062 | PreToolUse 무관 파일은 통과시킨다 | 통과 (0) | 출력 없음 |
+| TC-132 | 상위 경로의 `…-plugins` 폴더를 플러그인 위치로 읽지 않는다 — 가장 오른쪽 일치 (#24) | 통과 (0) | `public-plugins` 를 이름으로 보지 않음 |
+| TC-133 | 가장 오른쪽 플러그인 폴더의 이름은 여전히 막는다 | 차단 (2) | `java` |
+| TC-134 | 저장소를 둔 상위 폴더가 `my-plugins` 여도 프로젝트 기준으로 판정한다 | 통과 (0) | 출력 없음 |
+| TC-135 | 저장소를 둔 상위 폴더가 `skills` 여도 스킬 이름으로 읽지 않는다 | 통과 (0) | 출력 없음 |
+| TC-136 | 상위 경로에 `skills/` 가 있어도 가장 오른쪽 스킬 디렉터리를 본다 | 통과 (0) | `Bad_Dir` 를 보지 않음 |
 | TC-063 | PostToolUse 정상 glossary 는 통과시킨다 | 통과 (0) | - |
 | TC-064 | PostToolUse 깨진 glossary 는 잡는다 | 차단 (2) | 메시지: `glossary:` |
 | TC-065 | PostToolUse 무관 파일은 검사하지 않는다 | 통과 (0) | 출력 없음 |
