@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.6.0
+
+### Added
+- 사전 `platform` 에 `go` (동의어 `golang` 금지) (#13) — `go-naming` · `go-name-create`. 3자 이하 앞 단어라 "줄임말이면 등록" 경고가 나던 것. Go 는 줄임말이 아니라 언어의 정식 이름이다
+
 ## 0.5.0
 
 ### Changed

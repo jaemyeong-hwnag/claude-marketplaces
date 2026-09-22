@@ -235,6 +235,13 @@
         "scm"
       ],
       "meaning": "Git 버전 관리"
+    },
+    {
+      "use": "go",
+      "deny": [
+        "golang"
+      ],
+      "meaning": "Go 프로그래밍 언어"
     }
   ],
   "quality": [

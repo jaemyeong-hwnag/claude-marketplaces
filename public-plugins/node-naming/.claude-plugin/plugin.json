@@ -1,0 +1,18 @@
+{
+  "name": "node-naming",
+  "description": "Node.js 프로젝트의 이름을 npm 규칙과 JavaScript 관례로 강제한다 — package.json name, 환경 변수 UPPER_SNAKE_CASE, 클래스 PascalCase, 변수·함수 camelCase, 파일 이름 밑줄 경고. 새로 생긴 위반만 막고 단어 선택은 스킬이 판단한다.",
+  "version": "0.1.0",
+  "author": {
+    "name": "황재명",
+    "email": "woaudsla@gmail.com"
+  },
+  "homepage": "https://github.com/jaemyeong-hwnag/claude-marketplaces",
+  "keywords": [
+    "nodejs",
+    "npm",
+    "javascript",
+    "naming",
+    "convention",
+    "validate"
+  ]
+}
