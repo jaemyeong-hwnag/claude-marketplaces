@@ -1,6 +1,6 @@
 ---
 name: aitest-generate
-description: Java · Spring Boot 코드를 고친 뒤 테스트를 쓸 때 사용한다. 변경 메서드마다 성공·실패·경계 케이스 매트릭스로 @AiTest(testcontainer 통합) · @AiWebTest(MockMvc) · 단위 테스트를 작성·실행하고 변경 메서드 JaCoCo 100% 를 맞춘다. 트리거 — "테스트 만들어줘", "테스트 코드 작성", "통합 테스트", "AiTest", "커버리지 올려", 완료 보류(java-spring-aitest-coverage).
+description: Java · Spring Boot 코드를 고친 뒤 테스트를 쓰거나 케이스를 설계할 때 사용한다. 변경 메서드마다 성공·실패·경계 케이스 매트릭스로 @AiTest(testcontainer 통합) · @AiWebTest(MockMvc) · 단위 테스트를 작성·실행하고 변경 메서드 JaCoCo 100% 를 맞춘다. 트리거 — "테스트 만들어줘", "테스트 코드 작성", "통합 테스트", "AiTest", "커버리지 올려", 완료 보류(java-spring-aitest-coverage).
 ---
 
 # @AiTest 생성

@@ -73,7 +73,14 @@ Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아�
 
 ## 수동 확인 — 실제 Gradle · testcontainer
 
-템플릿 · Gradle 연동은 샘플 프로젝트로 확인한다. 0.1.0 에서 확인한 조합은 Spring Boot 3.3.1 · Gradle 8.8 · JDK 17 · MySQL 8.0 이다.
+템플릿 · Gradle 연동은 샘플 프로젝트로 확인한다. 0.1.0 에서 확인한 조합은 둘이다.
+
+| 조합 | 구성 | 확인한 것 |
+|---|---|---|
+| Boot 3.3.1 · Gradle 8.8 · JDK 17 · MySQL 8.0 | 멀티 모듈 `app` + 라이브러리 `core` | 아래 1 ~ 6 전부 |
+| Boot 2.5.6 · Gradle 7.2 · JDK 11 · MySQL 8.0 · Testcontainers 1.19.7 | 단일 모듈 (`MULTI=false`, `NEED_REPOS=true`) | 1 ~ 3, 5 (실제 `aiTest` 실행 후 80% FAIL) · 훅 차단 |
+
+멀티 모듈 순서:
 
 1. 멀티 모듈 샘플(`app` = web + data-jpa + mysql, `core` = java-library)에 `aitest-environment-create` 순서대로 템플릿을 채운다
 2. `./gradlew :app:compileAiTestJava` → `:app:aiTestFast --tests '*TestSupportSmokeAiTest*' -PskipAiTestCoverage` 가 PASS (운영 datasource URL 이 컨테이너로 덮이는지)

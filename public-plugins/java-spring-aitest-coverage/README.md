@@ -38,7 +38,8 @@ claude plugin install java-spring-aitest-coverage@plugin-marketplace --scope pro
 - 게이트는 `gradle/ai-test.gradle` 또는 `@interface AiTest` 가 있는 저장소에서만 돈다. 없으면 세션당 한 번 알리기만 한다
 - Stop 훅은 Gradle 을 돌리지 않고 **기존 리포트**로 판정한다. 코드를 고친 뒤 `scripts/diff-coverage-validate.sh HEAD` 로 리포트를 갱신해야 통과한다 — `aitest-generate` 가 한다
 - 한 번 막힌 뒤 다시 완료하면 허용하고 경고만 남긴다(무한 루프 방지). 주석 · 포맷만 바꾼 경우 등은 `aitest: skip <사유>` 면제를 쓴다 — 게이트 메시지가 ACK 파일 경로를 알려준다
-- 지원 범위: Gradle **Groovy DSL** · Spring Boot 2.x / 3.x · Gradle 7 ~ 9 · MySQL · PostgreSQL · Redis · RabbitMQ. Kotlin DSL · Maven · Kotlin 소스(`src/main/kotlin`)는 보지 않는다
+- 지원 범위: Gradle **Groovy DSL** · Spring Boot 2.x / 3.x · MySQL · PostgreSQL · Redis · RabbitMQ. Kotlin DSL · Maven · Kotlin 소스(`src/main/kotlin`)는 보지 않는다
+- 실측한 조합: Boot 3.3 · Gradle 8.8 · JDK 17 (멀티 모듈 + 라이브러리 모듈, MySQL) · Boot 2.5 · Gradle 7.2 · JDK 11 (단일 모듈, MySQL). Gradle 9 에서 없어진 API(`buildDir` 등)는 쓰지 않지만 Gradle 9 · Boot 4 는 실측하지 않았다
 
 ## 게이트 조항
 

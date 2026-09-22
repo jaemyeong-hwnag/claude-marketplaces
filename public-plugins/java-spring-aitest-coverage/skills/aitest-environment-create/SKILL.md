@@ -37,7 +37,7 @@ description: @AiTest 환경이 없는 Spring Boot(Gradle Groovy) 프로젝트에
    - redis: `…redis….host` 키의 접두를 모두. 없으면 Boot 2 `spring.redis` / Boot 3 `spring.data.redis`
    - rabbitmq: `…rabbitmq….host` 키의 접두를 모두. 없으면 `spring.rabbitmq`
 8. **프로파일**: 앱 모듈에 `src/local/resources` 또는 `application-local.*` 이 있으면 `PROFILE=local`, `HAS_PROFILE=true`
-9. **저장소**: 루트 `build.gradle` · `settings.gradle` 어디에도 `repositories` 가 없으면 `NEED_REPOS=true`
+9. **저장소**: 지원 모듈에 저장소가 전해지는지 본다 — 루트 `build.gradle` 의 `allprojects { repositories … }` · `subprojects { repositories … }` 나 `settings.gradle` 의 `dependencyResolutionManagement { repositories … }` 가 없으면 `NEED_REPOS=true`. 루트 최상위의 `repositories` 는 루트 프로젝트에만 걸린다
 10. 애매한 값(앱 모듈 일부만 대상일 것 같음, 커스텀 키가 인프라 접속 키인지 불명확 등)은 2절에서 묻는다
 
 ## 2. 사용자 확인 (필수)

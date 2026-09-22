@@ -132,6 +132,7 @@ fail=0
 while IFS='|' read -r line name desc missed covered; do
   total=$((missed + covered))
   pct=$((covered * 100 / total))
+  name="$(printf '%s' "$name" | sed 's/&lt;/</g; s/&gt;/>/g')"   # <init> · <clinit>
   text="$label $fqn#${name}${desc} line ${line} → ${pct}% (${covered}/${total})"
   if [ "$missed" -eq 0 ]; then
     echo "OK $text"
