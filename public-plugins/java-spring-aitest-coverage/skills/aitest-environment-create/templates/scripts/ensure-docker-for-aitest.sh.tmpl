@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+# @AiTest 전 Docker·testcontainers reuse·이미지 준비 — java-spring-aitest-coverage aitest-environment-create 생성.
+set -euo pipefail
+
+readonly SCRIPT_NAME="ensure-docker-for-aitest"
+readonly MAX_WAIT_SEC="${AITEST_DOCKER_WAIT_SEC:-180}"
+# 자동 설치는 opt-in(기본 0) — CI/공용 환경에서 brew·curl 설치가 도는 부작용 방지.
+# CLI 가 이미 있으면 이 값과 무관하게 기동·이미지 pull 은 계속한다(비파괴).
+readonly AUTO_INSTALL="${AITEST_AUTO_INSTALL_DOCKER:-0}"
+
+readonly IMAGES=(
+{{IMAGES}}
+)
+
+log() { printf '[%s] %s\n' "$SCRIPT_NAME" "$*"; }
+warn() { printf '[%s] WARN: %s\n' "$SCRIPT_NAME" "$*" >&2; }
+fail() { printf '[%s] ERROR: %s\n' "$SCRIPT_NAME" "$*" >&2; exit 1; }
+
+is_macos() { [[ "$(uname -s)" == "Darwin" ]]; }
+is_linux() { [[ "$(uname -s)" == "Linux" ]]; }
+
+ensure_testcontainers_reuse() {
+  local props="${HOME}/.testcontainers.properties"
+  if [[ ! -f "$props" ]]; then
+    log "~/.testcontainers.properties 생성 (reuse.enable=true — @AiTest withReuse 필수)"
+    cat >"$props" <<'EOF'
+testcontainers.reuse.enable=true
+EOF
+    return
+  fi
+  if grep -qE '^[[:space:]]*testcontainers\.reuse\.enable[[:space:]]*=' "$props"; then
+    if ! grep -qE '^[[:space:]]*testcontainers\.reuse\.enable[[:space:]]*=[[:space:]]*true' "$props"; then
+      warn "testcontainers.reuse.enable=true 가 아닙니다. withReuse(true) 컨테이너가 실패할 수 있습니다."
+      warn "  → ${props} 에 testcontainers.reuse.enable=true 추가 후 재시도"
+    fi
+  else
+    log "~/.testcontainers.properties 에 reuse.enable=true 추가"
+    printf '\ntestcontainers.reuse.enable=true\n' >>"$props"
+  fi
+}
+
+try_start_colima() {
+  command -v colima >/dev/null 2>&1 || return 1
+  if colima status 2>/dev/null | grep -qi 'running'; then
+    return 0
+  fi
+  log "Colima 시작 중..."
+  colima start --cpu 2 --memory 4 >/dev/null 2>&1 || colima start >/dev/null 2>&1 || return 1
+  if command -v docker >/dev/null 2>&1; then
+    docker context use colima >/dev/null 2>&1 || true
+  fi
+}
+
+try_start_docker_desktop_mac() {
+  is_macos || return 1
+  if [[ -d "/Applications/Docker.app" ]]; then
+    log "Docker Desktop 시작 중..."
+    open -g -a Docker 2>/dev/null || open -a Docker 2>/dev/null || true
+    return 0
+  fi
+  return 1
+}
+
+install_docker_mac() {
+  is_macos || return 1
+  command -v brew >/dev/null 2>&1 || return 1
+  log "Homebrew로 Docker Desktop 설치 중 (최초 1회, 수 분 소요)..."
+  brew install --cask docker
+  try_start_docker_desktop_mac
+}
+
+install_docker_linux() {
+  is_linux || return 1
+  [[ "$AUTO_INSTALL" == "1" ]] || return 1
+  if command -v curl >/dev/null 2>&1; then
+    log "get.docker.com 스크립트로 Docker Engine 설치 시도 (sudo 필요할 수 있음)..."
+    curl -fsSL https://get.docker.com | sh
+    if command -v systemctl >/dev/null 2>&1; then
+      sudo systemctl enable --now docker 2>/dev/null || true
+    fi
+    return 0
+  fi
+  return 1
+}
+
+ensure_docker_cli() {
+  if command -v docker >/dev/null 2>&1; then
+    return 0
+  fi
+  if [[ "$AUTO_INSTALL" != "1" ]]; then
+    fail "docker CLI 없음. 자동 설치는 opt-in — 'AITEST_AUTO_INSTALL_DOCKER=1' 로 재실행하거나 Docker 를 수동 설치하세요."
+  fi
+  log "docker CLI 없음 — 설치 시도 (AITEST_AUTO_INSTALL_DOCKER=1)"
+  if is_macos && [[ "$AUTO_INSTALL" == "1" ]]; then
+    install_docker_mac || fail "Docker Desktop 설치 실패. https://docs.docker.com/desktop/install/mac-install/ 수동 설치 후 재시도"
+    return 0
+  fi
+  if is_linux && [[ "$AUTO_INSTALL" == "1" ]]; then
+    install_docker_linux || fail "Docker Engine 설치 실패. https://docs.docker.com/engine/install/ 수동 설치 후 재시도"
+    return 0
+  fi
+  fail "docker CLI 없음. AITEST_AUTO_INSTALL_DOCKER=1 로 재시도하거나 Docker를 수동 설치하세요."
+}
+
+wait_for_docker_daemon() {
+  local elapsed=0
+  while ! docker info >/dev/null 2>&1; do
+    if (( elapsed == 0 )); then
+      try_start_colima || true
+      try_start_docker_desktop_mac || true
+    fi
+    if (( elapsed >= MAX_WAIT_SEC )); then
+      fail "$(docker_daemon_hint)"
+    fi
+    if (( elapsed % 10 == 0 )); then
+      log "Docker 데몬 대기 중... (${elapsed}s / ${MAX_WAIT_SEC}s)"
+    fi
+    sleep 2
+    elapsed=$((elapsed + 2))
+  done
+  log "Docker 데몬 연결 OK ($(docker version --format '{{.Server.Version}}' 2>/dev/null || echo unknown))"
+}
+
+docker_daemon_hint() {
+  cat <<'EOF'
+Docker 데몬에 연결할 수 없습니다. 흔한 원인:
+  1) Docker Desktop/Colima는 설치됐지만 아직 기동 중 (트레이 아이콘 확인)
+  2) 이미지 미다운로드 — 본 스크립트가 pull 시도함
+  3) testcontainers.reuse.enable=true 미설정 — 본 스크립트가 ~/.testcontainers.properties 설정
+  4) ARM Mac에서 x86 이미지 에뮬레이션 지연 — Docker Desktop → Settings → Virtualization
+  5) VPN/프록시가 registry 접근 차단
+
+수동 확인:
+  docker info
+  docker pull mysql:8.0
+EOF
+}
+
+pull_images() {
+  log "Testcontainer 이미지 사전 pull (${#IMAGES[@]}개)"
+  local img
+  for img in "${IMAGES[@]}"; do
+    if docker image inspect "$img" >/dev/null 2>&1; then
+      log "  cached: $img"
+    else
+      log "  pulling: $img"
+      if ! docker pull "$img"; then
+        fail "이미지 pull 실패: $img (네트워크·디스크·registry 접근 확인)"
+      fi
+    fi
+  done
+}
+
+smoke_test_container() {
+  log "컨테이너 smoke test (hello-world)"
+  if docker run --rm hello-world >/dev/null 2>&1; then
+    log "smoke test OK"
+    return
+  fi
+  warn "hello-world smoke test 실패 — pull 재시도"
+  docker pull hello-world >/dev/null
+  docker run --rm hello-world >/dev/null 2>&1 || fail "컨테이너 실행 smoke test 실패. Docker Desktop 리소스·권한 확인"
+}
+
+main() {
+  log "시작 (AUTO_INSTALL=${AUTO_INSTALL}, WAIT=${MAX_WAIT_SEC}s)"
+  ensure_docker_cli
+  try_start_colima || true
+  try_start_docker_desktop_mac || true
+  wait_for_docker_daemon
+  ensure_testcontainers_reuse
+  pull_images
+  smoke_test_container
+  log "준비 완료 — ./gradlew :<module>:aiTest 실행 가능"
+}
+
+main "$@"

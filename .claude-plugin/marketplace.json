@@ -154,6 +154,24 @@
       "tags": [
         "productivity"
       ]
+    },
+    {
+      "name": "java-spring-aitest-coverage",
+      "source": "./public-plugins/java-spring-aitest-coverage",
+      "category": "public",
+      "description": "Java · Spring Boot(Gradle) 프로젝트에서 AI 가 바꾼 코드를 @AiTest 로 덮게 한다 — 변경 메서드 케이스 매트릭스 테스트 생성, testcontainer 테스트 환경 생성, 작업 완료 시 변경 메서드 JaCoCo 100% 게이트.",
+      "tags": [
+        "development",
+        "spring"
+      ],
+      "keywords": [
+        "java",
+        "spring-boot",
+        "test",
+        "jacoco",
+        "coverage",
+        "testcontainers"
+      ]
     }
   ]
 }

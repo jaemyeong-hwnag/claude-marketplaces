@@ -1,0 +1,34 @@
+package {{PACKAGE}};
+
+import org.springframework.boot.test.util.TestPropertyValues;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.utility.DockerImageName;
+
+/**
+ * Redis Testcontainer 초기화.
+ */
+public class RedisTestcontainerInitializer
+        implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+
+    @SuppressWarnings("resource")
+    private static final GenericContainer<?> REDIS =
+            new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
+                    .withExposedPorts(6379)
+                    .withReuse(true);
+
+    static {
+        DockerEnvironment.ensureReady();
+        REDIS.start();
+    }
+
+    @Override
+    public void initialize(ConfigurableApplicationContext ctx) {
+        String host = REDIS.getHost();
+        Integer port = REDIS.getMappedPort(6379);
+        TestPropertyValues.of(
+{{REDIS_PROPS}}
+        ).applyTo(ctx);
+    }
+}

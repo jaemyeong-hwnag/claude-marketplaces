@@ -1,0 +1,99 @@
+// @AiTest — src/test/java 를 공유하고 *AiTest* 파일만 aiTest 소스셋으로 컴파일한다.
+// 일반 test 태스크는 @Tag("AI") 를 제외한다. (java-spring-aitest-coverage aitest-environment-create 생성)
+
+apply plugin: 'jacoco'
+
+sourceSets {
+    aiTest {
+        java {
+            srcDirs = ['src/test/java']
+            include '**/*AiTest*.java'
+        }
+        resources.srcDirs = ['src/test/resources']
+        // 의존성은 아래 configurations 의 extendsFrom 으로 받는다. runtimeClasspath 를 직접 더하면
+        // 구성 시점에 풀려서 Gradle 8 은 경고, Gradle 9 는 오류가 난다.
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += output + compileClasspath
+    }
+    test {
+        java {
+            exclude '**/*AiTest*.java'
+        }
+    }
+}
+
+configurations {
+    aiTestImplementation.extendsFrom implementation
+    aiTestRuntimeOnly.extendsFrom runtimeOnly
+}
+
+dependencies {
+    aiTestImplementation project(':{{MODULE}}')
+    // IDE 는 src/test/java 를 test 소스셋으로만 매핑하므로 test 클래스패스에도 지원 모듈을 둔다.
+    testImplementation project(':{{MODULE}}')
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform {
+        excludeTags 'AI'
+    }
+}
+
+tasks.register('aiTestCoverageReport', JacocoReport) { JacocoReport report ->
+    onlyIf { !project.hasProperty('skipAiTestCoverage') }
+    dependsOn 'aiTest'
+    executionData layout.buildDirectory.file('jacoco/aiTest.exec')
+    report.sourceSets(sourceSets.main)
+    // 라이브러리 모듈(대상 모듈 · 지원 모듈이 아닌 java 서브프로젝트)의 클래스도 넣는다 —
+    // 라이브러리 변경을 이 모듈의 aiTest 로 잰다. 의존하지 않는 모듈은 0% 로 나올 뿐 판정에 쓰이지 않는다.
+    def appModules = rootProject.findProperty('aiTestModules') ?: []
+    rootProject.subprojects.findAll { lib ->
+        lib != project && lib.name != '{{MODULE}}' && !(lib.path.substring(1) in appModules) && lib.plugins.hasPlugin('java')
+    }.each { lib -> report.sourceSets(lib.sourceSets.main) }
+    reports {
+        html.required = true
+        xml.required = true
+    }
+}
+
+tasks.named('compileAiTestJava') {
+    group = 'verification'
+    description = '@AiTest 클래스만 컴파일 (src/test/java/**/*AiTest*.java)'
+}
+
+def configureAiTest = { Test task ->
+    task.useJUnitPlatform {
+        includeTags 'AI'
+    }
+    task.testClassesDirs = sourceSets.aiTest.output.classesDirs
+    task.classpath = sourceSets.aiTest.runtimeClasspath
+{{#HAS_PROFILE}}    task.systemProperty 'spring.profiles.active', '{{PROFILE}}'
+{{/HAS_PROFILE}}    // 모듈 전체 @AiTest 가 한 JVM 에서 컨텍스트를 재사용한다 — 컨텍스트 캐시 누적에 대비해 힙을 넉넉히 준다.
+    task.maxParallelForks = 1
+    task.maxHeapSize = '2g'
+    task.jacoco {
+        destinationFile = layout.buildDirectory.file('jacoco/aiTest.exec').get().asFile
+    }
+    if (!project.hasProperty('skipAiTestCoverage')) {
+        task.finalizedBy 'aiTestCoverageReport'
+    }
+}
+
+tasks.register('aiTest', Test) {
+    group = 'verification'
+    description = '@Tag(AI) 테스트 — testcontainer 인프라'
+    dependsOn classes, compileAiTestJava
+    def ensureDocker = rootProject.tasks.findByName('ensureDockerForAiTest')
+    if (ensureDocker != null) {
+        dependsOn ensureDocker
+    }
+    configureAiTest(it)
+}
+
+// 변경된 AiTest 만 빠르게: ./gradlew :<module>:aiTestFast --tests '...'
+tasks.register('aiTestFast', Test) {
+    group = 'verification'
+    description = '@AiTest 빠른 실행 — Docker 준비 생략, --tests 로 대상 지정 권장'
+    dependsOn classes, compileAiTestJava
+    configureAiTest(it)
+}

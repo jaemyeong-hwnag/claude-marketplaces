@@ -1,0 +1,45 @@
+package {{PACKAGE}};
+
+import org.springframework.boot.test.util.TestPropertyValues;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.ConfigurableApplicationContext;
+{{#TC2}}import org.testcontainers.mysql.MySQLContainer;
+{{/TC2}}{{^TC2}}import org.testcontainers.containers.MySQLContainer;
+{{/TC2}}import org.testcontainers.utility.DockerImageName;
+
+/**
+ * MySQL Testcontainer 초기화. 애플리케이션 datasource 설정을 로컬 Docker MySQL 로 오버라이드한다.
+ */
+public class MySQLTestcontainerInitializer
+        implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+
+    private static final String DB_NAME = "{{DB_NAME}}";
+    private static final String DB_USER = "aitest";
+    private static final String DB_PASS = "aitest";
+
+    @SuppressWarnings("resource")
+    private static final MySQLContainer{{^TC2}}<?>{{/TC2}} MYSQL =
+            new MySQLContainer{{^TC2}}<>{{/TC2}}(DockerImageName.parse("mysql:8.0"))
+                    .withDatabaseName(DB_NAME)
+                    .withUsername(DB_USER)
+                    .withPassword(DB_PASS)
+                    .withReuse(true);
+
+    static {
+        DockerEnvironment.ensureReady();
+        MYSQL.start();
+    }
+
+    @Override
+    public void initialize(ConfigurableApplicationContext ctx) {
+        String jdbcUrl = withParams(MYSQL.getJdbcUrl());
+        TestPropertyValues.of(
+{{DATASOURCE_PROPS}}
+        ).applyTo(ctx);
+    }
+
+    private static String withParams(String baseUrl) {
+        String params = "zeroDateTimeBehavior=convertToNull&characterEncoding=UTF8&useUnicode=true&allowMultiQueries=true";
+        return baseUrl.contains("?") ? baseUrl + "&" + params : baseUrl + "?" + params;
+    }
+}

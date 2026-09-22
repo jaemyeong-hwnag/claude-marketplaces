@@ -1,0 +1,22 @@
+package {{PACKAGE}};
+
+import org.testcontainers.DockerClientFactory;
+
+public final class DockerEnvironment {
+
+    private DockerEnvironment() {
+    }
+
+    public static void ensureReady() {
+        DockerClientFactory factory = DockerClientFactory.instance();
+        if (factory.isDockerAvailable()) {
+            return;
+        }
+        throw new IllegalStateException(
+                "Docker 데몬에 연결할 수 없어 Testcontainer 를 시작할 수 없습니다.\n"
+                        + "  1) Docker Desktop/Colima 실행 후 docker info 로 확인\n"
+                        + "  2) ~/.testcontainers.properties 에 testcontainers.reuse.enable=true (withReuse)\n"
+                        + "  3) ./scripts/ensure-docker-for-aitest.sh 로 이미지 준비"
+        );
+    }
+}

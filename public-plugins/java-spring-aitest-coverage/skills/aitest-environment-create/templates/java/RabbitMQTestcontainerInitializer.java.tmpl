@@ -1,0 +1,39 @@
+package {{PACKAGE}};
+
+import org.springframework.boot.test.util.TestPropertyValues;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.utility.DockerImageName;
+
+/**
+ * RabbitMQ Testcontainer 초기화.
+ */
+public class RabbitMQTestcontainerInitializer
+        implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+
+    private static final String USER = "guest";
+    private static final String PASS = "guest";
+
+    @SuppressWarnings("resource")
+    private static final GenericContainer<?> RABBITMQ =
+            new GenericContainer<>(DockerImageName.parse("rabbitmq:3.13-alpine"))
+                    .withExposedPorts(5672)
+                    .withEnv("RABBITMQ_DEFAULT_USER", USER)
+                    .withEnv("RABBITMQ_DEFAULT_PASS", PASS)
+                    .withReuse(true);
+
+    static {
+        DockerEnvironment.ensureReady();
+        RABBITMQ.start();
+    }
+
+    @Override
+    public void initialize(ConfigurableApplicationContext ctx) {
+        String host = RABBITMQ.getHost();
+        Integer port = RABBITMQ.getMappedPort(5672);
+        TestPropertyValues.of(
+{{RABBITMQ_PROPS}}
+        ).applyTo(ctx);
+    }
+}
