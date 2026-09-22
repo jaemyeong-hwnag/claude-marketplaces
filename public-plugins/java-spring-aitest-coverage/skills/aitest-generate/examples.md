@@ -22,7 +22,7 @@ class OrderServiceAiTest {
     @Autowired
     private OrderRepository orderRepository;
 
-    @MockBean
+    @MockitoBean                                        // Boot 3.4+. 그 전은 @MockBean
     private PaymentClient paymentClient;                // 외부 경계만 목
 
     @BeforeEach

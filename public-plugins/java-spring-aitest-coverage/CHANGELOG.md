@@ -10,3 +10,4 @@
 - 스크립트 `diff-coverage-validate.sh` · `method-coverage-get.sh`
 - 프로젝트 설정 `.claude/java-spring-aitest-coverage.json` — 라이브러리 모듈 → 소비 모듈 매핑, JDK 버전
 - 단일 모듈 · 중첩 모듈(`apps:api`) 프로젝트 지원, 라이브러리 모듈 클래스를 소비 모듈 JaCoCo 리포트에 포함
+- Spring Boot 4 · Testcontainers 2 · Gradle 9 대응 — 템플릿 분기 `BOOT4` · `TC2` · `HAS_WEB`, `@MockitoBean` 안내

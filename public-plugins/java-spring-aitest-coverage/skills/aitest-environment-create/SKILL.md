@@ -24,13 +24,14 @@ description: @AiTest 환경이 없는 Spring Boot(Gradle Groovy) 프로젝트에
 4. **라이브러리 모듈**: 앱 모듈이 아닌 java 서브프로젝트 중 앱 모듈 `build.gradle` 에 `project(':<lib>')` 로 들어가는 것 → `libraryModules = { "<lib>": [그것을 쓰는 앱 모듈] }`
 5. **버전**
    - `BOOT_VERSION` = `org.springframework.boot` 플러그인 version · `ext` 변수 · `gradle.properties` · `gradle/libs.versions.toml` 중 찾은 값
-   - `TC_VERSION` = testcontainers 버전 변수가 있으면 그 값, 없으면 Boot 2.x → `1.19.7`, Boot 3.x → `1.20.4`
+   - `TC_VERSION` = testcontainers 버전 변수가 있으면 그 값, 없으면 Boot 2.x → `1.19.7`, Boot 3.x → `1.20.4`, Boot 4.x → Boot BOM 의 `testcontainers.version` (4.0.2 → `2.0.3`)
+   - `BOOT4` = Boot 4.x · `TC2` = `TC_VERSION` 이 2.x — 아티팩트 이름(`testcontainers-mysql`) · 패키지(`org.testcontainers.mysql`) · MockMvc 모듈(`spring-boot-webmvc-test`)이 갈린다
    - JDK = `sourceCompatibility` · toolchain → 설정 `javaVersion`
 6. **인프라**: 루트 · 모듈 `build.gradle`, `gradle/*.gradle`, `libs.versions.toml` 을 Grep
    - `mysql-connector` · `com.mysql` → `MYSQL` · `org.postgresql` → `POSTGRESQL` (`HAS_DB` = 둘 중 하나)
    - `spring-boot-starter-data-redis` · `redisson` · `lettuce` · `jedis` → `REDIS`
    - `spring-boot-starter-amqp` · `spring-rabbit` → `RABBITMQ`
-   - `spring-boot-starter-web` 이 있으면 `AiWebTest` 도 만든다
+   - `spring-boot-starter-web` · `spring-boot-starter-webmvc` 가 있으면 `HAS_WEB=true` — `AiWebTest` 도 만든다
 7. **설정 키**: 앱 모듈 `src/*/resources/application*.{yml,yaml,properties}`(test 제외)를 점 표기 키로 읽는다
    - datasource: 값이 `jdbc:` 로 시작하는 `…datasource….url|jdbc-url` 키를 **모두** (예 `spring.datasource.url`, `spring.read.datasource.jdbc-url`). 없으면 `spring.datasource` + `url`
    - `DB_NAME` = jdbc URL 경로의 DB 이름, 없으면 `aitest`
@@ -48,14 +49,14 @@ description: @AiTest 환경이 없는 Spring Boot(Gradle Groovy) 프로젝트에
 
 ### 채우기 규칙
 
-- `{{KEY}}` → 값. `{{#KEY}}…{{/KEY}}` → KEY 가 참이면 안쪽만 남기고 거짓이면 통째로 지운다. `{{^KEY}}…{{/KEY}}` → 반대
+- `{{KEY}}` → 값. `{{#KEY}}…{{/KEY}}` → KEY 가 참이면 안쪽만 남기고 거짓이면 통째로 지운다. `{{^KEY}}…{{/KEY}}` → 반대. 블록은 겹쳐 쓴다(`{{#MYSQL}}{{#TC2}}…{{/TC2}}{{/MYSQL}}`) — 안쪽까지 다 푼다
 
 | KEY | 값 |
 |---|---|
 | `PACKAGE` · `APP_PACKAGE` | `<base_package>.test.support` · 스모크 테스트를 둘 앱 모듈의 패키지 |
 | `MODULE` | `test-support` (사용자 지정 시 그 이름) |
 | `BOOT_VERSION` · `TC_VERSION` · `PROFILE` · `DB_NAME` | 1절 값 |
-| `MYSQL` · `POSTGRESQL` · `HAS_DB` · `REDIS` · `RABBITMQ` · `HAS_PROFILE` · `NEED_REPOS` · `MULTI` | 참 / 거짓 |
+| `MYSQL` · `POSTGRESQL` · `HAS_DB` · `REDIS` · `RABBITMQ` · `HAS_WEB` · `HAS_PROFILE` · `NEED_REPOS` · `MULTI` · `BOOT4` · `TC2` | 참 / 거짓 |
 | `INITIALIZERS` | 8칸 들여쓰기, 쉼표 구분: `AiTestPropertyInitializer.class`, `AiTestMainConfigInitializer.class` + 있는 것만 `MySQLTestcontainerInitializer.class` / `PostgreSQLTestcontainerInitializer.class`, `RedisTestcontainerInitializer.class`, `RabbitMQTestcontainerInitializer.class` |
 | `DATASOURCE_PROPS` | 16칸, 쉼표 구분. 접두마다 `"<접두>.<url\|jdbc-url>=" + jdbcUrl`, `"<접두>.username=" + DB_USER`, `"<접두>.password=" + DB_PASS` · 끝에 `"spring.datasource.hikari.maximum-pool-size=3"`, `"spring.datasource.hikari.minimum-idle=1"` |
 | `REDIS_PROPS` | 16칸, 접두마다 `"<접두>.host=" + host`, `"<접두>.port=" + port` |
@@ -80,7 +81,7 @@ description: @AiTest 환경이 없는 Spring Boot(Gradle Groovy) 프로젝트에
 - 루트 `build.gradle` 끝에 `gradle/root-block.gradle.tmpl` 을 채운 블록
 - `libraryModules` 가 있거나 JDK 를 고정해야 하면 `.claude/java-spring-aitest-coverage.json` (규칙 원본 4절 형식)
 - 이미 있는 파일은 덮어쓰지 않는다
-- 만든 뒤 `grep -rnE '\{\{[#^/]?[A-Z_]+\}\}' <MODULE> gradle/ai-test.gradle scripts/ensure-docker-for-aitest.sh build.gradle <스모크 테스트>` 가 0건이어야 한다 (`{{.Server.Version}}` 같은 docker format 은 잔재가 아니다)
+- 만든 뒤 `grep -rnE '\{\{[#^/]?[A-Z0-9_]+\}\}' <MODULE> gradle/ai-test.gradle scripts/ensure-docker-for-aitest.sh build.gradle <스모크 테스트>` 가 0건이어야 한다 (`{{.Server.Version}}` 같은 docker format 은 잔재가 아니다)
 
 ## 4. 검증
 

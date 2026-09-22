@@ -15,9 +15,13 @@ plugins {
     api 'org.junit.platform:junit-platform-launcher'
     api 'org.springframework:spring-tx'
     api 'org.testcontainers:testcontainers'
-{{#MYSQL}}    api 'org.testcontainers:mysql'
-{{/MYSQL}}{{#POSTGRESQL}}    api 'org.testcontainers:postgresql'
-{{/POSTGRESQL}}}
+{{#MYSQL}}{{#TC2}}    api 'org.testcontainers:testcontainers-mysql'
+{{/TC2}}{{^TC2}}    api 'org.testcontainers:mysql'
+{{/TC2}}{{/MYSQL}}{{#POSTGRESQL}}{{#TC2}}    api 'org.testcontainers:testcontainers-postgresql'
+{{/TC2}}{{^TC2}}    api 'org.testcontainers:postgresql'
+{{/TC2}}{{/POSTGRESQL}}{{#BOOT4}}{{#HAS_WEB}}    // Boot 4 부터 MockMvc 자동 구성이 별도 모듈이다
+    api 'org.springframework.boot:spring-boot-webmvc-test'
+{{/HAS_WEB}}{{/BOOT4}}}
 
 // 루트 subprojects 가 spring-boot 플러그인을 켜도 라이브러리로 빌드되게 한다.
 tasks.matching { it.name == 'bootJar' }.configureEach { enabled = false }

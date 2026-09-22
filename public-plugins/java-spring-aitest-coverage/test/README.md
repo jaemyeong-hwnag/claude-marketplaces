@@ -73,12 +73,14 @@ Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아�
 
 ## 수동 확인 — 실제 Gradle · testcontainer
 
-템플릿 · Gradle 연동은 샘플 프로젝트로 확인한다. 0.1.0 에서 확인한 조합은 둘이다.
+템플릿 · Gradle 연동은 샘플 프로젝트로 확인한다. 0.1.0 에서 확인한 조합은 넷이다. 템플릿을 고치면 넷을 다시 돌린다.
 
-| 조합 | 구성 | 확인한 것 |
-|---|---|---|
-| Boot 3.3.1 · Gradle 8.8 · JDK 17 · MySQL 8.0 | 멀티 모듈 `app` + 라이브러리 `core` | 아래 1 ~ 6 전부 |
-| Boot 2.5.6 · Gradle 7.2 · JDK 11 · MySQL 8.0 · Testcontainers 1.19.7 | 단일 모듈 (`MULTI=false`, `NEED_REPOS=true`) | 1 ~ 3, 5 (실제 `aiTest` 실행 후 80% FAIL) · 훅 차단 |
+| Boot | Gradle | JDK | TC | 구성 | 인프라 · 분기 | 확인한 것 |
+|---|---|---|---|---|---|---|
+| 2.5.6 | 7.2 | 11 | 1.19.7 | 단일 모듈 | MySQL · `MULTI=false` · `NEED_REPOS=true` | 1 ~ 3 · 실제 `aiTest` 후 80% FAIL · 훅 차단 |
+| 3.3.1 | 8.8 | 17 | 1.20.4 | 멀티 모듈 `app` + 라이브러리 `core` | MySQL | 1 ~ 6 전부 |
+| 3.5.6 | 9.3.0 | 17 | 1.20.4 | 중첩 모듈 `apps:api` + 라이브러리 `core` | PostgreSQL · Redis · RabbitMQ · `HAS_PROFILE`(local) | 1 ~ 6 전부 + Redis 쓰기 · RabbitMQ 채널 · local 프로파일의 dev 호스트가 컨테이너로 덮였는지 |
+| 4.0.2 | 9.3.0 | 17 | 2.0.3 | 단일 모듈 | MySQL / PostgreSQL · `BOOT4` · `TC2` | 1 ~ 3 · 80% FAIL → `@ParameterizedTest` 보강 → 100% · 훅 통과 |
 
 멀티 모듈 순서:
 
@@ -88,3 +90,19 @@ Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아�
 4. Controller · core 클래스에 분기를 더하고 훅(Stop) → `C-01` 차단
 5. 분기 일부만 덮는 `<Controller>AiTest` → `diff-coverage-validate.sh HEAD` 가 두 클래스 모두 100% 미만으로 FAIL (core 클래스가 app 리포트에 나온다)
 6. 남은 분기를 덮음 → PASS, 훅 통과 → core 를 다시 고치면 `C-03` 차단
+
+## 수동 확인 — 실제 Claude Code 세션의 Stop 게이트
+
+`evals/coverage-blocked` 는 Bash 샌드박스가 필요해 막힌 머신에서는 ⚠️ 로 건너뛴다. 그때는 같은 픽스처로 헤드리스 세션을 직접 돌린다.
+
+```bash
+mkdir /tmp/live && cd /tmp/live && bash <plugin>/evals/coverage-blocked/fixture.sh
+claude -p "PriceController 의 price 에서 percent 가 100 이상이면 0 을 돌려주게 고쳐줘. 테스트는 쓰지 마." \
+  --plugin-dir <plugin> --setting-sources project --permission-mode acceptEdits --allowedTools "Read,Edit" \
+  --output-format stream-json --verbose > live.jsonl
+grep -c '완료 보류(java-spring-aitest-coverage)' live.jsonl      # 1 이상
+claude -p "PriceController 의 price 가 무엇을 하는지 설명해줘. 고치지 마." --plugin-dir <plugin> \
+  --setting-sources project --allowedTools Read --output-format stream-json --verbose | grep -c '완료 보류'   # 0 (C-05)
+```
+
+0.1.0 에서 둘 다 기대대로 나왔다 (claude-haiku-4-5).
