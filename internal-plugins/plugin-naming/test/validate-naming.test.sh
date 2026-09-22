@@ -87,6 +87,10 @@ run "plugins/naming-/x.md"; expect_code 2; expect_out "kebab-case 위반"
 tc TC-007 "단어에 숫자가 붙어도 통과한다"
 run "plugins/svelte5-naming/x.md"; expect_code 0
 
+tc TC-008 "이름이 64자를 넘으면 막는다"
+run kotlin-spring-boot-order-api-configuration-authoring-naming-structure-create-review
+expect_code 2; expect_out "64 자까지만"
+
 section "== B. 구조 (단독 사용 금지) =="
 
 tc TC-010 "언어명 단독은 막는다"
@@ -352,13 +356,27 @@ section "== J. 슬롯 =="
 tc TC-090 "슬롯 네 개는 통과한다"
 run plugin-document-naming-review; expect_code 0
 
-tc TC-091 "슬롯 다섯 개는 막는다"
-run plugin-document-config-naming-review
-expect_code 2; expect_out "{대상}-{범위}-{관심사}-{목적} 네 개까지만"
+tc TC-091 "대상이 여러 단어(언어-프레임워크)여도 통과한다"
+run kotlin-spring-api-naming-validate; expect_code 0
+expect_out "대상·범위 \[kotlin-spring-api\] 관심사 \[naming\] 목적 \[validate\]"
 
-tc TC-092 "슬롯 상한 메시지가 실제 단어 수를 알려준다"
-run plugin-document-config-template-naming-review
-expect_code 2; expect_out "단어가 6 개입니다"
+tc TC-092 "슬롯마다 세 단어, 전체 열두 단어까지 통과한다"
+run rust-axum-order-file-date-api-test-naming-standard-get-list-sync; expect_code 0
+
+tc TC-096 "관심사가 네 단어면 막고 슬롯 구분을 보여준다"
+run kotlin-spring-naming-coverage-test-structure-validate
+expect_code 2; expect_out "관심사가 4 단어입니다"; expect_out "관심사 \[naming-coverage-test-structure\]"
+
+tc TC-097 "목적이 네 단어면 막는다"
+run plugin-naming-create-review-sync-validate
+expect_code 2; expect_out "목적이 4 단어입니다"
+
+tc TC-098 "대상·범위가 일곱 단어면 막는다"
+run kotlin-spring-boot-order-api-config-document-naming
+expect_code 2; expect_out "대상·범위가 7 단어입니다"; expect_out "대상 3 + 범위 3"
+
+tc TC-099 "대상·범위가 여섯 단어면 통과한다"
+run kotlin-spring-boot-order-api-config-naming; expect_code 0
 
 tc TC-093 "목적이 관심사보다 앞에 오면 막는다"
 run review-standard
@@ -431,12 +449,17 @@ printf '%s' "$OUT" | jq -e '.hookSpecificOutput.hookEventName == "PreToolUse"' >
 tc TC-125 "판단 요청에 체크리스트가 들어 있다"
 run_stdin '{"hook_event_name":"PreToolUse","tool_input":{"file_path":"/x/internal-plugins/plugin-directory-structure/README.md"}}'
 expect_out "한 문장으로 말할 수 있는가"
+expect_out "대상과 범위로 어디서 나누는지"
 expect_out "description 과 대조"
 expect_out "이름을 다시 만드세요"
 
 tc TC-126 "경로 하나에서 여러 이름이 나오면 전부 넘긴다"
 run_stdin '{"hook_event_name":"PreToolUse","tool_input":{"file_path":"/x/internal-plugins/plugin-directory-structure/skills/structure-review/SKILL.md"}}'
 expect_out "plugin 'plugin-directory-structure'"; expect_out "skill 'structure-review'"
+
+tc TC-131 "판단 요청이 단어별 슬롯 구분을 보여준다"
+run_stdin '{"hook_event_name":"PreToolUse","tool_input":{"file_path":"/x/internal-plugins/plugin-directory-structure/README.md"}}'
+expect_out "대상·범위 \\[plugin-directory\\] 관심사 \\[structure\\] 목적 \\[-\\]"
 
 tc TC-127 "훅이 무관한 경로에는 반응하지 않는다"
 run_stdin '{"hook_event_name":"PreToolUse","tool_input":{"file_path":"/x/test/run-thing.test.sh"}}'

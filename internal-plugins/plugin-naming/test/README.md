@@ -14,7 +14,7 @@ VERBOSE=1 test/validate-naming.test.sh  # 통과 케이스의 출력까지 표�
 
 종료 코드 0 이면 전체 통과다. 세션 없이 돌아가므로 커밋 전 검증에 그대로 쓴다.
 
-## 자동 TC (90건)
+## 자동 TC (96건)
 
 ### A. 형식 (kebab-case)
 
@@ -27,6 +27,7 @@ VERBOSE=1 test/validate-naming.test.sh  # 통과 케이스의 출력까지 표�
 | TC-005 | 하이픈으로 시작하면 막는다 | 차단 (2) | 메시지: `kebab-case 위반` |
 | TC-006 | 하이픈으로 끝나면 막는다 | 차단 (2) | 메시지: `kebab-case 위반` |
 | TC-007 | 단어에 숫자가 붙어도 통과한다 | 통과 (0) | - |
+| TC-008 | 이름이 64자를 넘으면 막는다 | 차단 (2) | 메시지: `64 자까지만` |
 
 ### B. 구조 (단독 사용 금지)
 
@@ -133,11 +134,15 @@ VERBOSE=1 test/validate-naming.test.sh  # 통과 케이스의 출력까지 표�
 | ID | 무엇을 | 기대 | 확인 |
 |---|---|---|---|
 | TC-090 | 슬롯 네 개는 통과한다 | 통과 (0) | `plugin-document-naming-review` |
-| TC-091 | 슬롯 다섯 개는 막는다 | 차단 (2) | 메시지: `네 개까지만` |
-| TC-092 | 슬롯 상한 메시지가 실제 단어 수를 알려준다 | 차단 (2) | 메시지: `단어가 6 개입니다` |
+| TC-091 | 대상이 여러 단어(언어-프레임워크)여도 통과한다 | 통과 (0) | `kotlin-spring-api-naming-validate` → `대상·범위 [kotlin-spring-api] 관심사 [naming] 목적 [validate]` |
+| TC-092 | 슬롯마다 세 단어, 전체 열두 단어 · 64자까지 통과한다 | 통과 (0) | `rust-axum-order-file-date-api-test-naming-standard-get-list-sync` |
 | TC-093 | 목적이 관심사보다 앞에 오면 막는다 | 차단 (2) | `review-standard` → `'standard'(관심사)가 목적 뒤에` |
 | TC-094 | 목적이 대상보다 앞에 오면 막는다 | 차단 (2) | `glossary-update-plugin` → `'plugin'(대상·범위)가 목적 뒤에` |
 | TC-095 | 대상-관심사-목적 순서는 통과한다 | 통과 (0) | `document-naming-validate` |
+| TC-096 | 관심사가 네 단어면 막고 슬롯 구분을 보여준다 | 차단 (2) | 메시지: `관심사가 4 단어입니다`, `관심사 [naming-coverage-test-structure]` |
+| TC-097 | 목적이 네 단어면 막는다 | 차단 (2) | 메시지: `목적이 4 단어입니다` |
+| TC-098 | 대상·범위가 일곱 단어면 막는다 | 차단 (2) | 메시지: `대상·범위가 7 단어입니다`, `대상 3 + 범위 3` |
+| TC-099 | 대상·범위가 여섯 단어면 통과한다 | 통과 (0) | `kotlin-spring-boot-order-api-config-naming` |
 
 ### K. 끝 단어 사전 강제
 
@@ -161,12 +166,13 @@ VERBOSE=1 test/validate-naming.test.sh  # 통과 케이스의 출력까지 표�
 | TC-122 | 기계 위반이 있으면 차단이 우선이다 | 차단 (2) | `doc-sync`, 판단 항목을 넘기지 않는다 |
 | TC-123 | 훅 모드는 additionalContext 로 넘긴다 | 통과 (0) | `additionalContext` |
 | TC-124 | 훅 모드 판단 출력이 올바른 JSON 이다 | 통과 (0) | `jq -e .hookSpecificOutput.hookEventName` |
-| TC-125 | 판단 요청에 체크리스트가 들어 있다 | 통과 (0) | `한 문장으로`, `description 과 대조`, `다시 만드세요` |
+| TC-125 | 판단 요청에 체크리스트가 들어 있다 | 통과 (0) | `한 문장으로`, `대상과 범위로 어디서 나누는지`, `description 과 대조`, `다시 만드세요` |
 | TC-126 | 경로 하나에서 나온 이름을 전부 넘긴다 | 통과 (0) | plugin + skill 둘 다 |
 | TC-127 | 무관한 경로에는 반응하지 않는다 | 통과 (0) | 출력 없음 |
 | TC-128 | 범용 단어도 막지 않고 판단으로 넘긴다 | 통과 (0) | `utils-create` |
 | TC-129 | 판단 요청이 범용 단어를 묻는다 | 통과 (0) | `범용 단어를 쓰지 않았는가` |
 | TC-130 | 판단 요청이 기존 이름 · 기능 겹침을 묻는다 | 통과 (0) | 메시지: `기존 이름과 헷갈리거나 기능이 겹치지 않는가` |
+| TC-131 | 판단 요청이 단어별 슬롯 구분을 보여준다 | 통과 (0) | `대상·범위 [plugin-directory] 관심사 [structure] 목적 [-]` |
 
 ## 수동 TC (새 세션 필요)
 
@@ -228,6 +234,7 @@ cp /tmp/vn.bak scripts/validate-naming.sh && test/validate-naming.test.sh
 
 - 훅은 `Write` / `Edit` 에만 걸린다. `Bash(mkdir plugins/java)` 로 만든 빈 디렉터리는 못 막는다. 그 안에 파일을 쓸 때 걸린다.
 - 3자 이하 미등록 단어는 **앞 단어일 때만** 경고다 (TC-040). 끝 단어면 차단한다 (TC-102).
+- 대상과 범위는 같은 등급이라 **경계를 기계가 모른다.** 합쳐서 6 단어까지만 보고, `kotlin-spring` | `api` 처럼 나누는 건 `name-create` · `naming-reviewer` 의 몫이다.
 - 앞 단어(`{대상}`·`{범위}`)는 사전이 통제하지 않는다. `notion-banana-naming` 은 통과한다 — `naming-reviewer` 의 몫이다.
 - `spring-boot` 처럼 두 단어짜리 프레임워크 풀네임은 기계로 못 잡는다. `naming-reviewer` 의 몫이다 (TC-M10).
 - **이름이 옳은지는 스크립트가 판정하지 않는다.** 맥락에 따라 달라지므로 AI 에게 넘긴다 (M 구간).
