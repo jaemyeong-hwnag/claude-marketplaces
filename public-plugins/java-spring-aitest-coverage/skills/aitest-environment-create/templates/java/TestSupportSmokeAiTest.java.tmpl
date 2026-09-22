@@ -1,0 +1,26 @@
+package {{APP_PACKAGE}};
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import {{PACKAGE}}.AiTest;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+
+/**
+ * test-support 스캐폴드 확인용 — 애플리케이션 컨텍스트가 testcontainer 인프라로 올라오는지만 본다.
+ * 실제 @AiTest 가 생기면 지워도 된다.
+ */
+@AiTest
+@DisplayName("test-support 스모크 @AiTest")
+class TestSupportSmokeAiTest {
+
+    @Autowired
+    private ApplicationContext context;
+
+    @Test
+    void 컨텍스트가_testcontainer_인프라로_올라온다() {
+        assertThat(context.getBeanDefinitionCount()).isPositive();
+    }
+}

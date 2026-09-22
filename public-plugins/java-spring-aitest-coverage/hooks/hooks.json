@@ -1,0 +1,19 @@
+{
+  "description": "작업 완료 시 git 로컬 diff 기준 @AiTest 커버리지 게이트 (요청 시작 diff 지문 → Stop 검증)",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/aitest-coverage-validate.sh\" snapshot", "timeout": 30 }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/aitest-coverage-validate.sh\"", "timeout": 180 }
+        ]
+      }
+    ]
+  }
+}

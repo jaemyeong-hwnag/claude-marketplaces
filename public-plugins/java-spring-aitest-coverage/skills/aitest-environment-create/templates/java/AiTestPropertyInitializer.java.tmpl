@@ -1,0 +1,23 @@
+package {{PACKAGE}};
+
+import org.springframework.boot.test.util.TestPropertyValues;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.ConfigurableApplicationContext;
+
+/**
+ * 통합 테스트 공통 Environment override.
+ * 프로젝트·도메인 전용 설정은 소비 모듈 {@code src/test/resources/application.yml} 에 둔다.
+ */
+public class AiTestPropertyInitializer
+        implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+
+    @Override
+    public void initialize(ConfigurableApplicationContext ctx) {
+        TestPropertyValues.of(
+{{#HAS_DB}}                "spring.jpa.hibernate.ddl-auto=update",
+                "spring.jpa.properties.hibernate.hbm2ddl.auto=update",
+{{/HAS_DB}}                "spring.batch.job.enabled=false",
+                "spring.task.scheduling.enabled=false"
+        ).applyTo(ctx);
+    }
+}

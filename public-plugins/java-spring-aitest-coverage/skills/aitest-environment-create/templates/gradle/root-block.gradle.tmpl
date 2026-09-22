@@ -1,0 +1,38 @@
+
+// >>> java-spring-aitest-coverage:aitest-environment >>>
+// @AiTest 환경 — java-spring-aitest-coverage 의 aitest-environment-create 가 생성. 대상 모듈은 aiTestModules 만 고친다.
+// gradle/ai-test.gradle 과 diff-coverage-validate.sh 가 같은 목록을 읽는다.
+ext.aiTestModules = [{{MODULES_QUOTED}}]
+
+tasks.register('ensureDockerForAiTest', Exec) {
+    group = 'verification'
+    description = '@AiTest 전 Docker·testcontainers reuse·이미지 준비 (Docker 가 준비되지 않았을 때만 실행)'
+    workingDir rootDir
+    commandLine 'bash', "${rootDir}/scripts/ensure-docker-for-aitest.sh"
+    onlyIf {
+        if (project.hasProperty('skipDockerEnsure')) {
+            return false
+        }
+        def proc = ['bash', '-c', 'command -v docker >/dev/null && docker info >/dev/null 2>&1'].execute()
+        proc.waitFor()
+        return proc.exitValue() != 0
+    }
+}
+
+{{#MULTI}}aiTestModules.each { moduleName ->
+    project(":${moduleName}") { p ->
+        p.pluginManager.withPlugin('java') {
+            p.apply from: rootProject.file('gradle/ai-test.gradle')
+        }
+    }
+}
+
+tasks.register('aiTest') {
+    group = 'verification'
+    description = '@AiTest 전체 — ' + aiTestModules.join(', ')
+    dependsOn aiTestModules.collect { ":${it}:aiTest" }
+}
+{{/MULTI}}{{^MULTI}}pluginManager.withPlugin('java') {
+    apply from: rootProject.file('gradle/ai-test.gradle')
+}
+{{/MULTI}}// <<< java-spring-aitest-coverage:aitest-environment <<<
