@@ -216,6 +216,26 @@ run_stdin "$(hook_json PreToolUse "$TMP/plugins/kotlin-naming/plugin.json")"; ex
 tc TC-062 "PreToolUse 무관 파일은 통과시킨다"
 run_stdin "$(hook_json PreToolUse "$TMP/README.md")"; expect_code 0; expect_empty
 
+tc TC-132 "상위 경로의 '…-plugins' 폴더를 플러그인 위치로 읽지 않는다 — 가장 오른쪽 일치 (#24)"
+run_stdin "$(hook_json PreToolUse "/x/.claude/worktrees/13-language-naming-plugins/public-plugins/java-naming/README.md")"; expect_code 0
+expect_noout "'public-plugins'"
+
+tc TC-133 "가장 오른쪽 플러그인 폴더의 이름은 여전히 막는다"
+run_stdin "$(hook_json PreToolUse "/x/.claude/worktrees/13-language-naming-plugins/public-plugins/java/README.md")"; expect_code 2
+expect_out "'java'"; expect_noout "'public-plugins'"
+
+tc TC-134 "저장소를 둔 상위 폴더가 'my-plugins' 여도 프로젝트 기준으로 판정한다"
+OUT="$(hook_json PreToolUse "/home/u/my-plugins/repo/README.md" | CLAUDE_PROJECT_DIR=/home/u/my-plugins/repo "$SCRIPT" 2>&1)"; CODE=$?
+expect_code 0; expect_empty
+
+tc TC-135 "저장소를 둔 상위 폴더가 'skills' 여도 스킬 이름으로 읽지 않는다"
+OUT="$(hook_json PreToolUse "/home/u/skills/repo/docs/guide.md" | CLAUDE_PROJECT_DIR=/home/u/skills/repo "$SCRIPT" 2>&1)"; CODE=$?
+expect_code 0; expect_empty
+
+tc TC-136 "상위 경로에 skills/ 가 있어도 가장 오른쪽 스킬 디렉터리를 본다"
+run_stdin "$(hook_json PreToolUse "/x/skills/Bad_Dir/public-plugins/order-sync/skills/order-create/SKILL.md")"; expect_code 0
+expect_noout "Bad_Dir"
+
 tc TC-063 "PostToolUse 정상 glossary 는 통과시킨다"
 run_stdin "$(hook_json PostToolUse "$PLUGIN_ROOT/references/glossary.json")"; expect_code 0
 

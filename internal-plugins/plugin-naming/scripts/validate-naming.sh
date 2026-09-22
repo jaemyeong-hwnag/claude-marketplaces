@@ -203,17 +203,21 @@ validate_name() {
 validate_path() {
   local path="${1%/}"
   local matched=0
+  # 프로젝트 안이면 프로젝트 기준 상대 경로로 본다 — 저장소를 둔 상위 폴더 이름(~/my-plugins/, ~/skills/)이 판정에 끼지 않게
+  path="${path#"${PROJECT_DIR%/}"/}"
+  # 앞의 (.*/)? 가 탐욕적이라 가장 오른쪽 일치를 고른다. 가장 왼쪽을 고르면
+  # .claude/worktrees/13-x-plugins/public-plugins/… 에서 'public-plugins' 를 플러그인 이름으로 읽는다 (#24)
   # 이름이 plugins 로 끝나는 디렉터리(plugins/, public-plugins/, internal-plugins/ …)를 플러그인 위치로 본다
-  if [[ "$path" =~ (^|/)([a-z0-9]+-)*plugins/([^/]+) ]]; then
+  if [[ "$path" =~ ^(.*/)?([a-z0-9]+-)*plugins/([^/]+) ]]; then
     validate_name plugin "${BASH_REMATCH[3]}"; matched=1
   fi
-  if [[ "$path" =~ (^|/)skills/([^/]+) ]]; then
+  if [[ "$path" =~ ^(.*/)?skills/([^/]+) ]]; then
     validate_name skill "${BASH_REMATCH[2]}"; matched=1
   fi
-  if [[ "$path" =~ (^|/)commands/(.+)\.md$ ]]; then
+  if [[ "$path" =~ ^(.*/)?commands/(.+)\.md$ ]]; then
     validate_name command "$(basename "${BASH_REMATCH[2]}")"; matched=1
   fi
-  if [[ "$path" =~ (^|/)agents/([^/]+)\.md$ ]]; then
+  if [[ "$path" =~ ^(.*/)?agents/([^/]+)\.md$ ]]; then
     validate_name agent "${BASH_REMATCH[2]}"; matched=1
   fi
   return $((1 - matched))
