@@ -227,6 +227,17 @@ OUT="$(printf '%s' "$S" | CLAUDE_PROJECT_DIR="$REPO/app" "$SCRIPT" snapshot 2>&1
 echo 'class Order { int a; }' > app/src/main/java/com/shop/order/Order.java
 OUT="$(printf '%s' "$S" | CLAUDE_PROJECT_DIR="$REPO/app" "$SCRIPT" stop 2>&1)"; CODE=$?; expect_code 2; expect_out "order: src/main/java"
 
+tc TC-C21 "한글 · 공백이 든 경로를 잡는다 (git core.quotePath)"
+make_repo; mkdir -p "src/주문 모듈"; echo a > "src/주문 모듈/취소.ts"
+printf -- '---\ncode:\n  - "src/주문 모듈/**"\n---\n# 주문\n' > docs/domain/glossary/_meta.md; git add -A; git commit -qm ko
+hook snapshot "$S"; echo b >> "src/주문 모듈/취소.ts"; hook stop "$S"; expect_code 2; expect_out "glossary: src/주문 모듈/취소.ts"
+
+tc TC-C22 "바뀐 파일이 수천 개여도 스냅샷 · 판정이 5초 안에 끝난다"
+make_repo; mkdir -p services/billing/gen; i=0; while [ $i -lt 3000 ]; do echo $i > services/billing/gen/f$i.py; i=$((i+1)); done
+t0=$(date +%s); hook snapshot "$S"; hook stop "$S"; t1=$(date +%s)
+[ "$TC_ON" = 1 ] && [ $((t1 - t0)) -gt 5 ] && fail_tc "$((t1 - t0))초 걸렸다"
+expect_code 0
+
 section "D. 편집 훅 (pre-edit · post-edit)"
 make_repo
 
@@ -259,6 +270,24 @@ mkdir -p "$TMP/nojq"; for b in bash cat git sed awk grep tr cut sort shasum wc h
   p="$(command -v "$b")" && ln -sf "$p" "$TMP/nojq/$b"; done
 OUT="$(printf '%s' "{\"tool_input\":{\"file_path\":\"$REPO/docs/domain/_index.md\"}}" | PATH="$TMP/nojq" CLAUDE_PROJECT_DIR="$REPO" "$SCRIPT" pre-edit 2>&1)"; CODE=$?
 expect_code 0; expect_no_out
+
+tc TC-D09 "심볼릭 링크로 들어온 프로젝트 경로(/var → /private/var)도 문서 루트로 알아본다"
+REAL="$(cd "$REPO" && pwd -P)"; mkdir -p "$TMP/link"; ln -sfn "$REPO" "$TMP/link/repo"
+OUT="$(printf '%s' "{\"tool_input\":{\"file_path\":\"$REAL/docs/domain/_index.md\"}}" | CLAUDE_PROJECT_DIR="$TMP/link/repo" "$SCRIPT" pre-edit 2>&1)"; CODE=$?
+expect_code 0; expect_out "카탈로그 편집"
+
+section "E. 세션 시작 (session)"
+
+tc TC-E01 "문서 루트가 있으면 카탈로그 위치 · 도메인 목록 · 읽기 순서를 알린다"
+make_repo; hook session "$S"; expect_code 0; expect_out '"SessionStart"'; expect_out "도메인 3개 (billing, glossary, order)"; expect_out "domain-document-get"
+
+tc TC-E02 "문서 루트가 없으면 아무것도 하지 않는다"
+rm -rf docs; hook session "$S"; expect_code 0; expect_no_out
+
+tc TC-E03 "7일 지난 상태 파일을 치우고 최근 것은 남긴다"
+touch "$TMPDIR/domain-document-sync-new.turn"; touch -t 202001010000 "$TMPDIR/domain-document-sync-old.turn"
+hook session "$S"
+[ "$TC_ON" = 1 ] && { [ -e "$TMPDIR/domain-document-sync-old.turn" ] && fail_tc "오래된 파일이 남았다"; [ -e "$TMPDIR/domain-document-sync-new.turn" ] || fail_tc "최근 파일이 지워졌다"; }
 
 flush_tc
 echo

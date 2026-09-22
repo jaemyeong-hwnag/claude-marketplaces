@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # domain-document-sync.sh — 3계층 도메인 문서(<루트>/_index.md → <slug>/_meta.md → concept)의 훅 겸 CLI.
 #
+#   session              SessionStart — 문서 루트가 있으면 카탈로그 위치와 읽기 순서를 알린다
 #   snapshot             UserPromptSubmit — 요청 시작 때 도메인별 코드 지문을 저장하고 면제를 비운다
 #   stop                 Stop — 이번 요청에서 코드가 바뀐 도메인에 문서 diff 가 없으면 exit 2 (S-01)
 #   pre-edit             PreToolUse(Edit|Write|MultiEdit) — 문서 루트를 고칠 때 프로토콜을 주입한다
@@ -12,6 +13,8 @@
 # `code:` 글롭이 정한다. 훅 모드는 fail-open — jq · git 이 없거나 문서 루트가 없으면 조용히 통과한다.
 # 규칙 원본: references/domain-document-rules.md
 set -uo pipefail
+# 한글 등 비ASCII 경로를 "\354…" 로 감싸지 않게 한다 — 감싸면 글롭에 안 걸린다
+git() { command git -c core.quotePath=false "$@"; }
 
 MODE="${1:-stop}"
 ROOT="${DOMAIN_DOCUMENT_ROOT:-docs/domain}"
@@ -92,15 +95,15 @@ changed_files() {
   } | awk 'NF && !seen[$0]++'
 }
 
-# 파일 목록의 현재 내용 지문. 비었으면 none
+# 파일 목록의 현재 내용 지문. 비었으면 none. 해시는 한 번에 — 파일마다 git 을 띄우면 수천 개에서 느리다
 fingerprint() {
-  local f list
-  list="$(cat)"
+  local f list present
+  list="$(sort)"
   [ -z "$list" ] && { echo none; return; }
-  printf '%s\n' "$list" | sort | while IFS= read -r f; do
-    if [ -f "$f" ]; then printf '%s %s\n' "$f" "$(git hash-object -- "$f" 2>/dev/null)"
-    else printf '%s deleted\n' "$f"; fi
-  done | shasum | cut -d' ' -f1
+  present="$(printf '%s\n' "$list" | while IFS= read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done)"
+  { printf '%s\n--\n%s\n--\n' "$list" "$present"
+    [ -n "$present" ] && printf '%s\n' "$present" | git hash-object --stdin-paths 2>/dev/null
+  } | shasum | cut -d' ' -f1
 }
 
 # --- 훅 공통 -----------------------------------------------------------------
@@ -110,6 +113,7 @@ hook_init() {
   INPUT="$(cat 2>/dev/null || true)"
   PROJ="${CLAUDE_PROJECT_DIR:-$(pwd)}"
   cd "$PROJ" 2>/dev/null || exit 0
+  PROJ_REAL="$(pwd -P)"
   SID="$(printf '%s' "$INPUT" | jq -r '.session_id // "nosession"' 2>/dev/null || echo nosession)"
   SAFE="$(printf '%s' "$SID" | tr -c 'A-Za-z0-9_.-' '_')"
   STATE="${TMPDIR:-/tmp}/domain-document-sync-${SAFE}.turn"
@@ -120,7 +124,11 @@ hook_init() {
 input_rel_path() {
   local fp
   fp="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)"
-  case "$fp" in "$PROJ"/*) fp="${fp#"$PROJ"/}" ;; ./*) fp="${fp#./}" ;; esac
+  case "$fp" in
+    "$PROJ"/*) fp="${fp#"$PROJ"/}" ;;
+    "$PROJ_REAL"/*) fp="${fp#"$PROJ_REAL"/}" ;;
+    ./*) fp="${fp#./}" ;;
+  esac
   printf '%s' "$fp"
 }
 
@@ -129,6 +137,20 @@ add_context() { # $1=이벤트 $2=메시지
 }
 
 # --- 모드 --------------------------------------------------------------------
+
+mode_session() {
+  hook_init
+  # 지난 세션의 상태 파일을 치운다 (7일)
+  find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'domain-document-sync-*' -type f -mtime +7 -delete 2>/dev/null
+  [ -f "$ROOT/_index.md" ] || exit 0
+  local slugs n
+  slugs="$(domain_slugs)"
+  n="$(printf '%s\n' "$slugs" | awk 'NF' | wc -l | tr -d ' ')"
+  slugs="$(printf '%s\n' "$slugs" | awk 'NF' | head -40 | paste -sd ',' - | sed 's/,/, /g')"
+  [ "$n" -gt 40 ] && slugs="$slugs, …"
+  add_context SessionStart "domain-document-sync: 이 저장소의 도메인 지식은 $ROOT 에 3계층으로 있다 — 도메인 ${n}개 (${slugs}). 업무 규칙·정책·계산·상태를 묻거나 도메인 코드를 구현·수정·리뷰하기 전에는 domain-document-get 스킬 순서(_index.md → <slug>/_meta.md → 필요한 concept 만)로 읽는다. 도메인 코드를 바꾸면 같은 요청 안에서 그 도메인 문서도 고친다 (S-01, domain-document-update)."
+  exit 0
+}
 
 mode_snapshot() {
   hook_init
@@ -316,11 +338,12 @@ mode_map() {
 }
 
 case "$MODE" in
+  session) mode_session ;;
   snapshot) mode_snapshot ;;
   stop) mode_stop ;;
   pre-edit) mode_pre_edit ;;
   post-edit) mode_post_edit ;;
   validate) shift; mode_validate "$@" ;;
   map) shift; mode_map "$@" ;;
-  *) echo "사용: $0 {snapshot|stop|pre-edit|post-edit|validate [디렉터리]|map [디렉터리]}" >&2; exit 1 ;;
+  *) echo "사용: $0 {session|snapshot|stop|pre-edit|post-edit|validate [디렉터리]|map [디렉터리]}" >&2; exit 1 ;;
 esac

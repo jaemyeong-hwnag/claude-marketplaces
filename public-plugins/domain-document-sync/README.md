@@ -41,6 +41,7 @@ claude plugin install domain-document-sync@plugin-marketplace --scope project
 
 | 스크립트 | 이벤트 | 동작 |
 |---|---|---|
+| domain-document-sync.sh session | SessionStart | 문서 루트가 있으면 카탈로그 위치 · 도메인 목록 · 읽기 순서를 **주입**. 7일 지난 상태 파일 정리 |
 | domain-document-sync.sh snapshot | UserPromptSubmit | 요청 시작 때 도메인별 코드 지문을 저장하고 지난 면제를 지운다 |
 | domain-document-sync.sh pre-edit | PreToolUse (Edit\|Write\|MultiEdit) | 문서 루트를 고칠 때 3계층 규약을 **주입** (카탈로그 · 메타 · concept · 새 도메인별) |
 | domain-document-sync.sh post-edit | PostToolUse (Edit\|Write\|MultiEdit) | concept 이 300줄을 넘거나(`D-07`) `_meta` 파트 표에 없으면(`D-05`) **알림** |
@@ -51,6 +52,7 @@ claude plugin install domain-document-sync@plugin-marketplace --scope project
 - `S-01` 은 git 작업 트리(HEAD 대비 변경 + untracked)로 판정한다. 커밋과 무관하고, 질문만 한 요청은 막지 않는다
 - 도메인 지식이 그대로인 변경(리팩터 · 테스트 · 포맷)은 사용자에게 알린 뒤 면제한다 — 차단 메시지에 면제 파일 경로가 나온다. 면제는 그 요청에만 유효하다
 - `code:` 를 넓게 쓰면(`src/**`) 모든 변경이 그 도메인 문서를 요구한다. `map` 으로 걸리는 파일 수를 보고 좁힌다
+- 경로는 한글 · 공백이 있어도 된다. 심볼릭 링크로 들어온 프로젝트 경로도 알아본다
 - 설정은 프로젝트 `.claude/settings.json` 의 `env` 에 — `DOMAIN_DOCUMENT_ROOT`(기본 `docs/domain`), `DOMAIN_DOCUMENT_MAX_LINES`(기본 `300`)
 
 ## 무엇을 막나
@@ -67,9 +69,9 @@ claude plugin install domain-document-sync@plugin-marketplace --scope project
 |---|---|
 | `references/domain-document-rules.md` | 규칙 원본 — 3계층, 조항, `code:` 글롭 문법, 게이트 동작, 읽기 · 쓰기 절차, 설정 |
 | `references/templates.md` | `_index` · `_meta` · concept 골격, concept 나누는 법 |
-| `scripts/domain-document-sync.sh` | 훅 네 모드 + CLI `validate` · `map` |
+| `scripts/domain-document-sync.sh` | 훅 다섯 모드 + CLI `validate` · `map` |
 | `test/` | 회귀 테스트와 TC 명세 |
-| `evals/` | `claude plugin eval` 케이스 — 조회 스킬 발동 · 문서 편집 규약 주입 |
+| `evals/` | `claude plugin eval` 케이스 — 도메인 조회 순서(`domain-lookup`) · 문서 편집 규약 주입(`edit-protocol-injected`) |
 
 ## 사용
 

@@ -74,9 +74,11 @@ code:
 
 | 시점 | 무엇을 |
 |---|---|
+| `SessionStart` | 문서 루트가 있으면 카탈로그 위치 · 도메인 목록 · 읽기 순서를 알린다 — 조회 스킬이 키워드에만 기대지 않게 |
 | `UserPromptSubmit` | 도메인마다 지금 바뀐 `code:` 파일의 내용 지문을 저장하고, 지난 요청의 면제를 지운다 |
 | `Stop` | 지문이 달라진 도메인 = **이번 요청에서** 코드가 바뀐 도메인. 그중 `{루트}/{slug}/` 가 HEAD 와 같은 도메인이 있으면 `exit 2` |
 
+- 경로는 `core.quotePath=false` 로 읽는다 — 한글 · 공백 경로도 글롭에 걸린다. 내용 지문은 `git hash-object --stdin-paths` 한 번이라 바뀐 파일이 수천 개여도 1초 안쪽이다
 - 판정 기준은 git 작업 트리다 (HEAD 대비 tracked 변경 + untracked). `Edit` · `Write` · `Bash` 어느 것으로 고쳤든 잡힌다. 커밋과는 무관하다
 - 질문 · 조회만 한 요청은 지문이 그대로라 막지 않는다
 - 한 번 되돌려진 뒤(`stop_hook_active`)에도 안 맞으면 끝내게 두고 사용자에게 `systemMessage` 로 알린다 — 무한 루프 방지

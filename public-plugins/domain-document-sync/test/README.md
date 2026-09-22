@@ -11,7 +11,7 @@ test/domain-document-sync.test.sh TC-C     # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. 필요한 것: `git`, `jq`.
 
-## 자동 TC (45건)
+## 자동 TC (51건)
 
 픽스처는 **모든 규칙을 지키는 저장소**다 — Java(`src/main/java/**/order/**`) · TypeScript(`web/src/features/order/`) · Python(`services/billing/**`) 세 언어, 블록 목록 · 인라인 목록 · `!` 제외, concept 이 있는 도메인 · `_meta.md` 만 있는 도메인 · `code:` 가 없는 도메인. TC 마다 한 곳만 깨뜨린다.
 
@@ -66,6 +66,8 @@ test/domain-document-sync.test.sh TC-C     # ID 접두사로 필터
 | TC-C18 | 문서 루트가 없는 저장소에서는 아무것도 하지 않는다 |
 | TC-C19 | git 저장소가 아니면 아무것도 하지 않는다 |
 | TC-C20 | 프로젝트가 저장소 하위 디렉터리여도 경로를 프로젝트 기준으로 본다 |
+| TC-C21 | 한글 · 공백이 든 경로를 잡는다 (git `core.quotePath`) |
+| TC-C22 | 바뀐 파일이 수천 개여도 스냅샷 · 판정이 5초 안에 끝난다 |
 
 ### D. 편집 훅 (pre-edit · post-edit)
 
@@ -79,7 +81,16 @@ test/domain-document-sync.test.sh TC-C     # ID 접두사로 필터
 | TC-D06 | 메타에 없는 새 concept 을 알린다 (D-05) — 짧으면 D-07 은 없다 |
 | TC-D07 | `_meta` · `_index` 편집 뒤에는 알리지 않는다 |
 | TC-D08 | `jq` 가 없으면 훅은 조용히 통과한다 (fail-open) |
+| TC-D09 | 심볼릭 링크로 들어온 프로젝트 경로(`/var` → `/private/var`)도 문서 루트로 알아본다 |
+
+### E. 세션 시작 (session)
+
+| ID | 케이스 |
+|---|---|
+| TC-E01 | 문서 루트가 있으면 카탈로그 위치 · 도메인 목록 · 읽기 순서를 알린다 |
+| TC-E02 | 문서 루트가 없으면 아무것도 하지 않는다 |
+| TC-E03 | 7일 지난 상태 파일을 치우고 최근 것은 남긴다 |
 
 ## eval
 
-스킬 발동 · 훅 주입은 `evals/` 가 모델을 실제로 불러 본다 — `lookup-skill-fired` (`domain-document-get` 발동 + concept 의 사실로 답함) · `edit-protocol-injected` (새 도메인 파일 편집에 `D-02` · `D-04` 주입).
+스킬 발동 · 훅 주입은 `evals/` 가 모델을 실제로 불러 본다 — `domain-lookup` (`_index` → `_meta` 순으로 읽고 concept 의 사실로 답함) · `edit-protocol-injected` (새 도메인 파일 편집에 `D-02` · `D-04` 주입).
