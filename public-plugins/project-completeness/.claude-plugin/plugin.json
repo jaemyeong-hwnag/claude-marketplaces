@@ -1,0 +1,21 @@
+{
+  "name": "project-completeness",
+  "description": "프로젝트가 서비스로서 갖출 것을 갖췄는지 재고 메운다 — 저장소 자동 탐지와 69항목 체크리스트로 위험도·실천 범위 진단, 레시피대로 설정·CI 적용 후 검증·롤백, DORA·SLO·온콜 18지표 실측 판정. 추측 통과 없음.",
+  "version": "0.1.0",
+  "author": {
+    "name": "황재명",
+    "email": "woaudsla@gmail.com"
+  },
+  "homepage": "https://github.com/jaemyeong-hwnag/claude-marketplaces",
+  "keywords": [
+    "completeness",
+    "quality",
+    "checklist",
+    "iso-25010",
+    "dora",
+    "slo",
+    "ci",
+    "security",
+    "observability"
+  ]
+}
