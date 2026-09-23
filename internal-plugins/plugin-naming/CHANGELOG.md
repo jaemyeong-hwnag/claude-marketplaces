@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.7.0
+
+### Added
+- 사전 `quality` 에 `completeness` (동의어 `maturity` 금지), `action` 에 `apply` (동의어 `setup` 금지) (#27) — 새 플러그인 `project-completeness` 와 스킬 `completeness-review` · `completeness-apply`
+
 ## 0.6.1
 
 ### Fixed
