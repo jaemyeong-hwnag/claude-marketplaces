@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.1
+
+### Fixed
+- eval `completeness-request` 가 Docker Desktop 을 설치한 macOS 에서 Bash 샌드박스 제한으로 건너뛰던 것 (#31). 스킬 발동만 보는 케이스라 `Bash` 권한과 픽스처의 `git` 을 뺐다
+
 ## 0.1.0
 
 ### Added
