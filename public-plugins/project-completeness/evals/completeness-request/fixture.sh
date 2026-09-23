@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# express API 하나 — 린트 CI 만 있고 시크릿 스캔 · SLO · 롤백은 없다
+# express API 하나 — 린트 CI 만 있다. 저장소 초기화를 하지 않는다 (하면 eval-all 이 Bash 를 줘 샌드박스가 필요하다)
 set -e
-git init -q -b main .
-git config user.email eval@example.com
-git config user.name eval
 mkdir -p src .github/workflows
 cat > package.json <<'JSON'
 { "name": "orders-api", "private": true,
@@ -27,5 +24,3 @@ app.get('/health', (req, res) => res.send('ok'));
 app.get('/orders', async (req, res) => res.json([]));
 app.listen(3000);
 JS
-git add -A
-git commit -qm init
