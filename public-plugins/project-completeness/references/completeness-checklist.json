@@ -1,0 +1,111 @@
+{
+  "risk": [{"min": 1, "label": "🟢 안전", "note": "핵심 항목을 모두 갖췄다"},
+    {"min": 0.8, "label": "🟡 주의", "note": "핵심 항목에 공백이 있다"},
+    {"min": 0.5, "label": "🟠 취약", "note": "핵심 항목 절반이 비었다"},
+    {"min": 0, "label": "🔴 위험", "note": "핵심 항목이 대부분 없다"}],
+  "grades": [{"min": 0.9, "label": "🏆 포괄 (Comprehensive)", "note": "실천 범위가 넓다. 외부 감사에도 견딘다"},
+    {"min": 0.7, "label": "✅ 견고 (Solid)", "note": "주요 실천을 갖췄다"},
+    {"min": 0.5, "label": "📈 성장 중 (Developing)", "note": "절반을 갖췄다. 비어 있는 축이 있다"},
+    {"min": 0.3, "label": "🌱 기초 (Basic)", "note": "핵심 위주로 좁게 갖췄다"},
+    {"min": 0, "label": "⬜ 최소 (Minimal)", "note": "실천 범위가 좁다"}],
+  "projectTypes": {
+    "web-frontend": {"label": "웹 프론트엔드 (SPA/SSR)", "na": ["perf.latency-baseline", "perf.load-test", "perf.slow-query"]},
+    "backend-api": {"label": "백엔드 API/서비스", "na": ["perf.web-vitals", "perf.lighthouse-budget", "perf.bundle-budget", "ux.a11y-automated", "ux.a11y-manual", "ux.wcag22", "ux.usability-measure", "ux.rage-click", "ux.ia-validation", "test.visual-regression", "service.empty-state"]},
+    "fullstack": {"label": "풀스택 웹 서비스", "na": []},
+    "library": {"label": "라이브러리/패키지", "na": ["perf.web-vitals", "perf.lighthouse-budget", "perf.latency-baseline", "perf.load-test", "perf.slow-query", "perf.n-plus-one", "ux.a11y-automated", "ux.a11y-manual", "ux.wcag22", "ux.usability-measure", "ux.rage-click", "ux.ia-validation", "ops.tracing", "ops.slo", "ops.oncall-runbook", "ops.status-page", "ops.synthetic-monitoring", "ops.rollback", "ops.postmortem", "product.funnel-retention", "product.experiment", "product.dora-collect", "product.tech-debt-time", "test.integration-real-db", "test.contract-test", "test.visual-regression", "security.iac-scan", "security.dast", "service.onboarding-journey", "service.funnel-dropoff", "service.payment-failure", "service.empty-state", "service.error-state", "service.loading-timeout", "service.auth-session-offline", "service.admin-tool", "service.audit-log", "service.backup-restore", "service.data-deletion", "service.support-channel", "service.terms-privacy", "service.delivery-rate", "service.render-smoke", "service.console-error", "service.screenshot-diff"]},
+    "cli": {"label": "CLI 도구", "na": ["perf.web-vitals", "perf.lighthouse-budget", "perf.bundle-budget", "perf.slow-query", "perf.n-plus-one", "ux.a11y-automated", "ux.a11y-manual", "ux.wcag22", "ux.rage-click", "ux.ia-validation", "ops.tracing", "ops.slo", "ops.oncall-runbook", "ops.status-page", "ops.synthetic-monitoring", "product.funnel-retention", "product.experiment", "test.contract-test", "test.visual-regression", "security.iac-scan", "security.dast", "service.onboarding-journey", "service.funnel-dropoff", "service.payment-failure", "service.admin-tool", "service.audit-log", "service.delivery-rate", "service.render-smoke", "service.console-error", "service.screenshot-diff"]},
+    "mobile": {"label": "모바일 앱", "na": ["perf.lighthouse-budget", "perf.bundle-budget", "perf.latency-baseline", "perf.load-test", "perf.slow-query", "ux.a11y-automated"]},
+    "docs-static": {"label": "문서/정적 사이트·데이터 저장소", "na": ["perf.web-vitals", "perf.lighthouse-budget", "perf.bundle-budget", "perf.latency-baseline", "perf.load-test", "perf.slow-query", "perf.n-plus-one", "ux.usability-measure", "ux.rage-click", "ux.ia-validation", "security.iac-scan", "security.dast", "ops.tracing", "ops.slo", "ops.oncall-runbook", "ops.status-page", "ops.synthetic-monitoring", "ops.rollback", "ops.postmortem", "product.funnel-retention", "product.experiment", "product.dora-collect", "product.devex-survey", "product.tech-debt-time", "test.integration-real-db", "test.contract-test", "service.onboarding-journey", "service.funnel-dropoff", "service.payment-failure", "service.empty-state", "service.auth-session-offline", "service.admin-tool", "service.audit-log", "service.data-deletion", "service.support-channel", "service.terms-privacy", "service.delivery-rate"]},
+    "monorepo": {"label": "모노레포 (여러 서비스·패키지 혼재)", "na": []},
+    "embedded": {"label": "임베디드/펌웨어", "na": ["perf.web-vitals", "perf.lighthouse-budget", "perf.bundle-budget", "perf.slow-query", "perf.n-plus-one", "ux.a11y-automated", "ux.a11y-manual", "ux.wcag22", "ux.usability-measure", "ux.rage-click", "ux.ia-validation", "ops.tracing", "ops.slo", "ops.status-page", "ops.synthetic-monitoring", "ops.rollback", "product.funnel-retention", "product.experiment", "product.devex-survey", "test.integration-real-db", "test.contract-test", "test.visual-regression", "security.iac-scan", "security.dast", "service.onboarding-journey", "service.funnel-dropoff", "service.payment-failure", "service.empty-state", "service.error-state", "service.loading-timeout", "service.auth-session-offline", "service.admin-tool", "service.audit-log", "service.backup-restore", "service.data-deletion", "service.support-channel", "service.terms-privacy", "service.delivery-rate", "service.render-smoke", "service.console-error", "service.screenshot-diff"]},
+    "game": {"label": "게임", "na": ["perf.lighthouse-budget", "perf.bundle-budget", "perf.latency-baseline", "perf.slow-query", "perf.n-plus-one", "ux.a11y-automated", "ux.wcag22", "service.empty-state", "service.error-state", "service.loading-timeout", "service.auth-session-offline", "service.delivery-rate"]},
+    "data": {"label": "데이터/ML 파이프라인", "na": ["perf.web-vitals", "perf.lighthouse-budget", "perf.bundle-budget", "ux.a11y-automated", "ux.a11y-manual", "ux.wcag22", "ux.usability-measure", "ux.rage-click", "ux.ia-validation", "product.funnel-retention", "product.experiment", "test.visual-regression", "security.dast", "service.onboarding-journey", "service.funnel-dropoff", "service.payment-failure", "service.empty-state", "service.error-state", "service.loading-timeout", "service.auth-session-offline", "service.support-channel", "service.delivery-rate", "service.render-smoke", "service.console-error", "service.screenshot-diff"]}
+  },
+  "categories": [
+    {"id": "code", "title": "코드", "iso": "Maintainability", "items": [
+      {"id": "code.lint-ci", "text": "린터·포매터가 CI에서 강제되는가", "critical": true, "mode": "auto", "how": "CI 워크플로에 lint step + 린터 설정 파일(eslint.config.*/.eslintrc*/biome.json/.golangci.y*ml/pyproject[tool.ruff])"},
+      {"id": "code.type-strict", "text": "타입 체크가 strict 모드로 통과하는가", "critical": false, "mode": "auto", "how": "tsconfig strict / mypy strict / .golangci govet·staticcheck 활성"},
+      {"id": "code.quality-gate", "text": "Quality Gate(신규 코드 기준)가 PR을 차단하는가", "critical": true, "mode": "auto", "how": "PR 트리거 워크플로가 존재하고 실패 시 차단되는가 (continue-on-error 아님)"},
+      {"id": "code.duplication", "text": "중복 코드 비율이 5% 미만인가", "critical": false, "mode": "run", "how": "jscpd · dupl · SonarQube 중복률", "cost": "2~5분"},
+      {"id": "code.unused-code", "text": "미사용 파일·export·의존성이 0에 수렴하는가 (Knip)", "critical": false, "mode": "run", "how": "knip · depcheck · golangci unused", "cost": "1~3분"},
+      {"id": "code.complexity", "text": "순환 복잡도 상위 함수를 파악하고 있는가", "critical": false, "mode": "run", "how": "gocyclo · radon · eslint complexity", "cost": "1~2분"},
+      {"id": "code.codeowners", "text": "코드 소유자(CODEOWNERS)가 지정되어 있는가", "critical": false, "mode": "auto", "how": "CODEOWNERS 또는 .github/CODEOWNERS 존재"},
+      {"id": "code.ai-provenance", "text": "AI 생성 코드의 출처/프롬프트가 기록되는가", "critical": false, "mode": "auto", "how": "커밋 트레일러·CONTRIBUTING 의 AI 기여 정책. 없으면 ask 로 승격"},
+      {"id": "code.architecture-boundary", "text": "아키텍처 경계 위반이 자동 검출되는가", "critical": false, "mode": "auto", "how": "depguard·import-linter·dependency-cruiser 설정"},
+      {"id": "code.adr", "text": "ADR(아키텍처 결정 기록)이 유지되는가", "critical": false, "mode": "auto", "how": "docs/adr · doc/adr · ADR 디렉터리"}
+    ]},
+    {"id": "test", "title": "테스트", "iso": "Functional Suitability", "items": [
+      {"id": "test.unit-coverage", "text": "유닛 테스트 커버리지 ≥ 80% (신규 코드 기준)", "critical": false, "mode": "run", "how": "커버리지 실행 후 수치 확인. 게이트는 fail_under·thresholds 설정으로 auto 판정", "cost": "테스트 시간"},
+      {"id": "test.mutation-score", "text": "뮤테이션 스코어 ≥ 80%", "critical": false, "mode": "run", "how": "stryker · mutmut · PIT 실행", "cost": "수 분~수십 분"},
+      {"id": "test.e2e-flow", "text": "핵심 유저 플로우 E2E 테스트가 존재하는가", "critical": true, "mode": "auto", "how": "e2e·playwright·cypress 디렉터리 또는 통합 테스트 존재"},
+      {"id": "test.integration-real-db", "text": "통합 테스트가 실제 DB(Testcontainers)로 수행되는가", "critical": false, "mode": "auto", "how": "testcontainers 의존성 또는 CI service 컨테이너"},
+      {"id": "test.contract-test", "text": "계약 테스트(Pact)로 서비스 간 배포 안전성을 판정하는가", "critical": false, "mode": "auto", "how": "pact · pactflow 설정"},
+      {"id": "test.visual-regression", "text": "시각 회귀 테스트가 있는가", "critical": false, "mode": "auto", "how": "chromatic · percy · toHaveScreenshot 사용"},
+      {"id": "test.flaky-tracking", "text": "플레이키 테스트를 추적·격리하는가", "critical": false, "mode": "ask", "how": "플레이키 추적은 CI 대시보드·재시도 정책에 있어 저장소만으로는 불확실"}
+    ]},
+    {"id": "security", "title": "보안", "iso": "Security", "items": [
+      {"id": "security.secret-scan", "text": "시크릿 스캔이 pre-commit과 CI 양쪽에 있는가", "critical": true, "mode": "auto", "how": "pre-commit 훅과 CI 양쪽에 gitleaks·trufflehog"},
+      {"id": "security.sast", "text": "SAST(Semgrep/CodeQL)가 CI에 있는가", "critical": false, "mode": "auto", "how": "CI 에 semgrep · codeql · bandit · gosec"},
+      {"id": "security.sca-sbom", "text": "SCA 스캔과 SBOM 생성·보관을 하는가", "critical": false, "mode": "auto", "how": "CI 에 trivy·osv-scanner·snyk + syft·sbom-action"},
+      {"id": "security.critical-vulnerability", "text": "Critical/High 취약점이 0인가", "critical": true, "mode": "run", "how": "trivy fs . 또는 osv-scanner -r . 실행해 실제 건수 확인", "cost": "1~3분"},
+      {"id": "security.dependency-update", "text": "의존성 자동 갱신(Renovate/Dependabot)이 동작하는가", "critical": true, "mode": "auto", "how": ".github/dependabot.yml 또는 renovate.json"},
+      {"id": "security.scorecard", "text": "OpenSSF Scorecard 점수를 알고 있는가", "critical": false, "mode": "run", "how": "scorecard --repo=... 실행. 비공개 저장소는 대부분 체크가 동작하지 않는다", "cost": "2~5분"},
+      {"id": "security.iac-scan", "text": "IaC 보안 스캔(Checkov/tfsec)이 있는가", "critical": false, "mode": "auto", "how": "IaC 파일(*.tf, k8s yaml, Dockerfile) 존재 시 checkov·tfsec·kics"},
+      {"id": "security.dast", "text": "DAST 또는 침투 테스트 이력이 있는가", "critical": false, "mode": "ask", "how": "DAST·침투 테스트 이력은 저장소 밖에 있다"}
+    ]},
+    {"id": "perf", "title": "성능", "iso": "Performance Efficiency", "items": [
+      {"id": "perf.web-vitals", "text": "Core Web Vitals 필드 데이터를 수집 중인가 (LCP/INP/CLS)", "critical": false, "mode": "auto", "how": "web-vitals 의존성 또는 RUM 스니펫(Clarity·Sentry·SpeedCurve)"},
+      {"id": "perf.lighthouse-budget", "text": "Lighthouse CI 성능 예산이 PR을 게이트하는가", "critical": false, "mode": "auto", "how": "lighthouserc* 존재 + CI 에서 lhci autorun"},
+      {"id": "perf.bundle-budget", "text": "번들 예산이 CI에 있는가", "critical": false, "mode": "auto", "how": "size-limit·bundlewatch 설정 + CI step"},
+      {"id": "perf.latency-baseline", "text": "백엔드 p95/p99 지연 기준선이 문서화되어 있는가", "critical": false, "mode": "ask", "how": "p95/p99 기준선 문서는 저장소 밖(위키·대시보드)에 있는 경우가 많다"},
+      {"id": "perf.load-test", "text": "부하 테스트로 포화점(saturation knee)을 알고 있는가", "critical": false, "mode": "auto", "how": "k6·gatling·locust 스크립트 존재. 실제 포화점 수치는 ask"},
+      {"id": "perf.slow-query", "text": "DB slow query를 모니터링하는가", "critical": false, "mode": "ask", "how": "DB slow query 모니터링은 인프라 설정에 있다"},
+      {"id": "perf.n-plus-one", "text": "N+1 쿼리·불필요 리렌더 점검 이력이 있는가", "critical": false, "mode": "ask", "how": "N+1·리렌더 점검 이력은 PR·이슈 기록을 봐야 한다"}
+    ]},
+    {"id": "ux", "title": "접근성 · UX", "iso": "Interaction Capability", "items": [
+      {"id": "ux.a11y-automated", "text": "axe/Pa11y CI 위반이 0인가", "critical": false, "mode": "run", "how": "axe·pa11y 를 실제 실행. 설정 파일 존재만으로는 위반 0 을 알 수 없다", "cost": "3~10분(브라우저 필요)"},
+      {"id": "ux.a11y-manual", "text": "수동 스크린리더·키보드 테스트 이력이 있는가", "critical": false, "mode": "ask", "how": "수동 스크린리더 테스트 이력은 저장소에 남지 않는다"},
+      {"id": "ux.wcag22", "text": "WCAG 2.2 (ISO/IEC 40500:2025) 기준을 적용하는가", "critical": false, "mode": "auto", "how": "axe withTags 에 wcag22aa 포함 여부 · 접근성 문서"},
+      {"id": "ux.usability-measure", "text": "SUS 또는 과업 성공률 측정 이력이 있는가", "critical": false, "mode": "ask", "how": "SUS·과업 성공률은 리서치 도구에 있다"},
+      {"id": "ux.rage-click", "text": "rage click / dead click을 모니터링하는가", "critical": false, "mode": "auto", "how": "Clarity·Hotjar·LogRocket 스니펫 존재"},
+      {"id": "ux.ia-validation", "text": "정보구조(IA) 검증(트리테스트/카드소팅) 이력이 있는가", "critical": false, "mode": "ask", "how": "IA 검증 이력은 리서치 도구에 있다"}
+    ]},
+    {"id": "ops", "title": "운영", "iso": "Reliability · Safety", "items": [
+      {"id": "ops.tracing", "text": "OpenTelemetry 계측으로 end-to-end 트레이스가 이어지는가", "critical": false, "mode": "auto", "how": "@opentelemetry/* · opentelemetry-* 의존성과 계측 초기화 파일"},
+      {"id": "ops.slo", "text": "핵심 여정에 SLO와 에러버짓이 있는가", "critical": true, "mode": "auto", "how": "SLO 정의(openslo·sloth·nobl9·grafana slo) 파일. 준수율은 service_health 로"},
+      {"id": "ops.oncall-runbook", "text": "온콜·에스컬레이션·런북이 정의되어 있는가", "critical": true, "mode": "auto", "how": "docs/runbooks · 온콜 설정 · alertmanager 라우팅"},
+      {"id": "ops.status-page", "text": "상태 페이지와 장애 커뮤니케이션 절차가 있는가", "critical": false, "mode": "ask", "how": "상태 페이지는 외부 서비스다"},
+      {"id": "ops.synthetic-monitoring", "text": "합성 모니터링이 핵심 플로우를 상시 검증하는가", "critical": false, "mode": "auto", "how": "checkly·__checks__ · 합성 모니터링 설정"},
+      {"id": "ops.rollback", "text": "롤백 또는 피처플래그로 즉시 되돌릴 수 있는가", "critical": true, "mode": "auto", "how": "피처 플래그 SDK(growthbook·unleash·launchdarkly) 또는 롤백 워크플로"},
+      {"id": "ops.postmortem", "text": "비난 없는 포스트모템 문화가 있는가", "critical": false, "mode": "auto", "how": "docs/postmortems 디렉터리. 문화 여부는 ask"}
+    ]},
+    {"id": "service", "title": "서비스 완성도", "iso": "Functional Suitability · Quality in Use", "items": [
+      {"id": "service.onboarding-journey", "text": "신규 사용자가 가입부터 핵심 가치 경험까지 막힘없이 도달하는가 (실제로 계정을 새로 만들어 끝까지 해봤는가)", "critical": false, "mode": "ask", "how": "가입→가치 도달을 실제로 해봐야 안다"},
+      {"id": "service.funnel-dropoff", "text": "핵심 여정의 각 단계 이탈률을 알고, 가장 큰 이탈 지점을 특정했는가", "critical": false, "mode": "ask", "how": "단계별 이탈률은 제품 분석 도구에 있다"},
+      {"id": "service.payment-failure", "text": "결제·구독이 있다면 결제 실패·카드 만료·환불·해지 경로가 전부 동작하는가", "critical": false, "mode": "auto", "how": "refund·환불·cancel_subscription·payment_failed·card_expired", "ask": "카드 만료·결제 실패 상태에서 사용자가 무엇을 보게 되는지 직접 확인했는가?"},
+      {"id": "service.empty-state", "text": "빈 상태(데이터 0건)에서 안내가 나오는가 (백지·깨진 레이아웃이 아니라)", "critical": false, "mode": "auto", "how": "EmptyState·empty-state·no-results·데이터가 없", "ask": "목록이 0건일 때 백지가 아니라 안내가 나오는가?"},
+      {"id": "service.error-state", "text": "에러 상태에서 사용자가 다음에 뭘 할지 알 수 있는가 (스택트레이스·\"오류 발생\"만 아니라)", "critical": false, "mode": "auto", "how": "ErrorBoundary·error-boundary·ErrorState·다시 시도·retry", "ask": "에러 화면이 사용자에게 다음 행동을 알려주는가? (스택트레이스·\"오류 발생\" 만이면 미통과)"},
+      {"id": "service.loading-timeout", "text": "로딩·지연 상태가 표시되고, 타임아웃 시 재시도 경로가 있는가", "critical": false, "mode": "auto", "how": "isLoading·Skeleton·Spinner·AbortController·timeout", "ask": "느린 응답에서 로딩 표시가 나오고, 타임아웃 시 재시도 경로가 있는가?"},
+      {"id": "service.auth-session-offline", "text": "권한 없음·세션 만료·오프라인 상태를 각각 구분해 처리하는가", "critical": false, "mode": "auto", "how": "session_expired·401·403·navigator.onLine·offline", "ask": "401(세션 만료)과 403(권한 없음)을 사용자에게 다르게 안내하는가?"},
+      {"id": "service.admin-tool", "text": "고객 문제(환불·계정 잠금·데이터 정정)를 DB 직접 조작 없이 처리할 수단이 있는가", "critical": true, "mode": "auto", "how": "admin/·backoffice/ 디렉터리 또는 operator·운영자", "ask": "환불·계정 잠금 해제·데이터 정정을 개발자가 DB 를 열지 않고 처리할 수 있는가?"},
+      {"id": "service.audit-log", "text": "운영자 조작이 감사 로그로 남는가 (누가 언제 무엇을 바꿨는지)", "critical": false, "mode": "auto", "how": "audit_log·auditLog·audit_trail·actor_id", "ask": "누가 언제 무엇을 바꿨는지 기록이 남는가?"},
+      {"id": "service.backup-restore", "text": "백업에서 실제로 복원해본 적이 있는가 (백업 존재 여부가 아니라 복원 성공 여부)", "critical": true, "mode": "ask", "how": "백업 존재가 아니라 복원 성공 이력이다. 저장소로 알 수 없다", "ask": "백업 존재가 아니라 **복원에 성공한 이력**이 있는가? 마지막 복원 훈련은 언제인가?"},
+      {"id": "service.data-deletion", "text": "사용자 데이터 삭제·내보내기 요청을 처리할 절차가 있는가", "critical": false, "mode": "auto", "how": "data_export·delete_account·gdpr·개인정보", "ask": "사용자가 데이터 삭제·내보내기를 요청하면 처리할 절차가 있는가?"},
+      {"id": "service.support-channel", "text": "사용자가 문제를 알릴 경로가 제품 안에 있고, 응답 기준 시간이 정해져 있는가", "critical": false, "mode": "auto", "how": "support·문의·contact·helpdesk·intercom·zendesk", "ask": "문의 경로가 제품 안에 있고, 응답 기준 시간이 정해져 있는가?"},
+      {"id": "service.terms-privacy", "text": "약관·개인정보 처리방침이 현재 기능과 일치하는가", "critical": false, "mode": "auto", "how": "terms·privacy·약관·개인정보 문서 존재. 실제 일치 여부는 ask", "ask": "약관·처리방침이 지금 수집하는 데이터와 실제로 일치하는가?"},
+      {"id": "service.delivery-rate", "text": "이메일·푸시 등 외부 전달의 성공률을 측정하는가 (발송 성공 ≠ 도달)", "critical": false, "mode": "auto", "how": "bounce·delivered·deliverability·sendgrid·ses·postmark", "ask": "발송 성공(200)이 아니라 **도달률**을 측정하는가? 반송·스팸 처리를 보는가?"},
+      {"id": "service.render-smoke", "text": "모든 라우트·화면이 에러 없이 렌더되는가 (렌더 스모크가 CI 에 있는가)", "critical": true, "mode": "run", "how": "라우트 목록을 추출해 전부 렌더시켜 본다. 라우터 정의·페이지 파일에서 경로를 뽑고 헤드리스로 순회", "cost": "3~10분(브라우저)"},
+      {"id": "service.console-error", "text": "주요 화면에서 콘솔 에러·경고가 0인가 (렌더는 되지만 깨진 상태를 잡는다)", "critical": false, "mode": "run", "how": "렌더 스모크 중 console.error/warning 을 수집. 0 이 아니면 렌더는 되지만 깨진 상태다", "cost": "위와 동시"},
+      {"id": "service.screenshot-diff", "text": "핵심 화면의 시각적 회귀를 자동으로 잡는가 (스크린샷 비교)", "critical": false, "mode": "auto", "how": "chromatic·percy·toHaveScreenshot 등 스크린샷 비교 설정"},
+      {"id": "service.spec-implemented", "text": "명세 문서에 적힌 기능이 전부 구현되어 있는가 (미구현 탐지)", "critical": false, "mode": "run", "how": "명세 문서(*.md 의 엔드포인트·라우트·기능 표)에서 항목을 뽑아 코드에 존재하는지 대조. 없으면 미구현", "cost": "2~5분"},
+      {"id": "service.orphan-feature", "text": "코드에 있는데 명세에도 UI 에도 도달 경로가 없는 것이 없는가 (고아 탐지)", "critical": false, "mode": "run", "how": "역방향 — 라우터·핸들러에 등록됐는데 명세에도 UI 도달 경로에도 없는 것을 찾는다 (고아 엔드포인트)", "cost": "2~5분"}
+    ]},
+    {"id": "product", "title": "제품 · 조직", "iso": "Quality in Use", "items": [
+      {"id": "product.funnel-retention", "text": "핵심 퍼널 전환율과 리텐션 곡선을 알고 있는가", "critical": false, "mode": "auto", "how": "제품 분석 SDK(posthog·amplitude·mixpanel·ga4) 존재. 실제 수치는 ask"},
+      {"id": "product.experiment", "text": "신규 기능이 실험으로 검증되는가", "critical": false, "mode": "auto", "how": "피처 플래그·실험 SDK 존재"},
+      {"id": "product.dora-collect", "text": "DORA 4 keys를 자동으로 수집하는가", "critical": false, "mode": "auto", "how": "DORA 수집(four keys·sleuth·linearb) 또는 배포 이벤트 기록"},
+      {"id": "product.devex-survey", "text": "개발자 경험(DevEx) 설문을 정기적으로 실시하는가", "critical": false, "mode": "ask", "how": "DevEx 설문은 저장소 밖이다"},
+      {"id": "product.tech-debt-time", "text": "기술부채 상환 시간이 스프린트에 배정되어 있는가", "critical": false, "mode": "ask", "how": "스프린트 배정은 이슈트래커에 있다"}
+    ]}
+  ]
+}
