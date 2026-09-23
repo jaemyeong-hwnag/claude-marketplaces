@@ -70,6 +70,13 @@
   ],
   "action": [
     {
+      "use": "apply",
+      "deny": [
+        "setup"
+      ],
+      "meaning": "정해진 설정·내용을 대상에 반영"
+    },
+    {
       "use": "create",
       "deny": [
         "make",
@@ -252,6 +259,13 @@
         "writing-rule"
       ],
       "meaning": "파일 내용을 쓰는 형식 규칙"
+    },
+    {
+      "use": "completeness",
+      "deny": [
+        "maturity"
+      ],
+      "meaning": "갖춰야 할 것을 빠짐없이 갖춘 정도"
     },
     {
       "use": "coverage",
