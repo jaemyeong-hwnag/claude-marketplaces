@@ -1,0 +1,19 @@
+{
+  "name": "common-stress-test",
+  "description": "부하·스트레스 테스트를 정량으로 설계하고 판정한다 — 언어 무관. 운영 호스트 부하 차단, open 모델·thresholds·p99 점검, 단계 결과로 지속 가능 용량·knee·USL·Little 정합성 산출, Mann-Whitney U·Cliff's delta 회귀 판정, local·Docker·k8s 환경 템플릿.",
+  "version": "0.1.0",
+  "author": {
+    "name": "황재명",
+    "email": "woaudsla@gmail.com"
+  },
+  "homepage": "https://github.com/jaemyeong-hwnag/claude-marketplaces",
+  "keywords": [
+    "stress-test",
+    "load-test",
+    "performance",
+    "k6",
+    "latency",
+    "capacity",
+    "regression"
+  ]
+}

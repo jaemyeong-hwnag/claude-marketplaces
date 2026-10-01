@@ -28,6 +28,8 @@ internal-plugins/plugin-workflow/scripts/eval-all.sh --quick . # 스킬 발동 �
 | [`plugin-dependency`](internal-plugins/plugin-dependency) | `internal-plugins/` | 플러그인 사이의 의존 관계(순환 · 층 · 경계 · 범위 겹침)를 강제한다 |
 | [`plugin-workflow`](internal-plugins/plugin-workflow) | `internal-plugins/` | 플러그인 생성 · 삭제 순서, 검증 전체 실행, 설치 확인 뒤 플러그인별 태그 · 릴리즈. `github-workflow` 에 의존한다 |
 | [`github-workflow`](public-plugins/github-workflow) | `public-plugins/` | 이슈에서 머지까지의 GitHub 플로우(템플릿 · 이슈 번호 브랜치 · 기본 브랜치 보호 · 머지 커밋 · 태그 위치)를 강제한다 |
+| [`common-stress-test`](public-plugins/common-stress-test) | `public-plugins/` | 부하 · 스트레스 테스트를 정량으로 설계 · 판정한다 (운영 호스트 차단 · open 모델 · 지속 가능 용량 · knee · USL · Little · 회귀 통계). 언어 무관 |
+| `{언어}-{프레임워크}-stress-test` 여섯 | `public-plugins/` | [`java-spring`](public-plugins/java-spring-stress-test) · [`python-fastapi`](public-plugins/python-fastapi-stress-test) · [`python-django`](public-plugins/python-django-stress-test) · [`node-express`](public-plugins/node-express-stress-test) · [`typescript-nestjs`](public-plugins/typescript-nestjs-stress-test) · [`go-gin`](public-plugins/go-gin-stress-test) — 서버 계측 · 측정을 무효로 만드는 설정 탐지 · 손잡이 · 마이크로벤치마크. `common-stress-test` 에 의존한다 |
 
 ## 배포용 플러그인 설치 (다른 저장소에서)
 

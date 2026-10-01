@@ -188,6 +188,119 @@
         "dora",
         "slo"
       ]
+    },
+    {
+      "name": "common-stress-test",
+      "source": "./public-plugins/common-stress-test",
+      "category": "public",
+      "description": "부하·스트레스 테스트를 정량으로 설계하고 판정한다 — 언어 무관. 운영 호스트 부하 차단, open 모델·thresholds·p99 점검, 단계 결과로 지속 가능 용량·knee·USL·Little 정합성 산출, Mann-Whitney U·Cliff's delta 회귀 판정, local·Docker·k8s 환경 템플릿.",
+      "tags": [
+        "development"
+      ],
+      "keywords": [
+        "stress-test",
+        "load-test",
+        "performance",
+        "k6",
+        "capacity"
+      ]
+    },
+    {
+      "name": "java-spring-stress-test",
+      "source": "./public-plugins/java-spring-stress-test",
+      "category": "public",
+      "description": "Java · Spring Boot 3.x 서버를 부하 측정할 때 프레임워크 몫을 맡는다 — Actuator · Prometheus 지연 히스토그램과 in-flight · Tomcat 스레드 계측, 측정을 무효로 만드는 설정(devtools · DEBUG 로그 · show-sql · fork 0 JMH) 탐지, 스레드 · 커넥션 풀 손잡이 점검, JMH 마이크로벤치마크.",
+      "tags": [
+        "development",
+        "spring"
+      ],
+      "keywords": [
+        "java",
+        "spring-boot",
+        "stress-test",
+        "micrometer",
+        "jmh"
+      ]
+    },
+    {
+      "name": "python-fastapi-stress-test",
+      "source": "./public-plugins/python-fastapi-stress-test",
+      "category": "public",
+      "description": "FastAPI 서버 부하 측정을 준비한다 — 지연 히스토그램 · in-flight 게이지 계측(멀티 워커면 prometheus 멀티프로세스 모드), 개발 서버 · 리로드 · debug 같은 무효 설정 탐지, 워커 · 스레드 토큰 · DB 풀 손잡이, pyperf 마이크로벤치마크.",
+      "tags": [
+        "development"
+      ],
+      "keywords": [
+        "python",
+        "fastapi",
+        "stress-test",
+        "prometheus",
+        "pyperf"
+      ]
+    },
+    {
+      "name": "python-django-stress-test",
+      "source": "./public-plugins/python-django-stress-test",
+      "category": "public",
+      "description": "Django 서버 부하 측정을 Django 에 맞게 준비한다 — runserver · DEBUG=True · 자동 리로드 · debug-toolbar · DEBUG 로그 같은 무효 설정 탐지, django-prometheus 지연 히스토그램과 in-flight 게이지 · 멀티프로세스 계측, Gunicorn 워커 · 스레드 · CONN_MAX_AGE · DB 풀 손잡이, pyperf 마이크로벤치마크.",
+      "tags": [
+        "development"
+      ],
+      "keywords": [
+        "python",
+        "django",
+        "stress-test",
+        "gunicorn",
+        "pyperf"
+      ]
+    },
+    {
+      "name": "node-express-stress-test",
+      "source": "./public-plugins/node-express-stress-test",
+      "category": "public",
+      "description": "Node.js · Express 앱의 부하 측정을 준비한다 — prom-client 지연 히스토그램 · in-flight 게이지 계측, 측정을 무효로 만드는 설정(NODE_ENV · nodemon · --watch · 프로파일러 · DEBUG · view cache) 탐지, cluster 워커 · UV_THREADPOOL_SIZE · keep-alive 손잡이, tinybench · mitata 마이크로벤치마크. 부하 도구 실행 전에 훅이 경고한다.",
+      "tags": [
+        "development"
+      ],
+      "keywords": [
+        "node",
+        "express",
+        "stress-test",
+        "prom-client",
+        "tinybench"
+      ]
+    },
+    {
+      "name": "typescript-nestjs-stress-test",
+      "source": "./public-plugins/typescript-nestjs-stress-test",
+      "category": "public",
+      "description": "NestJS 서버 부하 측정을 준비한다 — prom-client 지연 히스토그램 · in-flight 게이지 계측, nest start · ts-node · debug 로그 같은 무효 설정 탐지, Express/Fastify 어댑터 · 요청 스코프 · DB 풀 손잡이 확인, tinybench 마이크로벤치마크.",
+      "tags": [
+        "development"
+      ],
+      "keywords": [
+        "typescript",
+        "nestjs",
+        "stress-test",
+        "prom-client",
+        "tinybench"
+      ]
+    },
+    {
+      "name": "go-gin-stress-test",
+      "source": "./public-plugins/go-gin-stress-test",
+      "category": "public",
+      "description": "Go · Gin 서버를 부하 측정할 때 프레임워크 몫을 맡는다 — Prometheus 지연 히스토그램 · in-flight · 런타임 계측, 측정을 무효로 만드는 설정(debug 모드 · -race 빌드 · pprof 공개 · GOMAXPROCS 고정) 탐지, GOMAXPROCS · GOMEMLIMIT · 서버 타임아웃 · DB 풀 손잡이 점검, go test -bench · benchstat 마이크로벤치마크.",
+      "tags": [
+        "development"
+      ],
+      "keywords": [
+        "go",
+        "gin",
+        "stress-test",
+        "prometheus",
+        "benchstat"
+      ]
     }
   ]
 }
