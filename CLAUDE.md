@@ -89,6 +89,8 @@ public 플러그인은 이 훅이 설치하지 않는다. internal 이 `dependen
 | 테스트 픽스처가 늘 모든 구성요소를 가짐 | "하나만 있을 때" 결함을 못 본다 | 구성요소를 하나씩 빼는 TC 를 따로 둔다 |
 | 스킬 description | 매 세션 상시 비용 (스킬 하나 ~250 토큰) | 300자 이내 (작성 `A-05`) |
 | `claude plugin eval` | 기본값이 리포트를 claude.ai 에 **게시** | 항상 `--no-publish` (`eval-all.sh` 가 붙인다) |
+| `dependencies` 가 있는 플러그인의 eval | 의존 대상이 설치돼 있지 않으면 inline 로드가 실패하고 결과는 **Skill 0x** 로만 보인다 (`plugin_errors` 는 trace 에만) | 의존 대상을 먼저 설치하고 돌린다. 새 common 과 같이 만들 때는 머지 · 설치 뒤에 돌린다 |
+| eval 그레이더 `regex` | JS 정규식이라 `(?i)` 같은 인라인 플래그가 **grader threw** 로 실패한다 | `[Hh]istogram` 처럼 문자 클래스로 쓴다 |
 
 ## 검증
 

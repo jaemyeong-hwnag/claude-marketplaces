@@ -1,0 +1,22 @@
+{
+  "name": "python-django-stress-test",
+  "description": "Django 서버 부하 측정을 Django 에 맞게 준비한다 — runserver · DEBUG=True · 자동 리로드 · debug-toolbar · DEBUG 로그 같은 무효 설정 탐지, django-prometheus 지연 히스토그램과 in-flight 게이지 · 멀티프로세스 계측, Gunicorn 워커 · 스레드 · CONN_MAX_AGE · DB 풀 손잡이, pyperf 마이크로벤치마크.",
+  "version": "0.1.0",
+  "author": {
+    "name": "황재명",
+    "email": "woaudsla@gmail.com"
+  },
+  "homepage": "https://github.com/jaemyeong-hwnag/claude-marketplaces",
+  "keywords": [
+    "python",
+    "django",
+    "stress-test",
+    "load-test",
+    "gunicorn",
+    "prometheus",
+    "pyperf"
+  ],
+  "dependencies": [
+    "common-stress-test"
+  ]
+}
