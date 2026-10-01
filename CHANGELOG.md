@@ -30,6 +30,7 @@
 - `plugin-versioning` — 릴리즈 순서를 CHANGELOG 먼저로, `V-12` 는 형식만, `V-11` 이 Claude Code 가 받는 범위를 모두 허용
 
 ### Fixed
+- CLAUDE.md 함정 — 의존성 있는 플러그인 eval 은 의존 대상을 설치해도 풀리지 않는다 (eval 이 격리된 설정으로 돈다). 대책을 `dependencies` 를 잠시 빼는 것으로 고쳤다 (#37)
 - `plugin-naming` 이 상위 경로의 `…-plugins/` 폴더 다음 폴더를 플러그인 이름으로 읽고 막던 것 (#24) — 가장 오른쪽 일치, 프로젝트 기준 상대 경로
 - `plugin-workflow` 의 의존성 `github-workflow` 활성화 키가 `settings.json` 에 없어 설치 뒤 main 이 더러워지던 것 (#16). 배치 검사가 켜 둔 internal 의 public 의존성 키를 요구한다
 - CLAUDE.md · README · test/README 가 로컬 디렉터리 플러그인이 캐시 사본으로 돈다고 잘못 설명하던 것 — 소스에서 그대로 로드된다. CLAUDE.md 는 관심사 표 하나로 줄여 규칙 요약이 스킬을 가리지 않게 했다 (#10)
