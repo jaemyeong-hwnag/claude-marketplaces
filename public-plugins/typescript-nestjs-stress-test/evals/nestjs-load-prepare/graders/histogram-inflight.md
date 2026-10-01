@@ -1,5 +1,5 @@
 ---
 type: regex
 target: last_message
-pattern: "(?is)(histogram|히스토그램).*(in-flight|in_flight|inflight|게이지|gauge)|(in-flight|in_flight|inflight|게이지|gauge).*(histogram|히스토그램)"
+pattern: "([Hh]istogram|히스토그램)[\\s\\S]*([Ii]n-?[Ff]light|in_flight|게이지|[Gg]auge)|([Ii]n-?[Ff]light|in_flight|게이지|[Gg]auge)[\\s\\S]*([Hh]istogram|히스토그램)"
 ---

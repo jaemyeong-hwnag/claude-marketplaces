@@ -1,6 +1,6 @@
 ---
 name: express-stress-test-apply
-description: Node.js · Express 앱을 부하 측정할 수 있게 준비한다 — prom-client 지연 히스토그램 · in-flight 게이지 계측, NODE_ENV · nodemon · DEBUG 같은 무효 설정 제거, cluster 워커 · UV_THREADPOOL_SIZE 확인, tinybench · mitata 벤치. Express 서버의 부하 · 스트레스 테스트를 준비하거나 성능을 잴 때 사용한다. 트리거 — "express 부하", "node 성능 측정", "prom-client", "이벤트 루프 지연".
+description: Express 서버에 부하·스트레스 테스트를 걸기 전에 서버 쪽에서 설정·확인할 것을 정할 때 사용한다 — prom-client 히스토그램·in-flight 계측, NODE_ENV·nodemon·--inspect·DEBUG 같은 무효 설정, cluster 워커·UV_THREADPOOL_SIZE·keep-alive, tinybench. 트리거 — "부하 테스트 준비", "Express 성능 측정", "prom-client", "이벤트 루프", "tinybench".
 ---
 
 # Express 부하 측정 준비

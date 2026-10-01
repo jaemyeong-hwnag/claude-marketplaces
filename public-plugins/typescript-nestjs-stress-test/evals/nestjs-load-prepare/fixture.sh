@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# 기본 스타터 모양의 NestJS 앱. 계측이 없고 logger 옵션도 없다
+# 기본 스타터 모양의 NestJS 앱. 계측이 없고 logger 옵션도 없다 — 저장소 초기화를 하지 않는다 (하면 eval-all 이 Bash 를 줘 샌드박스가 필요하다)
 set -e
-git init -q -b main .
-git config user.email eval@example.com
-git config user.name eval
 mkdir -p src
 cat > package.json <<'JSON'
 {
@@ -43,5 +40,3 @@ export class OrderController {
   }
 }
 TS
-git add -A
-git commit -qm init

@@ -1,6 +1,6 @@
 ---
 name: fastapi-stress-test-apply
-description: FastAPI 서버를 부하 · 스트레스 측정할 수 있게 준비한다 — 지연 히스토그램 · in-flight 계측, 무효 설정 제거, 워커 · 스레드풀 · DB 풀 손잡이 점검, pyperf 마이크로벤치마크. FastAPI · uvicorn 성능 측정을 준비할 때 사용한다. 트리거 — "FastAPI 부하 테스트", "uvicorn 성능", "/metrics", "prometheus-fastapi-instrumentator", "워커 수", "pyperf".
+description: FastAPI 서버에 부하·스트레스 테스트를 걸기 전에 서버 쪽에서 설정·확인할 것을 정할 때 사용한다 — 지연 히스토그램·in-flight 계측(멀티 워커면 prometheus 멀티프로세스), fastapi dev·--reload·debug 같은 무효 설정, 워커·스레드 토큰·DB 풀, pyperf. 트리거 — "부하 테스트 준비", "FastAPI 성능 측정", "uvicorn 워커", "/metrics", "pyperf".
 ---
 
 # FastAPI 부하 측정 준비

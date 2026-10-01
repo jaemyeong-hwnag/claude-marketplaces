@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# FastAPI 주문 서비스. 워커 4개 + prometheus 인데 멀티프로세스 디렉터리가 없다
+# FastAPI 주문 서비스. 워커 4개 + prometheus 인데 멀티프로세스 디렉터리가 없다 — 저장소 초기화를 하지 않는다 (하면 eval-all 이 Bash 를 줘 샌드박스가 필요하다)
 set -e
-git init -q -b main .
-git config user.email eval@example.com
-git config user.name eval
 mkdir -p app
 printf "fastapi[standard]\nprometheus-fastapi-instrumentator\n" > requirements.txt
 cat > app/main.py <<'PY'
@@ -27,5 +24,3 @@ export const options = { scenarios: { s: { executor: "constant-arrival-rate", ra
 export default function () { http.get("http://127.0.0.1:8000/orders"); }
 JS
 printf 'FROM python:3.13-slim\nCOPY . /app\nWORKDIR /app\nRUN pip install -r requirements.txt\nCMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--workers", "4"]\n' > Dockerfile
-git add -A
-git commit -qm init

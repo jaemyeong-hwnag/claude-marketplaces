@@ -1,6 +1,6 @@
 ---
 name: nestjs-stress-test-apply
-description: NestJS 서버를 부하 · 스트레스 측정할 수 있게 준비한다 — 지연 히스토그램 · in-flight 게이지 계측, nest start · ts-node · debug 로그 제거, 어댑터 · 요청 스코프 · DB 풀 확인, tinybench 비교. NestJS 앱 성능 측정 · 부하 테스트 준비 때 사용한다. 트리거 — "nest 부하", "NestJS 성능", "nestjs-prometheus", "Scope.REQUEST 느려", "Fastify 어댑터".
+description: NestJS 서버에 부하·스트레스 테스트를 걸기 전에 서버 쪽에서 설정·확인할 것을 정할 때 사용한다 — prom-client 히스토그램·in-flight 계측, nest start·ts-node·debug 로그 같은 무효 설정, Express/Fastify 어댑터·요청 스코프·DB 풀, tinybench. 트리거 — "부하 테스트 준비", "NestJS 성능 측정", "Fastify 어댑터", "Scope.REQUEST", "tinybench".
 ---
 
 # NestJS 부하 측정 준비

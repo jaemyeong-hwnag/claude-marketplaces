@@ -1,5 +1,5 @@
 ---
 type: regex
 target: last_message
-pattern: "(?i)histogram|히스토그램"
+pattern: "[Hh]istogram|히스토그램"
 ---

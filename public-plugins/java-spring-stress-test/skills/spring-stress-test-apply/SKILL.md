@@ -1,6 +1,6 @@
 ---
 name: spring-stress-test-apply
-description: Spring Boot 서버를 부하 · 스트레스 측정할 수 있게 준비한다 — Actuator 지연 히스토그램 · in-flight · Tomcat 스레드 계측, 무효 설정 제거, 스레드 · Hikari 풀 손잡이 점검, JMH 마이크로벤치마크. Spring 성능 측정을 준비할 때 사용한다. 트리거 — "Spring 부하 테스트", "스프링 성능", "actuator prometheus", "http.server.requests", "톰캣 스레드", "HikariCP 풀", "JMH".
+description: Spring Boot 서버에 부하·스트레스 테스트를 걸기 전에 서버 쪽에서 설정·확인할 것을 정할 때 사용한다 — Actuator 지연 히스토그램·in-flight·Tomcat 스레드 계측, devtools·DEBUG 로그·show-sql 같은 무효 설정, 스레드·Hikari 풀, JMH. 트리거 — "부하 테스트 준비", "스프링 성능 측정", "actuator prometheus", "톰캣 스레드", "HikariCP", "JMH".
 ---
 
 # Spring Boot 부하 측정 준비

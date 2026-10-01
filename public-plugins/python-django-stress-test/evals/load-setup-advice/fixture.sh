@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# Django 주문 서비스. django-prometheus 는 있지만 in-flight 게이지가 없고 Gunicorn 워커 수를 정하지 않았다
+# Django 주문 서비스. django-prometheus 는 있지만 in-flight 게이지가 없고 Gunicorn 워커 수를 정하지 않았다 — 저장소 초기화를 하지 않는다 (하면 eval-all 이 Bash 를 줘 샌드박스가 필요하다)
 set -e
-git init -q -b main .
-git config user.email eval@example.com
-git config user.name eval
 mkdir -p shop orders
 printf "Django==6.0\ngunicorn\ndjango-prometheus\n" > requirements.txt
 cat > manage.py <<'PY'
@@ -53,5 +50,3 @@ export default function () { http.get("http://127.0.0.1:8000/orders"); }
 JS
 sed -i.bak 's/^DEBUG = True/DEBUG = False/' shop/settings.py && rm -f shop/settings.py.bak
 printf 'FROM python:3.13-slim\nCOPY . /app\nWORKDIR /app\nRUN pip install -r requirements.txt\nCMD ["gunicorn", "shop.wsgi:application", "-b", "0.0.0.0:8000"]\n' > Dockerfile
-git add -A
-git commit -qm init
