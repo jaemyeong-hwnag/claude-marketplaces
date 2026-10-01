@@ -112,6 +112,13 @@
       "meaning": "단건 조회"
     },
     {
+      "use": "install",
+      "deny": [
+        "installation"
+      ],
+      "meaning": "받아서 쓸 수 있는 상태로 둠"
+    },
+    {
       "use": "list",
       "deny": [
         "findall",
@@ -133,6 +140,14 @@
         "audit"
       ],
       "meaning": "판단이 필요한 검토"
+    },
+    {
+      "use": "search",
+      "deny": [
+        "find",
+        "lookup"
+      ],
+      "meaning": "조건에 맞는 대상을 찾아 고름"
     },
     {
       "use": "sync",
@@ -334,6 +349,14 @@
     }
   ],
   "role": [
+    {
+      "use": "browser",
+      "deny": [
+        "explorer",
+        "navigator"
+      ],
+      "meaning": "목록을 보여주고 훑어 고르게 하는 대화형 화면"
+    },
     {
       "use": "reviewer",
       "deny": [

@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.8.0
+
+### Added
+- 사전 `action` 에 `install` (동의어 `installation` 금지) · `search` (동의어 `find` · `lookup` 금지), `role` 에 `browser` (동의어 `explorer` · `navigator` 금지) (#34) — 새 플러그인 `plugin-search-install` · `plugin-browser`
+
 ## 0.7.0
 
 ### Added
