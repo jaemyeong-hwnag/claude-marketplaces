@@ -48,7 +48,8 @@ alias plugins='bash <installPath>/scripts/plugin-browser.sh'
 - **대화형 선택은 진짜 터미널에서만** 열린다 (stdin · stdout 이 TTY). Claude 의 Bash · 파이프 · CI 에서는 정적 화면과 `--select` 안내만 나온다
 - 모호 폭 글자(`·` `─` `…`)를 두 칸으로 그리는 터미널(동아시아 폭 설정)은 시작할 때 커서 위치를 물어 판별한다. 응답하지 않는 터미널이면 1초 기다린 뒤 한 칸으로 본다 — `PLUGIN_BROWSER_AMBIGUOUS=1|2` 로 고정
 - 창 크기 변경은 1초 안에 다시 그린다 (`SIGWINCH` 대신 주기 확인 — bash 3.2 의 `read` 는 신호로 깨지 않는다)
-- 이모지 폭은 Unicode 15.1 기준이다. 오래된 터미널 · 글꼴은 일부 이모지를 한 칸으로 그려 줄이 짧아질 수 있다 (넘치지는 않는다)
+- 터미널이 10열보다 좁으면 그리지 않고 안내한다
+- 이모지 폭은 Unicode 15.1 기준이다 (VS16 이 붙은 글자는 두 칸). 오래된 터미널 · 글꼴은 일부 이모지를 한 칸으로 그려 줄이 짧아질 수 있다 (넘치지는 않는다)
 - 설치는 기본 `project` 범위다. 선택 화면 뒤 범위를 묻는다
 
 ## 사용
@@ -69,7 +70,7 @@ plugin-search-install.sh search x | $P render -   # 엔진 JSON 을 그리기만
 
 | 옵션 | 뜻 |
 |---|---|
-| `--width N` | 폭 고정 (기본: 터미널 → `$COLUMNS` → 80) |
+| `--width N` | 폭 고정, 10 이상 (기본: 터미널 → `$COLUMNS` → 80) |
 | `--ascii` | 장식을 ASCII 로 (UTF-8 아닌 로케일은 자동) |
 | `--color auto\|always\|never` | 기본 auto — TTY 이고 `NO_COLOR` 가 없을 때 |
 | `--plain` | 화살표 선택 대신 번호 입력 |

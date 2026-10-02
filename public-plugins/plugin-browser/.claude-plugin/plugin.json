@@ -1,7 +1,7 @@
 {
   "name": "plugin-browser",
   "description": "plugin-search-install 의 조회 결과를 터미널에서 보고 골라 설치하는 CLI 화면 — 폭에 따라 표 · 축약 표 · 카드 · 목록, 한글 · 이모지 · 모호 폭 처리, 화살표 · 스페이스 선택과 번호 입력, 메뉴, 범위 확인.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "황재명",
     "email": "woaudsla@gmail.com"
