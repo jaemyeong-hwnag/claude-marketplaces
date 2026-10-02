@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# plugin-search-install — 등록된 마켓플레이스의 플러그인을 조회하고 설치한다. 화면을 모른다 — 출력은 json · tsv · ids · names.
+# plugin-search-install — 이 플러그인이 설치되어 온 마켓플레이스의 public 플러그인을 조회하고 설치한다.
+# 화면을 모른다 — 출력은 json · tsv · ids · names.
 #
 #   catalog  [--refresh]                                    카탈로그 전체
 #   search   <질의…>                                         기능 검색
@@ -10,12 +11,13 @@
 #   facets   [tag|keyword|category|marketplace|has|installed] 관점별 개수 (JSON)
 #   install  <플러그인…> | --from <파일|->  [--select 1,3-5,이름] [--exclude …] [--all] [--scope S] [--dry-run]
 #
-# 필터  --marketplace M · --tag T · --category C · --keyword K · --has skill|command|agent|hook|mcp|lsp
+# 필터  --tag T · --domain D · --technology T · --keyword K · --has skill|command|agent|hook|mcp|lsp
 #       --installed · --not-installed · --min-score N          (쉼표로 여럿, 반복 가능)
 # 검색  --any (OR) · --exact (동의어 · 부분 일치 · 오타 허용 끔) · --regex · --field f,… · --no-fuzzy
 # 출력  --format json|tsv|ids|names · --limit N (0 = 전부) · --sort score|name|installs · --full
 #
-# 질의 문법은 references/search-rules.md. 종료 코드: 0 정상 · 1 설치 일부 실패 · 2 잘못된 입력
+# 대상 마켓은 스스로 판별한다 — PLUGIN_SEARCH_MARKETPLACE 로 지정. 질의 문법은 references/search-rules.md
+# 종료 코드: 0 정상 · 1 설치 일부 실패 · 2 잘못된 입력
 set -uo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -28,15 +30,17 @@ CACHE_DIR="${PLUGIN_SEARCH_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/plugin-sea
 CACHE_TTL_MIN="${PLUGIN_SEARCH_CACHE_TTL:-10}"
 
 die() { echo "plugin-search-install: $*" >&2; exit 2; }
-usage() { sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 command -v jq >/dev/null 2>&1 || die "jq 가 필요합니다"
 
+# jq 1.6 의 -e 는 입력이 비어 있으면 성공한다 — 출력이 정확히 true 인지 본다
+jq_true() { local out; out="$(jq "$@" 2>/dev/null)" && [ "$out" = true ]; }
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 # ---- 옵션 --------------------------------------------------------------------
 FORMAT=json LIMIT=20 LIMIT_SET=false SORT=score FULL=false MODE=all EXACT=false REGEX=false FUZZY=true FIELDS=""
-F_MP="" F_TAG="" F_CAT="" F_KW="" F_HAS="" F_INST="" MIN_SCORE="" REFRESH=false BY="" ONLY=""
+F_MP="" F_TAG="" F_CAT="" F_KW="" F_HAS="" F_INST="" F_DOM="" F_TECH="" MIN_SCORE="" REFRESH=false BY="" ONLY=""
 SCOPE=project DRY=false FROM="" SELECT="" EXCLUDE="" ALL=false
 ARGS=()
 
@@ -57,6 +61,8 @@ parse_opts() {
       --tag) need "$1" $#; F_TAG="$F_TAG,$2"; shift 2 ;;
       --category|--cat) need "$1" $#; F_CAT="$F_CAT,$2"; shift 2 ;;
       --keyword|--kw) need "$1" $#; F_KW="$F_KW,$2"; shift 2 ;;
+      --domain) need "$1" $#; F_DOM="$F_DOM,$2"; shift 2 ;;
+      --technology|--tech) need "$1" $#; F_TECH="$F_TECH,$2"; shift 2 ;;
       --has) need "$1" $#; F_HAS="$F_HAS,$2"; shift 2 ;;
       --installed) F_INST=true; shift ;;
       --not-installed) F_INST=false; shift ;;
@@ -94,16 +100,16 @@ parse_opts() {
 
 opts_json() {
   jq -cn --arg mode "$MODE" --argjson exact "$EXACT" --argjson regex "$REGEX" --argjson fuzzy "$FUZZY" \
-    --arg fields "$FIELDS" --arg mp "$F_MP" --arg tag "$F_TAG" --arg cat "$F_CAT" --arg kw "$F_KW" --arg has "$F_HAS" \
+    --arg fields "$FIELDS" --arg mp "$F_MP" --arg tag "$F_TAG" --arg cat "$F_CAT" --arg kw "$F_KW" --arg has "$F_HAS" --arg dom "$F_DOM" --arg tech "$F_TECH" \
     --arg inst "$F_INST" --arg min "$MIN_SCORE" --arg by "$BY" --arg only "$ONLY" --arg sort "$SORT" \
     --argjson limit "$LIMIT" --argjson full "$FULL" '
     def csv: split(",") | map(gsub("^\\s+|\\s+$"; "") | ascii_downcase) | map(select(length > 0));
     def alias: if . == "component" or . == "comp" then ("skill", "command", "agent", "hook", "mcp", "lsp")
       elif . == "tags" then "tag" elif . == "keywords" or . == "kw" then "keyword" elif . == "desc" then "description"
-      elif . == "mp" then "marketplace" elif . == "cmd" then "command" else . end;
+      elif . == "mp" then "marketplace" elif . == "cmd" then "command" elif . == "tech" then "technology" else . end;
     { mode: $mode, exact: $exact, regex: $regex, fuzzy: $fuzzy,
       fields: ($fields | csv | if length == 0 then null else [.[] | alias] | unique end),
-      mp: ($mp | csv), tag: ($tag | csv), cat: ($cat | csv), kw: ($kw | csv), has: ($has | csv),
+      mp: ($mp | csv), tag: ($tag | csv), cat: ($cat | csv), kw: ($kw | csv), has: ($has | csv), dom: ($dom | csv), tech: ($tech | csv),
       installed: (if $inst == "" then null else ($inst == "true") end),
       min: (if $min == "" then null else ($min | tonumber) end),
       by: ($by | csv), only: $only, sort: $sort, limit: $limit, full: $full }'
@@ -114,17 +120,28 @@ opts_json() {
 marketplaces_json() {
   local out
   out="$("$CLAUDE_BIN" plugin marketplace list --json 2>/dev/null)"
-  if jq -e 'type == "array"' >/dev/null 2>&1 <<<"$out"; then printf '%s' "$out"; return; fi
+  if jq_true 'type == "array"' <<<"$out"; then printf '%s' "$out"; return; fi
   jq -c '[to_entries[] | {name: .key, installLocation: .value.installLocation}]' "$CFG/plugins/known_marketplaces.json" 2>/dev/null || echo '[]'
 }
 installed_json() {
   local out
   out="$("$CLAUDE_BIN" plugin list --json --available 2>/dev/null)"
-  if jq -e '.installed | type == "array"' >/dev/null 2>&1 <<<"$out"; then printf '%s' "$out"; return; fi
+  if jq_true '.installed | type == "array"' <<<"$out"; then printf '%s' "$out"; return; fi
   out="$("$CLAUDE_BIN" plugin list --json 2>/dev/null)"
-  if jq -e 'type == "array"' >/dev/null 2>&1 <<<"$out"; then jq -c '{installed: ., available: []}' <<<"$out"; return; fi
+  if jq_true 'type == "array"' <<<"$out"; then jq -c '{installed: ., available: []}' <<<"$out"; return; fi
   jq -c '{installed: [(.plugins // {}) | to_entries[] | .key as $id | .value[] | {id: $id, version, scope, installPath, enabled: null}], available: []}' \
     "$CFG/plugins/installed_plugins.json" 2>/dev/null || echo '{"installed":[],"available":[]}'
+}
+
+# 대상 마켓 — 이 플러그인이 설치되어 온 마켓. 이름을 박아 두지 않아 포크한 마켓에서도 그대로 동작한다
+own_marketplace() { # $1=마켓플레이스 JSON
+  [ -n "${PLUGIN_SEARCH_MARKETPLACE:-}" ] && { echo "$PLUGIN_SEARCH_MARKETPLACE"; return 0; }
+  case "$ROOT_DIR" in */plugins/cache/*/*/*) local m="${ROOT_DIR%/*/*}"; echo "${m##*/}"; return 0 ;; esac
+  local name
+  name="$(jq -r --arg r "$ROOT_DIR" '[.[] | select((.installLocation // "") != "")
+      | (.installLocation | sub("/+$"; "")) as $l | select($r | startswith($l + "/"))] | max_by(.installLocation | length) | .name // empty' <<<"$1" 2>/dev/null)"
+  [ -n "$name" ] || name="$(jq -r '.name // empty' "$ROOT_DIR/../../.claude-plugin/marketplace.json" 2>/dev/null)"
+  printf '%s' "$name"
 }
 
 manifest_of() { # $1=installLocation → "매니페스트\x1f루트"
@@ -161,14 +178,18 @@ json_each() { # $1=jq 필터, 나머지=파일. 한 번에 돌리고, 깨진 파
   return 0
 }
 
-build_catalog() { # $1=마켓플레이스 JSON $2=설치 JSON → 카탈로그 JSON 배열
-  local mps="$1" inst="$2" mp loc mf root
-  : > "$TMP/entries"
+build_catalog() { # $1=마켓플레이스 JSON $2=설치 JSON $3=대상 마켓 → 카탈로그 JSON 배열
+  local mps="$1" own="$3" mp loc mf root
+  # 큰 JSON 은 인자가 아니라 파일로 넘긴다 — MCP 처럼 환경 변수가 큰 프로세스에서는 ARG_MAX 에 먼저 닿는다
+  printf '%s' "$2" > "$TMP/inst.json"
+  : > "$TMP/entries"; echo '[]' > "$TMP/tagdefs"
   while IFS=$'\037' read -r mp loc; do
-    [ -n "$loc" ] || continue
+    [ "$mp" = "$own" ] && [ -n "$loc" ] || continue
     mf=""; root=""
     IFS=$'\037' read -r mf root < <(manifest_of "$loc")
     [ -n "$mf" ] || continue
+    [ -f "$root/.claude-plugin/tags.json" ] && jq_true 'type == "array"' "$root/.claude-plugin/tags.json" &&
+      cp "$root/.claude-plugin/tags.json" "$TMP/tagdefs"
     jq -c --arg mp "$mp" --arg root "$root" '
       def clean: explode | map(select(. >= 32 and (. < 127 or . >= 160))) | implode;
       (.metadata.pluginRoot // "" | sub("^\\./"; "") | sub("/+$"; "")) as $pr
@@ -197,11 +218,12 @@ build_catalog() { # $1=마켓플레이스 JSON $2=설치 JSON → 카탈로그 J
     if [ -n "$ip" ] && [ -d "$ip" ]; then d="$ip"; elif [ -n "$lp" ] && [ -d "$lp" ]; then d="$lp"; fi
     [ -n "$d" ] || continue
     printf '%s\037%s\n' "$id" "$d" >> "$TMP/dirs"; dirs+=("$d")
-  done < <(jq -rn --slurpfile e "$TMP/entries" --argjson inst "$inst" '
-      ($inst.installed // [] | map({key: .id, value: (.installPath // "")}) | from_entries) as $ip
+  done < <(jq -rn --slurpfile e "$TMP/entries" --slurpfile instf "$TMP/inst.json" --arg own "$own" '
+      $instf[0] as $inst
+      | ($inst.installed // [] | map({key: .id, value: (.installPath // "")}) | from_entries) as $ip
       | ([$e[].id] | unique) as $known
       | (($e[] | [.id, (.localPath // ""), ($ip[.id] // "")]),
-         ($inst.installed // [] | .[] | select(.id as $i | $known | index($i) | not) | [.id, "", (.installPath // "")]))
+         ($inst.installed // [] | .[] | select(.id | endswith("@" + $own)) | select(.id as $i | $known | index($i) | not) | [.id, "", (.installPath // "")]))
       | join("\u001f")')
 
   : > "$TMP/files"
@@ -228,11 +250,13 @@ build_catalog() { # $1=마켓플레이스 JSON $2=설치 JSON → 카탈로그 J
   json_each '{f: input_filename, events: (.hooks // {} | if type == "object" then keys else [] end)}' ${hk+"${hk[@]}"} > "$TMP/hk"
   json_each '{f: input_filename, servers: ((.mcpServers // .) | if type == "object" then keys else [] end)}' ${mc+"${mc[@]}"} > "$TMP/mc"
 
-  jq -n --slurpfile e "$TMP/entries" --argjson inst "$inst" --rawfile dirs "$TMP/dirs" --rawfile fm "$TMP/fm" \
-    --slurpfile pj "$TMP/pj" --slurpfile hk "$TMP/hk" --slurpfile mc "$TMP/mc" --arg cwd "$(pwd -P)" '
+  jq -n --slurpfile e "$TMP/entries" --slurpfile instf "$TMP/inst.json" --rawfile dirs "$TMP/dirs" --rawfile fm "$TMP/fm" \
+    --slurpfile pj "$TMP/pj" --slurpfile hk "$TMP/hk" --slurpfile mc "$TMP/mc" --arg cwd "$(pwd -P)" --arg own "$own" \
+    --slurpfile td "$TMP/tagdefs" '
     def san: tostring | explode | map(if . < 32 or (. >= 127 and . < 160) then 32 else . end) | implode | gsub("^ +| +$"; "");
     def cut($n): if length > $n then .[:$n] else . end;
-    ($dirs | split("\n") | map(select(length > 0) | split("\u001f") | {key: .[0], value: .[1]}) | from_entries) as $dirOf
+    $instf[0] as $inst
+    | ($dirs | split("\n") | map(select(length > 0) | split("\u001f") | {key: .[0], value: .[1]}) | from_entries) as $dirOf
     # project · local 범위 설치는 그 프로젝트에서만 쓸 수 있다
     | def here: .scope == "user" or ((.projectPath // "") as $pp | $pp == "" or $cwd == $pp or ($cwd | startswith($pp + "/")));
       ($inst.installed // [] | group_by(.id) | map({key: .[0].id, value: .}) | from_entries) as $im
@@ -252,9 +276,10 @@ build_catalog() { # $1=마켓플레이스 JSON $2=설치 JSON → 카탈로그 J
             ($f | capture("^(?<d>.*)/agents/(?<n>[^/]+)\\.md$")) as $c
             | .[$c.d].agents += [{name: (if ($r[1] // "") != "" then $r[1] else $c.n end | san), description: ($r[2] // "" | san | cut(300))}]
           else . end)) as $mdm
+    | ($td[0] | map(select(type == "object" and (.name | type) == "string") | {key: .name, value: {kind: (.kind // null), description: (.description // "")}}) | from_entries) as $tagdef
     | ([$e[].id] | unique) as $known
     | ( ($e | unique_by(.id))
-        + [$inst.installed // [] | .[] | select(.id as $i | $known | index($i) | not)
+        + [$inst.installed // [] | .[] | select(.id | endswith("@" + $own)) | select(.id as $i | $known | index($i) | not)
            | {name: (.id | split("@")[0]), marketplace: (.id | split("@")[1:] | join("@")), id, description: "", version: null,
               category: null, tags: [], keywords: [], author: null, homepage: null, sourceType: "installed",
               dependencies: [], lsp: [], mcpEntry: [], localPath: null}] | unique_by(.id) )
@@ -266,7 +291,12 @@ build_catalog() { # $1=마켓플레이스 JSON $2=설치 JSON → 카탈로그 J
         | { id: $p.id, name: ($p.name | san), marketplace: $p.marketplace,
             description: (if ($p.description | length) > 0 then $p.description else ($x.description // "") end | san),
             version: ($x.version // $p.version), category: ($p.category | if . == null then null else san end),
-            tags: ($p.tags | map(san) | unique), keywords: (($p.keywords + ($x.keywords // [])) | map(san) | unique),
+            tags: ($p.tags | map(san) | unique),
+            domains: [$p.tags[] | select($tagdef[.].kind? == "domain")],
+            technologies: [$p.tags[] | select($tagdef[.].kind? == "technology")],
+            tagNotes: [$p.tags[] | $tagdef[.].description? // empty | san],
+            tagInfo: [$p.tags[] | {name: ., kind: ($tagdef[.].kind? // null), description: ($tagdef[.].description? // "" | san)}],
+            keywords: (($p.keywords + ($x.keywords // [])) | map(san) | unique),
             author: ($p.author // $x.author // null | if . == null then null else san end), homepage: $p.homepage,
             sourceType: $p.sourceType,
             dependencies: (($p.dependencies + ($x.dependencies // [])) | unique),
@@ -288,14 +318,23 @@ build_catalog() { # $1=마켓플레이스 JSON $2=설치 JSON → 카탈로그 J
     | sort_by(.marketplace, .name)'
 }
 
+# 대상 마켓의 public 플러그인만 — internal · 다른 마켓은 조회 · 추천 · 설치 대상이 아니다
+public_only() { jq -c --arg own "$1" '[.[] | select(.marketplace == $own and .category == "public")]'; }
+
 catalog_json() {
+  local mps inst key cache loc mf own
   if [ -n "${PLUGIN_SEARCH_CATALOG:-}" ]; then
     [ -r "$PLUGIN_SEARCH_CATALOG" ] || die "PLUGIN_SEARCH_CATALOG 를 읽을 수 없습니다: $PLUGIN_SEARCH_CATALOG"
-    cat "$PLUGIN_SEARCH_CATALOG"; return
+    own="$(own_marketplace '[]')"
+    [ -n "$own" ] || die "대상 마켓을 모릅니다 — PLUGIN_SEARCH_MARKETPLACE 로 지정하세요"
+    public_only "$own" < "$PLUGIN_SEARCH_CATALOG"; return
   fi
-  local mps inst key cache loc mf
   mps="$(marketplaces_json)"; inst="$(installed_json)"
-  key="$( { printf '%s\n%s\n%s\n' "$(pwd -P)" "$mps" "$inst"
+  own="$(own_marketplace "$mps")"
+  [ -n "$own" ] || die "이 플러그인이 어느 마켓플레이스에서 왔는지 모릅니다 — PLUGIN_SEARCH_MARKETPLACE=<마켓 이름>"
+  jq_true --arg own "$own" 'any(.[]; .name == $own)' <<<"$mps" ||
+    die "마켓플레이스 '$own' 이 등록돼 있지 않습니다 — claude plugin marketplace add 로 먼저 추가하세요"
+  key="$( { printf '%s\n%s\n%s\n%s\n' "$own" "$(pwd -P)" "$mps" "$inst"
             while IFS= read -r loc; do
               mf=""; IFS=$'\037' read -r mf _ < <(manifest_of "$loc")
               [ -n "$mf" ] && ls -ln "$mf" 2>/dev/null
@@ -303,14 +342,14 @@ catalog_json() {
   # 키를 파일 이름에 넣는다 — 키와 내용을 따로 쓰면 동시 실행에서 짝이 어긋난다
   cache="$CACHE_DIR/catalog-$key.json"
   if [ "$REFRESH" = false ] && [ -s "$cache" ] && [ -n "$(find "$cache" -mmin -"$CACHE_TTL_MIN" 2>/dev/null)" ]; then
-    cat "$cache"; return
+    public_only "$own" < "$cache"; return
   fi
-  build_catalog "$mps" "$inst" > "$TMP/catalog.json" && [ -s "$TMP/catalog.json" ] || die "카탈로그를 만들지 못했습니다"
+  build_catalog "$mps" "$inst" "$own" > "$TMP/catalog.json" && [ -s "$TMP/catalog.json" ] || die "카탈로그를 만들지 못했습니다"
   if mkdir -p "$CACHE_DIR" 2>/dev/null && cp "$TMP/catalog.json" "$cache.$$" 2>/dev/null; then
     mv "$cache.$$" "$cache" 2>/dev/null
     find "$CACHE_DIR" -name 'catalog-*.json' -mmin +"$CACHE_TTL_MIN" -exec rm -f {} + 2>/dev/null
   fi
-  cat "$TMP/catalog.json"
+  public_only "$own" < "$TMP/catalog.json"
 }
 cache_drop() { rm -f "$CACHE_DIR"/catalog-*.json 2>/dev/null; }
 
@@ -334,6 +373,8 @@ def ndoc($k): {k: $k, n: lc, nw: words, d: "", dw: []};
 def doc:
   { name: (.name | lc), nw: (.name | words),
     tags: (.tags | map(lc)), kws: (.keywords | map(lc)), kww: ([.keywords[] | words[]] | unique),
+    doms: ((.domains // []) | map(lc)), techs: ((.technologies // []) | map(lc)),
+    tnote: ((.tagNotes // []) | join(" ") | lc), tnw: ((.tagNotes // []) | map(words[]) | unique),
     cat: (.category // "" | lc), mp: (.marketplace | lc), mpw: (.marketplace | words),
     desc: (.description | lc), dw: (.description | words | unique),
     comps: [ (.components.skills[] | cdoc("skill")), (.components.commands[] | cdoc("command")), (.components.agents[] | cdoc("agent")),
@@ -342,9 +383,10 @@ def prep: map(. + {_d: doc});
 def fieldmap: {name: ["name"], n: ["name"], desc: ["description"], description: ["description"], d: ["description"],
   tag: ["tag"], tags: ["tag"], t: ["tag"], kw: ["keyword"], keyword: ["keyword"], keywords: ["keyword"], k: ["keyword"],
   cat: ["category"], category: ["category"], mp: ["marketplace"], marketplace: ["marketplace"],
+  domain: ["domain"], dom: ["domain"], tech: ["technology"], technology: ["technology"],
   skill: ["skill"], skills: ["skill"], cmd: ["command"], command: ["command"], agent: ["agent"], hook: ["hook"], mcp: ["mcp"], lsp: ["lsp"],
   comp: ["skill", "command", "agent", "hook", "mcp", "lsp"], component: ["skill", "command", "agent", "hook", "mcp", "lsp"]};
-def kindname: {name: "이름", tag: "태그", keyword: "키워드", category: "카테고리", marketplace: "마켓", description: "설명",
+def kindname: {name: "이름", tag: "태그", domain: "도메인", technology: "기술", "tag-description": "태그 설명", keyword: "키워드", category: "카테고리", marketplace: "마켓", description: "설명",
   skill: "스킬", command: "커맨드", agent: "에이전트", hook: "훅", mcp: "MCP", lsp: "LSP",
   "skill-description": "스킬 설명", "command-description": "커맨드 설명", "agent-description": "에이전트 설명"}[.] // .;
 def on($fields; $f): $fields == null or ($fields | index($f)) != null;
@@ -368,6 +410,9 @@ def hits($d; $t; $sub; $fields):
        if ($d.kws | index($t)) != null then {f: "keyword", s: 5}
        else tmatch($d.kww; ($d.kws | join(" ")); $t; $sub) as $m | if $m == 2 then {f: "keyword", s: 4} elif $m == 1 then {f: "keyword", s: 2.5} else empty end end
      else empty end),
+    (if on($fields; "domain") and ($d.doms | index($t)) != null then {f: "domain", s: 6} else empty end),
+    (if on($fields; "technology") and ($d.techs | index($t)) != null then {f: "technology", s: 6} else empty end),
+    (if on($fields; "tag") and $d.tnote != "" then tmatch($d.tnw; $d.tnote; $t; $sub) as $m | if $m > 0 then {f: "tag-description", s: 3} else empty end else empty end),
     (if on($fields; "category") and $d.cat != "" and $d.cat == $t then {f: "category", s: 3} else empty end),
     (if on($fields; "marketplace") and ($d.mp == $t or ($d.mpw | index($t)) != null) then {f: "marketplace", s: 2} else empty end),
     ( [$d.comps[] | select(on($fields; .k))] as $cs
@@ -445,6 +490,8 @@ def passf($p; $o):
   and ($o.tag == [] or any($p.tags[]; lc as $x | $o.tag | index($x) != null))
   and ($o.cat == [] or ($o.cat | index($p.category // "" | lc)) != null)
   and ($o.kw == [] or any($p.keywords[]; lc as $x | $o.kw | index($x) != null))
+  and ($o.dom == [] or any(($p.domains // [])[]; lc as $x | $o.dom | index($x) != null))
+  and ($o.tech == [] or any(($p.technologies // [])[]; lc as $x | $o.tech | index($x) != null))
   and all($o.has[]; (hasmap[.] // "") as $k | (($p.components[$k] // []) | length) > 0)
   and ($o.installed == null or $p.installed == $o.installed);
 def why: [.matches[]? | "\(.term) → \(.fields | map(kindname) | join("·"))\(if .via then " (\(.via))" else "" end)"];
@@ -547,7 +594,10 @@ def project($cat; $sig; $o):
   ($sig.signals) as $S
   | ([$S[].terms[]] | unique) as $detected
   | (($sig.vocabulary // []) - $detected) as $foreign
-  | ($sig.declared.enabled // {}) as $en
+  | ($cat[0].marketplace // null) as $own
+  | ($sig.declared.enabled // {}) as $en0
+  | ($en0 | with_entries(select(.key as $k | any($cat[]; .id == $k)))) as $en
+  | ($en0 | keys | map(select(. as $k | $en | has($k) | not))) as $outside
   | [ $en | to_entries[] | .key as $id | .value as $on
       | ($cat | map(select(.id == $id)) | first) as $p
       | ($id | split("@")) as $parts
@@ -587,6 +637,7 @@ def project($cat; $sig; $o):
                elif $o.only == "recommended" then .group == "recommended" else true end))
   | map(. + {why: .reasons})
   | {command: "project", root: $sig.root, signals: $S, settings: ($sig.declared.files // []), settingsErrors: ($sig.declared.broken // []),
+     marketplace: $own, outOfScope: $outside,
      summary: {declared: ($D | map(select(.status != "off")) | length),
                missing: (($D + $DEP) | map(select(.status == "missing" or .status == "marketplace-missing" or .status == "unknown-plugin")) | length),
                recommended: ($R | map(select(.score >= ($o.min // 1))) | length)}}
@@ -648,7 +699,7 @@ detect_json() { # $1=디렉터리
   done
   local ok=() broken=()
   for f in ${files+"${files[@]}"}; do
-    if jq -e 'type == "object"' "$f" >/dev/null 2>&1; then ok+=("$f"); else broken+=("${f#"$root"/}"); fi
+    if jq_true 'type == "object"' "$f"; then ok+=("$f"); else broken+=("${f#"$root"/}"); fi
   done
   echo '{"enabled":{},"marketplaces":[]}' > "$TMP/decl"
   if [ ${#ok[@]} -gt 0 ]; then
@@ -697,7 +748,7 @@ cmd_install() {
   local list chosen raw
   if [ -n "$FROM" ]; then
     if [ "$FROM" = - ]; then raw="$(cat)"; else [ -r "$FROM" ] || die "읽을 수 없습니다: $FROM"; raw="$(cat "$FROM")"; fi
-    if jq -e 'type == "object" or type == "array"' >/dev/null 2>&1 <<<"$raw"; then
+    if jq_true 'type == "object" or type == "array"' <<<"$raw"; then
       list="$(jq -c '(if type == "object" then .results // [] else . end)
         | to_entries | map(.key as $k | .value | if type == "string" then {id: ., name: (split("@")[0]), rank: null} else {id, name, rank} end
           | . + {rank: (.rank // ($k + 1))})' <<<"$raw")"
@@ -729,7 +780,7 @@ cmd_install() {
   resolved="$(jq -c --slurpfile c "$TMP/cat.json" '.chosen | map(. as $x
       | ($c[0] | map(select(.id == $x or (($x | contains("@") | not) and .name == $x)))) as $m
       | if ($m | length) == 1 then {id: $m[0].id, installed: $m[0].installed, scopes: $m[0].scopes}
-        elif ($m | length) == 0 then {id: $x, error: "카탈로그에 없습니다 — 마켓플레이스를 추가했는지 확인하세요"}
+        elif ($m | length) == 0 then {id: $x, error: "이 마켓의 public 플러그인이 아닙니다 (다른 마켓 · internal · 없는 이름)"}
         else {id: $x, error: ("마켓플레이스가 여럿입니다 — 이름@마켓으로 고르세요: " + ($m | map(.id) | join(", ")))} end)
       | (map(select(.error)) + (map(select(.error | not)) | unique_by(.id)))' <<<"$chosen")"
   bad="$(jq -r 'map(select(.error) | "\(.id): \(.error)") | join("\n")' <<<"$resolved")"
@@ -781,7 +832,7 @@ case "$cmd" in
     if [ "$FORMAT" = json ]; then catalog_json | jq '.'
     else catalog_json | jq -c '{results: (to_entries | map(.value + {rank: (.key + 1)}))}' | emit; fi ;;
   search)
-    [ ${#ARGS[@]} -gt 0 ] || [ -n "$F_MP$F_TAG$F_CAT$F_KW$F_HAS$F_INST" ] || die "검색어나 필터가 필요합니다 — search <질의…>"
+    [ ${#ARGS[@]} -gt 0 ] || [ -n "$F_MP$F_TAG$F_CAT$F_KW$F_HAS$F_INST$F_DOM$F_TECH" ] || die "검색어나 필터가 필요합니다 — search <질의…>"
     run_jq 'search($cat; $q; $o; $syn)' --argjson q "$(query_args)" | emit ;;
   related)
     [ ${#ARGS[@]} -gt 0 ] || die "대상이 필요합니다 — related <플러그인 | 기능어>"
@@ -804,11 +855,14 @@ case "$cmd" in
     printf '%s\n' "$out" ;;
   facets)
     f="${ARGS[0]:-all}"
-    case "$f" in all|tag|keyword|category|marketplace|has|installed) ;; *) die "facets 는 tag · keyword · category · marketplace · has · installed 중 하나: $f" ;; esac
+    case "$f" in all|tag|domain|technology|keyword|has|installed) ;; *) die "facets 는 tag · domain · technology · keyword · has · installed 중 하나: $f" ;; esac
     run_jq '[$cat[] | select(passf(.; $o))] as $l
+      | ([$l[] | (.tagInfo // [])[]] | map({key: .name, value: .description}) | from_entries) as $tdesc
       | def cnt(f): [$l[] | [f] | unique[]] | group_by(.) | map({value: .[0], count: length}) | sort_by(-.count, .value);
-      {total: ($l | length),
-       tag: cnt(.tags[]), keyword: cnt(.keywords[] | ascii_downcase), category: cnt(.category // empty), marketplace: cnt(.marketplace),
+        def cntd(f): cnt(f) | map(. + (if ($tdesc[.value] // "") != "" then {description: $tdesc[.value]} else {} end));
+      {total: ($l | length), marketplace: ($l[0].marketplace // null),
+       tag: cntd(.tags[]), domain: cntd((.domains // [])[]), technology: cntd((.technologies // [])[]),
+       keyword: cnt(.keywords[] | ascii_downcase),
        has: cnt(.components | to_entries[] | select((.value | length) > 0) | .key),
        installed: cnt(if .installed then "installed" else "not-installed" end)}
       | if $f == "all" then . else {total, ($f): .[$f]} end' --arg f "$f" ;;

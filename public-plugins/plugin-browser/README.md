@@ -62,7 +62,7 @@ $P search naming has:hook -java      # 질의 문법은 plugin-search-install �
 $P related plugin-naming --by name
 $P installed
 $P show github-workflow
-$P facets tag
+$P facets                             # 도메인 · 기술 태그(설명) · 키워드 · 구성요소
 $P search 커버리지 --width 60 --no-pick           # 그리기만, 폭 고정
 $P search 커버리지 --select 1,3 --scope user --dry-run   # 묻지 않고 설치 계획
 plugin-search-install.sh search x | $P render -   # 엔진 JSON 을 그리기만

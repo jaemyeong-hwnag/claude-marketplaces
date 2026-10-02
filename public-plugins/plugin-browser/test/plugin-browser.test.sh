@@ -42,15 +42,19 @@ maxw() { # $1=모호 폭 → stdin 의 가장 넓은 줄
 # ---- 픽스처 카탈로그 --------------------------------------------------------
 mk() { # $1=이름 $2=마켓 $3=설명 $4=설치 $5=태그(쉼표) $6=의존(쉼표)
   jq -cn --arg n "$1" --arg m "$2" --arg d "$3" --argjson i "$4" --arg t "$5" --arg dep "$6" '
-    {id: ($n + "@" + $m), name: $n, marketplace: $m, description: $d, version: "1.0.0", category: null,
-     tags: ($t | split(",") | map(select(length > 0))), keywords: ["naming"], author: "작성자", homepage: null, sourceType: "path",
+    {id: ($n + "@" + $m), name: $n, marketplace: $m, description: $d, version: "1.0.0", category: "public",
+     tags: ($t | split(",") | map(select(length > 0))),
+     tagInfo: [$t | split(",")[] | select(length > 0) | {name: ., kind: (if . == "spring" then "technology" else "domain" end),
+       description: (if . == "spring" then "Spring Boot/Framework · 아주 긴 태그 설명이 붙어서 관점 화면의 줄을 넘길 수 있다" else "코드/프레임워크/SDK 개발" end)}],
+     domains: [$t | split(",")[] | select(length > 0 and . != "spring")], technologies: [$t | split(",")[] | select(. == "spring")],
+     keywords: ["naming"], author: "작성자", homepage: null, sourceType: "path",
      dependencies: ($dep | split(",") | map(select(length > 0))), installed: $i, enabled: (if $i then true else null end),
      scopes: (if $i then ["user"] else [] end), installedVersion: null, installedElsewhere: [], installCount: null, componentsKnown: true,
      components: {skills: [{name: "name-create", description: "이름을 지을 때 사용한다 — 아주 긴 설명이 붙어서 줄을 넘길 수 있는 경우를 본다"}],
                   commands: [], agents: [], hooks: ["PreToolUse"], mcp: [], lsp: []}, path: null}'
 }
 {
-  mk very-long-plugin-name-for-testing-truncation-behaviour-naming a-really-long-marketplace-name \
+  mk very-long-plugin-name-for-testing-truncation-behaviour-naming m \
      "아주 긴 한글 설명 · 모호 폭 가운뎃점 — 줄표 🚀 이모지 ✅ 변형 ☺️ ☺️ ☺️ 그리고 English words mixed together to overflow every column naming" false development,spring ""
   mk 한글이름-naming m "전각 ＡＢＣ 결합 문자 é 와 한자 漢字 naming" true development ""
   mk ctrl-naming m "$(printf 'bad\033[31mred\007bell naming')" false "" ""
@@ -58,7 +62,7 @@ mk() { # $1=이름 $2=마켓 $3=설명 $4=설치 $5=태그(쉼표) $6=의존(쉼
   mk dep-b-naming m "dep-a 에 기댄다 naming" true "" dep-a-naming
   for i in $(seq 1 25); do mk "filler-$i-naming" m "채움 항목 $i naming" false "" ""; done
 } | jq -s . > "$WORK/cat.json"
-export PLUGIN_SEARCH_CATALOG="$WORK/cat.json" PLUGIN_SEARCH_INSTALL="$ENGINE" PLUGIN_SEARCH_CACHE_DIR="$WORK/cache" PLUGIN_BROWSER_AMBIGUOUS=1
+export PLUGIN_SEARCH_CATALOG="$WORK/cat.json" PLUGIN_SEARCH_INSTALL="$ENGINE" PLUGIN_SEARCH_CACHE_DIR="$WORK/cache" PLUGIN_BROWSER_AMBIGUOUS=1 PLUGIN_SEARCH_MARKETPLACE=m
 unset NO_COLOR
 
 PRJ="$WORK/proj"; mkdir -p "$PRJ/.claude" "$PRJ/src"
@@ -96,11 +100,13 @@ echo "== 레이아웃"
 tc TC-L01 "100 이상은 머리글 있는 표" out_has "마켓" "$B" search naming --width 100
 tc TC-L02 "120 이상은 이유 열" out_has "이유" "$B" search naming --width 120
 tc TC-L03 "70 ~ 99 는 머리글 없는 한 줄" out_lacks "마켓" "$B" search naming --width 80
-tc TC-L04 "40 ~ 69 는 카드 — 마켓 · 태그 줄" out_has "a-really-long-marketplace-name · development,spring" "$B" search very-long --width 69
-tc TC-L05 "40 미만은 목록 — 마켓 줄 없음" out_lacks "a-really-long" "$B" search very-long --width 39
+tc TC-L04 "40 ~ 69 는 카드 — 마켓 · 태그 줄" out_has "m · development,spring" "$B" search very-long --width 69
+tc TC-L05 "40 미만은 목록 — 마켓 줄 없음" out_lacks "development,spring" "$B" search very-long --width 39
 tc TC-L06 "긴 이름은 말줄임" out_has "⋯" "$B" search very-long --width 80
 tc TC-L07 "프로젝트는 필수 · 추천 묶음 머리글" out_has "▸ 필수 · 프로젝트 설정에 선언" "$B" project "$PRJ" --width 80
-tc TC-L08 "선언됐는데 없는 플러그인은 ! 표시" bash -c '"$0" project "$1" --width 80 | grep -q "^ *[0-9]* ! ghost"' "$B" "$PRJ"
+tc TC-L08 "필수(선언의 의존)인데 없는 플러그인은 ! 표시" bash -c '"$0" project "$1" --width 80 | grep -q "^ *[0-9]* ! dep-a-naming"' "$B" "$PRJ"
+tc TC-L14 "관점 화면은 tags.json 설명을 붙인다" out_has "Spring Boot/Framework" "$B" facets technology --width 120
+tc TC-L13 "대상 밖 선언(다른 마켓)을 알린다" out_has "대상 밖 선언 1개" "$B" project "$PRJ" --width 120
 tc TC-L09 "설치된 것은 ✓" bash -c '"$0" search naming --limit 0 --width 80 | grep -q "✓ 한글이름-naming"' "$B"
 tc TC-L10 "결과가 없으면 그렇게 말한다" out_has "결과가 없습니다" "$B" search zzzzqqq --exact --width 80
 tc TC-L12 "깨진 설정 파일을 알린다" bash -c 'mkdir -p "$2/.claude" && cp "$1/.claude/settings.json" "$2/.claude/" && echo "{x" > "$2/.claude/settings.local.json" && "$0" project "$2" --width 100 | grep -q "설정 파일을 읽지 못했습니다"' "$B" "$PRJ" "$WORK/broken proj"
