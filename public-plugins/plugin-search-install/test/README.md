@@ -2,17 +2,6 @@
 
 `scripts/plugin-search-install.sh` 의 회귀 테스트.
 
-## 실행
-
-```bash
-test/plugin-search-install.test.sh          # 전체 (~15초)
-test/plugin-search-install.test.sh TC-Q     # ID 접두사로 필터
-```
-
-`claude` CLI 를 스텁(`PLUGIN_SEARCH_CLAUDE`)으로 바꾸고 임시 디렉터리에 마켓플레이스 둘(`mk` · `other`)을 만든다. 실제 설치 상태 · 캐시를 건드리지 않는다 — `bash` · `jq` 만.
-
-픽스처의 플러그인은 구성요소를 하나씩만 가진다 (스킬만 · 에이전트만 · MCP 만 · 원격 source). 같은 이름이 두 마켓에 있는 경우, 깨진 plugin.json, 제어 문자가 든 설명을 일부러 넣는다.
-
 ## catalog
 
 | ID | 케이스 |
@@ -27,10 +16,13 @@ test/plugin-search-install.test.sh TC-Q     # ID 접두사로 필터
 | TC-C08 | 설명의 제어 문자(ESC · BEL)를 지운다 |
 | TC-C09 | metadata.pluginRoot 를 상대 source 앞에 붙인다 |
 | TC-C10 | 원격 source 는 구성요소 모름으로 표시 |
+| TC-C15 | 다른 프로젝트의 project 범위 설치는 여기서 설치 안 됨 |
+| TC-C16 | 이름 · id 의 제어 문자를 지운다 (ESC · BEL) |
+| TC-C17 | 설명의 NUL 도 지운다 |
+| TC-C18 | 캐시 파일 이름에 지문을 넣는다 (키 · 내용 짝이 어긋나지 않게) |
 | TC-C11 | plugin.json keywords 를 엔트리 keywords 와 합친다 |
 | TC-C12 | claude CLI 가 없으면 설정 디렉터리의 기록 파일로 읽는다 |
 | TC-C13 | 지문이 같으면 캐시를 쓴다 |
-| TC-C15 | 다른 프로젝트의 project 범위 설치는 여기서 설치 안 됨 |
 | TC-C14 | PLUGIN_SEARCH_CATALOG 로 카탈로그를 주입한다 |
 
 ## search
@@ -62,6 +54,8 @@ test/plugin-search-install.test.sh TC-Q     # ID 접두사로 필터
 | TC-Q23 | 검색어 · 필터가 없으면 2 |
 | TC-Q24 | 모르는 옵션 · 잘못된 값은 2 |
 | TC-Q26 | 이름의 일부(하이픈 포함)로 찾는다 |
+| TC-Q27 | --min-score 가 숫자가 아니면 jq 오류가 아니라 안내로 멈춘다 |
+| TC-Q28 | 잘못된 정규식은 jq 오류가 아니라 안내와 2 |
 | TC-Q25 | 공백이 든 인자는 단어로 나눈다 |
 
 ## related
@@ -74,6 +68,7 @@ test/plugin-search-install.test.sh TC-Q     # ID 접두사로 필터
 | TC-R04 | 이름 단어 공유 (naming) |
 | TC-R05 | 같은 이름이 여러 마켓이면 ambiguous 로 알린다 |
 | TC-R06 | 기능어면 검색 일치를 앞에, 연관을 뒤에 |
+| TC-R08 | 기능어의 직접 일치는 최소 점수에 걸려도 남는다 |
 | TC-R07 | 모르는 --by 는 2 |
 
 ## project
@@ -90,6 +85,7 @@ test/plugin-search-install.test.sh TC-Q     # ID 접두사로 필터
 | TC-P08 | 감지 안 된 언어 대상은 깎는다 (kotlin) |
 | TC-P09 | --only missing |
 | TC-P10 | --only recommended 는 선언을 뺀다 |
+| TC-P13 | 깨진 설정 파일은 건너뛰고 알린다 — 다른 파일의 선언은 남는다 (공백 경로) |
 | TC-P11 | 신호 · 선언이 없으면 빈 결과 |
 | TC-P12 | node_modules 는 보지 않는다 |
 
@@ -123,3 +119,10 @@ test/plugin-search-install.test.sh TC-Q     # ID 접두사로 필터
 | TC-I15 | 카탈로그에 없는 이름은 2 |
 | TC-I16 | 모르는 --scope 는 2 |
 | TC-I17 | --format ids 는 설치된 것만 |
+| TC-I18 | --select 이름이 여러 마켓에 있으면 설치 전에 멈춘다 |
+| TC-I19 | 범위 일부가 목록 밖이면 아무것도 고르지 않고 2 |
+| TC-I20 | 거꾸로 된 범위는 2 |
+| TC-I21 | 같은 대상을 두 번 주면 한 번만 |
+| TC-I22 | tsv 출력을 --from 으로 다시 읽는다 |
+| TC-I23 | 쉼표만 준 선택은 조회만 — ids 출력이 비어 있다 |
+| TC-I24 | 공백만 준 선택은 아무것도 고르지 않는다 |

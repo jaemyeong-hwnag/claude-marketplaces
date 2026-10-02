@@ -28,11 +28,13 @@ maxw() { # $1=모호 폭 → stdin 의 가장 넓은 줄
   perl -CS -Mutf8 -e '
     my $amb = shift; my $max = 0;
     while (my $l = <STDIN>) { chomp $l; $l =~ s/\e\[[0-9;?]*[A-Za-z]//g; my $w = 0;
+      my $prev = 0;
       for my $c (split //, $l) {
-        if ($c =~ /[\p{Mn}\p{Me}\x{200B}-\x{200D}\x{2060}\x{FEFF}\x{FE00}-\x{FE0F}]/) { }
-        elsif ($c =~ /\p{East_Asian_Width=Wide}|\p{East_Asian_Width=Fullwidth}/) { $w += 2 }
-        elsif ($c =~ /\p{East_Asian_Width=Ambiguous}/) { $w += $amb }
-        else { $w += 1 } }
+        if ($c eq "\x{FE0F}") { $w += 1 if $prev == 1; $prev = 0; next }   # 터미널은 VS16 이 붙은 글자를 이모지(두 칸)로 그린다
+        if ($c =~ /[\p{Mn}\p{Me}\x{200B}-\x{200D}\x{2060}\x{FEFF}\x{FE00}-\x{FE0E}]/) { $prev = 0; }
+        elsif ($c =~ /\p{East_Asian_Width=Wide}|\p{East_Asian_Width=Fullwidth}/) { $w += 2; $prev = 2 }
+        elsif ($c =~ /\p{East_Asian_Width=Ambiguous}/) { $w += $amb; $prev = $amb }
+        else { $w += 1; $prev = 1 } }
       $max = $w if $w > $max }
     print "$max\n"' "$1"
 }
@@ -49,7 +51,7 @@ mk() { # $1=이름 $2=마켓 $3=설명 $4=설치 $5=태그(쉼표) $6=의존(쉼
 }
 {
   mk very-long-plugin-name-for-testing-truncation-behaviour-naming a-really-long-marketplace-name \
-     "아주 긴 한글 설명 · 모호 폭 가운뎃점 — 줄표 🚀 이모지 ✅ 그리고 English words mixed together to overflow every column naming" false development,spring ""
+     "아주 긴 한글 설명 · 모호 폭 가운뎃점 — 줄표 🚀 이모지 ✅ 변형 ☺️ ☺️ ☺️ 그리고 English words mixed together to overflow every column naming" false development,spring ""
   mk 한글이름-naming m "전각 ＡＢＣ 결합 문자 é 와 한자 漢字 naming" true development ""
   mk ctrl-naming m "$(printf 'bad\033[31mred\007bell naming')" false "" ""
   mk dep-a-naming m "의존 대상 naming" false "" ""
@@ -66,7 +68,7 @@ echo 'class A {}' > "$PRJ/src/A.java"
 "$ENGINE" search naming --limit 0 --format json > "$WORK/search.json"
 "$ENGINE" install --from "$WORK/search.json" --select 1-3 --dry-run --format json > "$WORK/install.json"
 
-WIDTHS="10 20 24 30 39 40 50 69 70 80 99 100 119 120 160 200"
+WIDTHS="10 11 12 13 20 24 30 39 40 50 69 70 80 99 100 119 120 160 200"
 fits() { # $1=모호 폭 $2...=명령 (폭 자리는 @W@) — 모든 폭에서 줄 ≤ 폭 − 1
   local amb="$1"; shift
   local w a out m
@@ -74,7 +76,7 @@ fits() { # $1=모호 폭 $2...=명령 (폭 자리는 @W@) — 모든 폭에서 �
     a=(); for x in "$@"; do a+=("${x//@W@/$w}"); done
     out="$(PLUGIN_BROWSER_AMBIGUOUS=$amb "${a[@]}" 2>&1)" || return 1
     m="$(printf '%s\n' "$out" | maxw "$amb")"
-    [ "$m" -le $((w > 10 ? w - 1 : 9)) ] || { echo "폭 $w 에서 $m" >&2; return 1; }
+    [ "$m" -le $((w - 1)) ] || { echo "폭 $w 에서 $m" >&2; return 1; }
   done
 }
 
@@ -101,6 +103,7 @@ tc TC-L07 "프로젝트는 필수 · 추천 묶음 머리글" out_has "▸ 필�
 tc TC-L08 "선언됐는데 없는 플러그인은 ! 표시" bash -c '"$0" project "$1" --width 80 | grep -q "^ *[0-9]* ! ghost"' "$B" "$PRJ"
 tc TC-L09 "설치된 것은 ✓" bash -c '"$0" search naming --limit 0 --width 80 | grep -q "✓ 한글이름-naming"' "$B"
 tc TC-L10 "결과가 없으면 그렇게 말한다" out_has "결과가 없습니다" "$B" search zzzzqqq --exact --width 80
+tc TC-L12 "깨진 설정 파일을 알린다" bash -c 'mkdir -p "$2/.claude" && cp "$1/.claude/settings.json" "$2/.claude/" && echo "{x" > "$2/.claude/settings.local.json" && "$0" project "$2" --width 100 | grep -q "설정 파일을 읽지 못했습니다"' "$B" "$PRJ" "$WORK/broken proj"
 tc TC-L11 "비대화형이면 설치 방법을 안내한다" out_has "--select" "$B" search naming --width 80
 
 echo "== 장식 · 색 · 안전"
@@ -116,6 +119,7 @@ tc TC-E01 "엔진 경로가 실행 파일이 아니면 2" exit_is 2 env PLUGIN_S
 tc TC-E02 "엔진 오류(모르는 옵션)는 메시지와 2" out_has "모르는 옵션" "$B" search naming --bogus
 tc TC-E03 "모르는 명령은 2" exit_is 2 "$B" bogus
 tc TC-E04 "--width 가 숫자가 아니면 2" exit_is 2 "$B" search naming --width wide
+tc TC-E08 "--width 10 미만은 넘치므로 받지 않는다" exit_is 2 "$B" search naming --width 9
 tc TC-E05 "render 는 stdin JSON 을 그린다" bash -c '"$0" render - --width 80 < "$1" | grep -q "naming"' "$B" "$WORK/search.json"
 tc TC-E06 "엔진 필터를 그대로 넘긴다 (--installed)" bash -c '[ "$("$0" search naming --installed --width 80 | grep -c "✓")" -eq 2 ]' "$B"
 tc TC-E07 "형제 디렉터리의 엔진을 찾는다" bash -c 'unset PLUGIN_SEARCH_INSTALL; "$0" search naming --width 80 | grep -q naming' "$B"
@@ -131,7 +135,11 @@ pty() { # $1=크기 "행 열" $2=입력(초 간격 키) $3...=명령 → 화면 
   local cmd; cmd="stty rows ${size% *} cols ${size#* }; $(printf '%q ' "$@")"
   { sleep 1.5; local k; for k in $keys; do printf '%b' "$k"; sleep 0.4; done; sleep 2; } \
     | if script -q /dev/null true </dev/null >/dev/null 2>&1; then script -q "$WORK/pty.out" bash -c "$cmd"
-      else script -qec "$cmd" "$WORK/pty.out"; fi >/dev/null 2>&1
+      else script -qec "$cmd" "$WORK/pty.out"; fi >/dev/null 2>&1 &
+  # 키에 반응하지 않고 멈춘 화면이 테스트 전체를 붙잡지 않게
+  local pid=$! wd
+  ( sleep 40; kill -9 "$pid" 2>/dev/null ) & wd=$!
+  wait "$pid" 2>/dev/null; kill "$wd" 2>/dev/null; wait "$wd" 2>/dev/null
   sed -e $'s/\033\\[[0-9;?]*[A-Za-z]//g' "$WORK/pty.out" | tr '\r' '\n'
 }
 export -f pty; export WORK
@@ -145,8 +153,14 @@ if script -q /dev/null true </dev/null >/dev/null 2>&1 || script -qec true /dev/
   tc TC-P07 "번호 모드에 글자를 넣으면 다시 묻는다" bash -c 'o="$(pty "24 100" "abc\\r \\r" "$0" search naming --plain --limit 3 --dry-run)"; grep -q "번호 · 쉼표 · 하이픈만" <<<"$o"' "$B"
   tc TC-P08 "끝나면 커서와 화면을 되돌린다" bash -c 'pty "24 100" "q" "$0" search naming >/dev/null; grep -q $'"'"'\033\\[?1049l'"'"' "$1" && grep -q $'"'"'\033\\[?25h'"'"' "$1"' "$B" "$WORK/pty.out"
   tc TC-P09 "메뉴 → 기능 검색 → 고르고 설치 → 메뉴로 돌아와 끝낸다" bash -c 'o="$(pty "24 100" "2\\r dep-a\\r \\x20 \\r \\r q\\r" "$0" --dry-run)"; grep -q "플러그인 찾기" <<<"$o" && grep -q "dep-a-naming@m.*예정" <<<"$o" && [ "$(grep -c "플러그인 찾기" <<<"$o")" -ge 2 ]' "$B"
+  tc TC-P10 "번호 모드의 공백은 구분자 — 1 3 은 13 이 아니라 1 과 3" bash -c 'o="$(pty "24 100" "1\\x203\\r \\r" "$0" search naming --plain --limit 0 --dry-run)"; [ "$(grep -cE "(예정|건너뜀) " <<<"$o")" -eq 2 ] && grep -q "ctrl-naming@m.*예정" <<<"$o"' "$B"
+  tc TC-P11 "번호 모드에 구분자만 넣으면 다시 묻는다 — 전체를 보이지 않는다" bash -c 'o="$(pty "24 100" ",\\r \\r" "$0" search naming --plain --dry-run)"; grep -q "번호를 하나 이상" <<<"$o" && ! grep -q "설치할 플러그인" <<<"$o"' "$B"
+  tc TC-P12 "선택 화면에서 Ctrl-D 는 취소" bash -c 'o="$(pty "24 100" "\\x04" "$0" search naming --dry-run)"; grep -q "취소했습니다" <<<"$o"' "$B"
+  rules() { sed -e $'s/\033\\[[0-9;?]*[A-Za-z]//g' "$1" | tr '\r' '\n' | perl -CS -ne 'chomp; s/\s+$//; print length($_), "\n" if /^\x{2500}+$/' | sort -u | tr '\n' ' '; }
+  export -f rules
+  tc TC-P13 "선택 화면 도중 창을 100 → 50 열로 줄이면 50 열에 맞춰 다시 그린다" bash -c 'pty "24 100" "x x x x x x x q" bash -c "(trap \"\" TTOU; sleep 2.5; stty cols 50 </dev/tty) & exec \"\$0\" search naming" "$0" >/dev/null; r="$(rules "$1")"; case " $r" in *" 99 "*) ;; *) exit 1 ;; esac; case " $r" in *" 49 "*) ;; *) exit 1 ;; esac' "$B" "$WORK/pty.out"
 else
-  for t in TC-P09 TC-P01 TC-P02 TC-P03 TC-P04 TC-P05 TC-P06 TC-P07 TC-P08; do skip "$t" "pty 를 만들 수 없다 (script 없음)"; done
+  for t in TC-P13 TC-P12 TC-P11 TC-P10 TC-P09 TC-P01 TC-P02 TC-P03 TC-P04 TC-P05 TC-P06 TC-P07 TC-P08; do skip "$t" "pty 를 만들 수 없다 (script 없음)"; done
 fi
 
 echo

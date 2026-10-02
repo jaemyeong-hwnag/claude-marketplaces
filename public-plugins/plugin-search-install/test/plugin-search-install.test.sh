@@ -53,7 +53,8 @@ put "$MK/.claude-plugin/marketplace.json" <<'EOF'
   { "name": "java-spring-test", "source": "./plugins/java-spring-test", "tags": ["spring"], "description": "Java Spring testcontainers 테스트 생성" },
   { "name": "delta-mcp", "source": "./plugins/delta-mcp", "description": "데이터 조회 서버" },
   { "name": "evil", "source": "./plugins/evil", "description": "bad\u001b[31m red\u0007" },
-  { "name": "remote-only", "source": { "source": "github", "repo": "x/y" }, "description": "원격 소스", "keywords": ["remote"] }
+  { "name": "remote-only", "source": { "source": "github", "repo": "x/y" }, "description": "원격 소스", "keywords": ["remote"] },
+  { "name": "zz\u001b]0;pwned\u0007-term", "source": "./plugins/zz", "description": "a\u0000b NUL" }
 ] }
 EOF
 put "$MK/plugins/alpha-naming/.claude-plugin/plugin.json" <<<'{"name":"alpha-naming","version":"1.2.0","keywords":["glossary"]}'
@@ -96,7 +97,7 @@ cat_json() { run catalog --refresh; }
 rec() { cat_json | jq -e --arg id "$1" ".[] | select(.id == \$id) | $2"; }
 
 echo "== catalog"
-tc TC-C01 "마켓플레이스 둘의 엔트리를 모두 읽는다 (없는 위치는 건너뜀)" jqe 'length == 9' cat_json
+tc TC-C01 "마켓플레이스 둘의 엔트리를 모두 읽는다 (없는 위치는 건너뜀)" jqe 'length == 10' cat_json
 tc TC-C02 "스킬 · 커맨드 · 훅 이벤트를 읽는다" rec alpha-naming@mk '.components.skills[0].name == "name-create" and (.components.commands | length) == 1 and .components.hooks == ["PostToolUse", "PreToolUse"]'
 tc TC-C03 "여러 줄 description (>) 을 한 줄로 읽는다" rec beta-coverage@mk '.components.agents[0].description == "변경된 메서드의 커버리지를 검토한다"'
 tc TC-C04 "plugin.json 의 dependencies (문자열 · 객체) 를 이름으로" rec gamma-workflow@mk '.dependencies == ["beta-coverage"]'
@@ -107,12 +108,15 @@ tc TC-C08 "설명의 제어 문자(ESC · BEL)를 지운다" rec evil@mk '(.desc
 tc TC-C09 "metadata.pluginRoot 를 상대 source 앞에 붙인다" rec alpha-naming@other '.components.skills[0].name == "other-skill"'
 tc TC-C10 "원격 source 는 구성요소 모름으로 표시" rec remote-only@mk '.componentsKnown == false and .sourceType == "github"'
 tc TC-C15 "다른 프로젝트의 project 범위 설치는 여기서 설치 안 됨" rec gamma-workflow@mk '(.installed | not) and .installedElsewhere == ["/elsewhere/project"]'
+tc TC-C16 "이름 · id 의 제어 문자를 지운다 (ESC · BEL)" bash -c '! "$0" catalog --refresh | jq -r ".[] | .id, .name" | grep -q "[[:cntrl:]]"' "$S"
+tc TC-C17 "설명의 NUL 도 지운다" rec zz]0\;pwned-term@mk '(.description | explode | index(0)) == null'
+tc TC-C18 "캐시 파일 이름에 지문을 넣는다 (키 · 내용 짝이 어긋나지 않게)" bash -c 'ls "$0"/catalog-*.json >/dev/null' "$WORK/cache"
 tc TC-C11 "plugin.json keywords 를 엔트리 keywords 와 합친다" rec alpha-naming@mk '.keywords == ["convention", "glossary", "naming"]'
 fallback_cat() { PLUGIN_SEARCH_CLAUDE=/nonexistent run catalog --refresh; }
 mkdir -p "$WORK/cfg/plugins"
 jq -n --arg mk "$MK" '{mk: {installLocation: $mk}}' > "$WORK/cfg/plugins/known_marketplaces.json"
 jq -n '{plugins: {"beta-coverage@mk": [{scope: "project", version: "0.3.0"}]}}' > "$WORK/cfg/plugins/installed_plugins.json"
-tc TC-C12 "claude CLI 가 없으면 설정 디렉터리의 기록 파일로 읽는다" jqe '(length == 8) and (.[] | select(.id == "beta-coverage@mk") | .installed)' fallback_cat
+tc TC-C12 "claude CLI 가 없으면 설정 디렉터리의 기록 파일로 읽는다" jqe '(length == 9) and (.[] | select(.id == "beta-coverage@mk") | .installed)' fallback_cat
 cached() { run catalog --refresh >/dev/null; mv "$MK/plugins/evil" "$WORK/evil.bak"; run catalog | jq -e '.[] | select(.id == "evil@mk") | .componentsKnown'; local r=$?; mv "$WORK/evil.bak" "$MK/plugins/evil"; return $r; }
 tc TC-C13 "지문이 같으면 캐시를 쓴다" cached
 tc TC-C14 "PLUGIN_SEARCH_CATALOG 로 카탈로그를 주입한다" jqe 'length == 1' env PLUGIN_SEARCH_CATALOG=<(echo '[{"id":"x@y"}]') "$S" catalog
@@ -148,6 +152,8 @@ tc TC-Q22 "why 에 일치 이유" jqe '.results[0].why[0] | test("이름")' run 
 tc TC-Q23 "검색어 · 필터가 없으면 2" exit_is 2 run search
 tc TC-Q24 "모르는 옵션 · 잘못된 값은 2" exit_is 2 run search x --format xml
 tc TC-Q26 "이름의 일부(하이픈 포함)로 찾는다" first_is gamma-workflow@mk ids search ma-work
+tc TC-Q27 "--min-score 가 숫자가 아니면 jq 오류가 아니라 안내로 멈춘다" out_has "0 이상의 숫자" run search naming --min-score 1x2
+tc TC-Q28 "잘못된 정규식은 jq 오류가 아니라 안내와 2" out_has "잘못된 정규식" run search '/[unclosed/'
 tc TC-Q25 "공백이 든 인자는 단어로 나눈다" first_is beta-coverage@mk ids search "커버리지 게이트"
 
 echo "== related"
@@ -157,6 +163,7 @@ tc TC-R03 "--by tag 는 태그만" jqe '[.results[].id] == ["java-spring-test@mk
 tc TC-R04 "이름 단어 공유 (naming)" out_has kotlin-spring-naming@mk ids related alpha-naming@mk --by name
 tc TC-R05 "같은 이름이 여러 마켓이면 ambiguous 로 알린다" jqe '.ambiguous | length == 2' run related alpha-naming
 tc TC-R06 "기능어면 검색 일치를 앞에, 연관을 뒤에" jqe '.mode == "feature" and .results[0].group == "match" and any(.results[]; .group == "related")' run related 커버리지
+tc TC-R08 "기능어의 직접 일치는 최소 점수에 걸려도 남는다" jqe 'any(.results[]; .group == "match")' run related 커버리지 --min-score 99
 tc TC-R07 "모르는 --by 는 2" exit_is 2 run related alpha-naming --by color
 
 echo "== project"
@@ -177,6 +184,10 @@ tc TC-P07 "신호로 추천 (java-spring-test)" jqe '.results[] | select(.id == 
 tc TC-P08 "감지 안 된 언어 대상은 깎는다 (kotlin)" jqe '([.results[] | select(.id == "java-spring-test@mk") | .score][0]) > ([.results[] | select(.id == "kotlin-spring-naming@mk") | .score][0] // 0)' pj
 tc TC-P09 "--only missing" jqe '[.results[].status] | unique | all(. == "missing" or . == "marketplace-missing")' run project "$P1" --only missing
 tc TC-P10 "--only recommended 는 선언을 뺀다" jqe 'all(.results[]; .group == "recommended")' run project "$P1" --only recommended
+P3="$WORK/proj with space"; mkdir -p "$P3/.claude"
+echo '{"enabledPlugins":{"alpha-naming@mk":true}}' > "$P3/.claude/settings.json"
+echo '{broken' > "$P3/.claude/settings.local.json"
+tc TC-P13 "깨진 설정 파일은 건너뛰고 알린다 — 다른 파일의 선언은 남는다 (공백 경로)" jqe '.settingsErrors == [".claude/settings.local.json"] and any(.results[]; .id == "alpha-naming@mk" and .group == "declared")' run project "$P3"
 P2="$WORK/proj-empty"; mkdir -p "$P2"; echo hi > "$P2/readme.txt"
 tc TC-P11 "신호 · 선언이 없으면 빈 결과" jqe '.results == [] and .signals == []' run project "$P2"
 tc TC-P12 "node_modules 는 보지 않는다" bash -c 'mkdir -p "$1/node_modules/x" && echo "{}" > "$1/node_modules/x/package.json" && "$0" detect "$1" | jq -e ".signals == []"' "$S" "$P2"
@@ -203,7 +214,7 @@ tc TC-I07 "--from 에 선택이 없으면 조회만" jqe '.mode == "list-only" a
 reset_calls
 tc TC-I08 "--select 번호 · 범위" jqe '[.results[].id] == ["beta-coverage@mk", "delta-mcp@mk", "evil@mk"]' run install --from "$WORK/list.json" --select 2-4 --dry-run
 tc TC-I09 "--exclude 로 뺀다" jqe '[.results[].id] == ["beta-coverage@mk", "evil@mk"]' run install --from "$WORK/list.json" --select 2-4 --exclude delta-mcp --dry-run
-tc TC-I10 "--all 은 목록 전부" jqe '(.results | length) == 8' run install --from "$WORK/list.json" --all --dry-run
+tc TC-I10 "--all 은 목록 전부" jqe '(.results | length) == 9' run install --from "$WORK/list.json" --all --dry-run
 tc TC-I11 "목록에 없는 번호는 2" exit_is 2 run install --from "$WORK/list.json" --select 99
 tc TC-I12 "stdin 의 id 줄 목록" jqe '[.results[].id] == ["delta-mcp@mk"]' bash -c 'printf "beta-coverage@mk\ndelta-mcp@mk\n" | "$0" install --from - --select 2 --dry-run' "$S"
 reset_calls; echo "delta-mcp@mk" > "$STUB/fail"
@@ -213,6 +224,16 @@ reset_calls
 tc TC-I15 "카탈로그에 없는 이름은 2" exit_is 2 run install ghost-plugin
 tc TC-I16 "모르는 --scope 는 2" exit_is 2 run install beta-coverage --scope team
 tc TC-I17 "--format ids 는 설치된 것만" first_is beta-coverage@mk run install beta-coverage --dry-run --format ids
+
+run search alpha-naming --exact > "$WORK/dup.json"
+tc TC-I18 "--select 이름이 여러 마켓에 있으면 설치 전에 멈춘다" exit_is 2 run install --from "$WORK/dup.json" --select alpha-naming --dry-run
+tc TC-I19 "범위 일부가 목록 밖이면 아무것도 고르지 않고 2" exit_is 2 run install --from "$WORK/list.json" --select 1,8-12 --dry-run
+tc TC-I20 "거꾸로 된 범위는 2" exit_is 2 run install --from "$WORK/list.json" --select 3-1 --dry-run
+tc TC-I21 "같은 대상을 두 번 주면 한 번만" jqe '(.results | length) == 1' run install beta-coverage beta-coverage@mk --dry-run
+run search --mp mk --sort name --format tsv > "$WORK/list.tsv"
+tc TC-I22 "tsv 출력을 --from 으로 다시 읽는다" jqe '[.results[].id] == ["beta-coverage@mk"]' run install --from "$WORK/list.tsv" --select 2 --dry-run
+tc TC-I23 "쉼표만 준 선택은 조회만 — ids 출력이 비어 있다" exit_is 0 test -z "$("$S" install --from "$WORK/list.json" --select , --format ids)"
+tc TC-I24 "공백만 준 선택은 아무것도 고르지 않는다" jqe '.results == []' run install --from "$WORK/list.json" --select " " --dry-run
 
 echo
 echo "통과 $PASS / 실패 $FAIL"

@@ -80,7 +80,7 @@ parse_opts() {
   case "$SORT" in score|name|installs) ;; *) die "--sort 는 score · name · installs 중 하나: $SORT" ;; esac
   case "$LIMIT" in ''|*[!0-9]*) die "--limit 은 0 이상의 정수: $LIMIT" ;; esac
   case "$SCOPE" in user|project|local) ;; *) die "--scope 는 user · project · local 중 하나: $SCOPE" ;; esac
-  case "$MIN_SCORE" in ''|[0-9]|[0-9]*[0-9]|[0-9]*.[0-9]*) ;; *) die "--min-score 는 숫자: $MIN_SCORE" ;; esac
+  [ -z "$MIN_SCORE" ] || printf '%s' "$MIN_SCORE" | grep -Eq '^[0-9]+(\.[0-9]+)?$' || die "--min-score 는 0 이상의 숫자: $MIN_SCORE"
   local h
   for h in $(printf '%s' "$F_HAS" | tr ',' ' '); do
     case "$h" in skill|command|agent|hook|mcp|lsp) ;; *) die "--has 는 skill · command · agent · hook · mcp · lsp 중 하나: $h" ;; esac
@@ -170,9 +170,12 @@ build_catalog() { # $1=마켓플레이스 JSON $2=설치 JSON → 카탈로그 J
     IFS=$'\037' read -r mf root < <(manifest_of "$loc")
     [ -n "$mf" ] || continue
     jq -c --arg mp "$mp" --arg root "$root" '
+      def clean: explode | map(select(. >= 32 and (. < 127 or . >= 160))) | implode;
       (.metadata.pluginRoot // "" | sub("^\\./"; "") | sub("/+$"; "")) as $pr
+      | ($mp | clean) as $m
       | .plugins[]? | select(type == "object" and (.name | type) == "string")
-      | { name, marketplace: $mp, id: (.name + "@" + $mp), description: (.description // "" | tostring), version: (.version // null),
+      | (.name | clean) as $n | select($n != "")
+      | { name: $n, marketplace: $m, id: ($n + "@" + $m), description: (.description // "" | tostring), version: (.version // null),
           category: (.category // null), tags: [.tags // [] | .[]? | strings], keywords: [.keywords // [] | .[]? | strings],
           author: (if (.author | type) == "object" then .author.name else .author end),
           homepage: (.homepage // null),
@@ -227,7 +230,7 @@ build_catalog() { # $1=마켓플레이스 JSON $2=설치 JSON → 카탈로그 J
 
   jq -n --slurpfile e "$TMP/entries" --argjson inst "$inst" --rawfile dirs "$TMP/dirs" --rawfile fm "$TMP/fm" \
     --slurpfile pj "$TMP/pj" --slurpfile hk "$TMP/hk" --slurpfile mc "$TMP/mc" --arg cwd "$(pwd -P)" '
-    def san: tostring | gsub("[\u0001-\u001f\u007f-\u009f]+"; " ") | gsub("^ +| +$"; "");
+    def san: tostring | explode | map(if . < 32 or (. >= 127 and . < 160) then 32 else . end) | implode | gsub("^ +| +$"; "");
     def cut($n): if length > $n then .[:$n] else . end;
     ($dirs | split("\n") | map(select(length > 0) | split("\u001f") | {key: .[0], value: .[1]}) | from_entries) as $dirOf
     # project · local 범위 설치는 그 프로젝트에서만 쓸 수 있다
@@ -241,13 +244,13 @@ build_catalog() { # $1=마켓플레이스 JSON $2=설치 JSON → 카탈로그 J
         ($r[0]) as $f
         | if ($f | test("/skills/[^/]+/SKILL\\.md$")) then
             ($f | capture("^(?<d>.*)/skills/(?<n>[^/]+)/SKILL\\.md$")) as $c
-            | .[$c.d].skills += [{name: (if ($r[1] // "") != "" then $r[1] else $c.n end), description: ($r[2] // "" | san | cut(300))}]
+            | .[$c.d].skills += [{name: (if ($r[1] // "") != "" then $r[1] else $c.n end | san), description: ($r[2] // "" | san | cut(300))}]
           elif ($f | test("/commands/[^/]+\\.md$")) then
             ($f | capture("^(?<d>.*)/commands/(?<n>[^/]+)\\.md$")) as $c
-            | .[$c.d].commands += [{name: $c.n, description: ($r[2] // "" | san | cut(300))}]
+            | .[$c.d].commands += [{name: ($c.n | san), description: ($r[2] // "" | san | cut(300))}]
           elif ($f | test("/agents/[^/]+\\.md$")) then
             ($f | capture("^(?<d>.*)/agents/(?<n>[^/]+)\\.md$")) as $c
-            | .[$c.d].agents += [{name: (if ($r[1] // "") != "" then $r[1] else $c.n end), description: ($r[2] // "" | san | cut(300))}]
+            | .[$c.d].agents += [{name: (if ($r[1] // "") != "" then $r[1] else $c.n end | san), description: ($r[2] // "" | san | cut(300))}]
           else . end)) as $mdm
     | ([$e[].id] | unique) as $known
     | ( ($e | unique_by(.id))
@@ -290,28 +293,30 @@ catalog_json() {
     [ -r "$PLUGIN_SEARCH_CATALOG" ] || die "PLUGIN_SEARCH_CATALOG 를 읽을 수 없습니다: $PLUGIN_SEARCH_CATALOG"
     cat "$PLUGIN_SEARCH_CATALOG"; return
   fi
-  local mps inst key cache="$CACHE_DIR/catalog.json" loc mf
+  local mps inst key cache loc mf
   mps="$(marketplaces_json)"; inst="$(installed_json)"
   key="$( { printf '%s\n%s\n%s\n' "$(pwd -P)" "$mps" "$inst"
             while IFS= read -r loc; do
               mf=""; IFS=$'\037' read -r mf _ < <(manifest_of "$loc")
               [ -n "$mf" ] && ls -ln "$mf" 2>/dev/null
             done < <(jq -r '.[].installLocation // empty' <<<"$mps"); } | cksum | tr -d ' ')"
-  if [ "$REFRESH" = false ] && [ -s "$cache" ] && [ "$(cat "$cache.key" 2>/dev/null)" = "$key" ] &&
-     [ -n "$(find "$cache" -mmin -"$CACHE_TTL_MIN" 2>/dev/null)" ]; then
+  # 키를 파일 이름에 넣는다 — 키와 내용을 따로 쓰면 동시 실행에서 짝이 어긋난다
+  cache="$CACHE_DIR/catalog-$key.json"
+  if [ "$REFRESH" = false ] && [ -s "$cache" ] && [ -n "$(find "$cache" -mmin -"$CACHE_TTL_MIN" 2>/dev/null)" ]; then
     cat "$cache"; return
   fi
   build_catalog "$mps" "$inst" > "$TMP/catalog.json" && [ -s "$TMP/catalog.json" ] || die "카탈로그를 만들지 못했습니다"
   if mkdir -p "$CACHE_DIR" 2>/dev/null && cp "$TMP/catalog.json" "$cache.$$" 2>/dev/null; then
-    mv "$cache.$$" "$cache" && printf '%s' "$key" > "$cache.key"
+    mv "$cache.$$" "$cache" 2>/dev/null
+    find "$CACHE_DIR" -name 'catalog-*.json' -mmin +"$CACHE_TTL_MIN" -exec rm -f {} + 2>/dev/null
   fi
   cat "$TMP/catalog.json"
 }
-cache_drop() { rm -f "$CACHE_DIR/catalog.json.key" 2>/dev/null; }
+cache_drop() { rm -f "$CACHE_DIR"/catalog-*.json 2>/dev/null; }
 
 # ---- 검색 · 연관 · 프로젝트 (jq) ---------------------------------------------
 read -r -d '' JQ_LIB <<'JQ'
-def san: tostring | gsub("[\u0001-\u001f\u007f-\u009f]+"; " ") | gsub("^ +| +$"; "");
+def san: tostring | explode | map(if . < 32 or (. >= 127 and . < 160) then 32 else . end) | implode | gsub("^ +| +$"; "");
 def lc: ascii_downcase;
 def words: lc | [splits("[^\\p{L}\\p{N}]+")] | map(select(length > 0));
 def hangul: test("\\p{Hangul}");
@@ -411,7 +416,8 @@ def parse($args; $o):
         | ($fv.v | test("^/.+/$")) as $re
         | {raw: $raw, neg: $neg, filter: null, fields: $fv.fields, re: ($re or $o.regex),
            t: (if $re then $fv.v[1:-1] elif $o.regex then $fv.v else ($fv.v | lc) end)}
-        | .alts = (if .re then [.t] else (.t | split("|") | map(select(length > 0))) end)
+        | .alts = (if .re then [.t | . as $r | (try ("" | test($r)) catch error("잘못된 정규식: /" + $r + "/")) | $r]
+                   else (.t | split("|") | map(select(length > 0))) end)
       end ];
 def tscore($d; $term; $o; $syn):
   ($term.fields // $o.fields) as $fields
@@ -451,7 +457,7 @@ def order($o):
   else sort_by(-(.groupRank // 0), -(.matched // 0), -(.score // 0), -(.installCount // 0), .name) end;
 def finish($o; $default_min):
   (if $o.min == null then $default_min else $o.min end) as $min
-  | map(select((.score // 0) >= $min or .group == "declared" or .group == "dependency"))
+  | map(select((.score // 0) >= $min or .group == "declared" or .group == "dependency" or .group == "match"))
   | order($o) | to_entries | map(.value + {rank: (.key + 1)}) as $all
   | {total: ($all | length), results: ((if $o.limit > 0 then $all[:$o.limit] else $all end) | map(shape($o)))};
 
@@ -567,7 +573,7 @@ def project($cat; $sig; $o):
       | [ $S[] as $s
           | ([ $s.terms[] as $t | hits($d; ($t | lc); false; null)[] ] | if length > 0 then max_by(.s) else null end) as $h
           | select($h != null)
-          | {s: ($s.weight * $h.s / 10), r: "\($s.label) (\($h.f | kindname))"} ] as $rs
+          | {s: ($s.weight * $h.s / 10), r: "\($s["label"]) (\($h.f | kindname))"} ] as $rs
       | select(($rs | length) > 0)
       | inter($d.nw; $foreign) as $bad
       | ($rs | map(.s) | add) as $raw
@@ -580,7 +586,7 @@ def project($cat; $sig; $o):
                elif $o.only == "missing" then (.status == "missing" or .status == "marketplace-missing" or .status == "unknown-plugin")
                elif $o.only == "recommended" then .group == "recommended" else true end))
   | map(. + {why: .reasons})
-  | {command: "project", root: $sig.root, signals: $S, settings: ($sig.declared.files // []),
+  | {command: "project", root: $sig.root, signals: $S, settings: ($sig.declared.files // []), settingsErrors: ($sig.declared.broken // []),
      summary: {declared: ($D | map(select(.status != "off")) | length),
                missing: (($D + $DEP) | map(select(.status == "missing" or .status == "marketplace-missing" or .status == "unknown-plugin")) | length),
                recommended: ($R | map(select(.score >= ($o.min // 1))) | length)}}
@@ -592,7 +598,8 @@ run_jq() { # $1=jq 본문 — 카탈로그 $cat · 질의 $q · 옵션 $o · 동
   catalog_json > "$TMP/cat.json" || exit 2
   jq -n --slurpfile c "$TMP/cat.json" --argjson o "$(opts_json)" --slurpfile s "$SYN" "$@" \
     "$JQ_LIB
-     (\$c[0] | prep) as \$cat | \$s[0] as \$syn | $body"
+     (\$c[0] | prep) as \$cat | \$s[0] as \$syn | $body" 2> "$TMP/jqerr" ||
+    die "$(sed -E 's/^jq: error( \(at [^)]*\))?: //' "$TMP/jqerr" | head -1)"
 }
 
 query_args() { if [ ${#ARGS[@]} -gt 0 ]; then printf '%s\n' "${ARGS[@]}" | jq -R . | jq -sc .; else echo '[]'; fi; }
@@ -603,7 +610,7 @@ emit() {
     ids) jq -r '.results[]?.id' ;;
     names) jq -r '.results[]?.name' ;;
     tsv) jq -r '
-      def cell: tostring | gsub("[\\t\\n\\r]"; " ");
+      def cell: tostring | explode | map(if . < 32 or (. >= 127 and . < 160) then 32 else . end) | implode;
       (if .relaxed == true then "# 모든 단어에 맞는 결과가 없어 일부만 맞는 결과를 보입니다" else empty end),
       (["rank", "id", "installed", "score", "group", "status", "why", "description"] | join("\t")),
       (.results[]? | [.rank, .id, (if .installed then "yes" else "no" end), (.score // ""), (.group // ""), (.status // ""),
@@ -639,16 +646,23 @@ detect_json() { # $1=디렉터리
   for f in .claude/settings.json .claude/settings.local.json; do
     [ -f "$root/$f" ] && { files+=("$root/$f"); rel+=("$f"); }
   done
+  local ok=() broken=()
+  for f in ${files+"${files[@]}"}; do
+    if jq -e 'type == "object"' "$f" >/dev/null 2>&1; then ok+=("$f"); else broken+=("${f#"$root"/}"); fi
+  done
   echo '{"enabled":{},"marketplaces":[]}' > "$TMP/decl"
-  if [ ${#files[@]} -gt 0 ]; then
-    jq -s '{enabled: (map(.enabledPlugins // {}) | add // {}), marketplaces: (map(.extraKnownMarketplaces // {} | keys) | add // [] | unique)}' \
-      "${files[@]}" > "$TMP/decl.new" 2>/dev/null && mv "$TMP/decl.new" "$TMP/decl"
+  if [ ${#ok[@]} -gt 0 ]; then
+    jq -s '{enabled: (map(.enabledPlugins // {} | if type == "object" then . else {} end) | add // {}),
+            marketplaces: (map(.extraKnownMarketplaces // {} | if type == "object" then keys else [] end) | add // [] | unique)}' \
+      "${ok[@]}" > "$TMP/decl.new" 2>/dev/null && mv "$TMP/decl.new" "$TMP/decl"
   fi
+  jq --argjson b "$(if [ ${#broken[@]} -gt 0 ]; then printf '%s\n' "${broken[@]}" | jq -R . | jq -sc .; else echo '[]'; fi)" \
+    '. + {broken: $b}' "$TMP/decl" > "$TMP/decl.new" && mv "$TMP/decl.new" "$TMP/decl"
   jq -n --rawfile s "$TMP/sig" --slurpfile d "$TMP/decl" --slurpfile g "$SIG" --arg root "$root" \
     --argjson files "$(if [ ${#rel[@]} -gt 0 ]; then printf '%s\n' "${rel[@]}" | jq -R . | jq -sc .; else echo '[]'; fi)" '
     ($s | split("\n") | map(select(length > 0) | split("\u001f")) | group_by(.[0]) | map({key: .[0][0], value: .[0][1]}) | from_entries) as $hit
     | { root: $root,
-        signals: [$g[0].signals[] | select($hit[.id]) | {id, label, weight, terms, exclusive, evidence: $hit[.id]}],
+        signals: [$g[0].signals[] | select($hit[.id]) | {id, "label": .["label"], weight, terms, exclusive, evidence: $hit[.id]}],
         vocabulary: ([$g[0].signals[] | select(.exclusive) | .terms[]] | unique),
         declared: ($d[0] + {files: $files}) }'
 }
@@ -662,14 +676,21 @@ select_ids() { # $1=목록 [{rank,id,name}] $2=선택 $3=제외 $4=전부 → {c
       . as $l
       | [ $ts[] as $t
           | if ($t | test("^[0-9]+$")) then ($l | map(select(.rank == ($t | tonumber)))) as $m | if ($m | length) > 0 then $m[] else {missing: $t} end
-            elif ($t | test("^[0-9]+-[0-9]+$")) then ($t | split("-") | map(tonumber)) as $r | $l[] | select(.rank >= $r[0] and .rank <= $r[1])
+            elif ($t | test("^[0-9]+-[0-9]+$")) then ($t | split("-") | map(tonumber)) as $r
+              | if $r[0] > $r[1] then {missing: $t}
+                else [range($r[0]; $r[1] + 1) as $n | ($l | map(select(.rank == $n))) | if length > 0 then .[] else {missing: "\($n)"} end][] end
             elif ($t | ascii_downcase) == "all" or $t == "*" then $l[]
             elif ($t | ascii_downcase) == "none" then empty
-            else ($l | map(select(.id == $t or .name == $t))) as $m | if ($m | length) > 0 then $m[] else {missing: $t} end end ];
+            else ($l | map(select(.id == $t))) as $byid | ($l | map(select(.name == $t)) | unique_by(.id)) as $byname
+              | if ($byid | length) > 0 then $byid[0]
+                elif ($byname | length) == 1 then $byname[0]
+                elif ($byname | length) > 1 then {ambiguous: ($t + " (" + ($byname | map(.id) | join(", ")) + ")")}
+                else {missing: $t} end end ];
     (if $all then . else pick(toks($sel)) end) as $chosen
     | ([pick(toks($exc))[] | .id? // empty]) as $ex
-    | { chosen: ([$chosen[] | select(.id != null) | select(.id as $i | $ex | index($i) == null)] | unique_by(.rank) | sort_by(.rank) | map(.id)),
-        missing: [$chosen[] | .missing? // empty] }' <<<"$1"
+    | { chosen: ([$chosen[] | select(.id != null) | select(.id as $i | $ex | index($i) == null)] | unique_by(.id) | sort_by(.rank) | map(.id)),
+        missing: [$chosen[] | .missing? // empty],
+        ambiguous: [$chosen[] | .ambiguous? // empty] }' <<<"$1"
 }
 
 cmd_install() {
@@ -681,7 +702,7 @@ cmd_install() {
         | to_entries | map(.key as $k | .value | if type == "string" then {id: ., name: (split("@")[0]), rank: null} else {id, name, rank} end
           | . + {rank: (.rank // ($k + 1))})' <<<"$raw")"
     else
-      list="$(printf '%s\n' "$raw" | grep -v '^[[:space:]]*#' | grep -v '^[[:space:]]*$' | cut -f1 | jq -R . \
+      list="$(printf '%s\n' "$raw" | awk -F'\t' '/^[[:space:]]*(#|$)/ || $1 == "rank" { next } { print ($1 ~ /^[0-9]+$/ && NF > 1) ? $2 : $1 }' | jq -R . \
         | jq -sc 'to_entries | map({rank: (.key + 1), id: .value, name: (.value | split("@")[0])})')"
     fi
     if [ -z "${SELECT//,/}" ] && [ "$ALL" = false ]; then
@@ -696,6 +717,7 @@ cmd_install() {
   fi
   chosen="$(select_ids "$list" "$SELECT" "$EXCLUDE" "$ALL")"
   [ "$(jq '.missing | length' <<<"$chosen")" -eq 0 ] || die "목록에 없는 선택: $(jq -r '.missing | join(", ")' <<<"$chosen")"
+  [ "$(jq '.ambiguous | length' <<<"$chosen")" -eq 0 ] || die "같은 이름이 여럿입니다 — 번호나 이름@마켓으로 고르세요: $(jq -r '.ambiguous | join("; ")' <<<"$chosen")"
   if [ "$(jq '.chosen | length' <<<"$chosen")" -eq 0 ]; then
     jq -cn '{command: "install", mode: "list-only", message: "고른 플러그인이 없습니다", results: []}' | emit_install
     return 0
@@ -708,7 +730,8 @@ cmd_install() {
       | ($c[0] | map(select(.id == $x or (($x | contains("@") | not) and .name == $x)))) as $m
       | if ($m | length) == 1 then {id: $m[0].id, installed: $m[0].installed, scopes: $m[0].scopes}
         elif ($m | length) == 0 then {id: $x, error: "카탈로그에 없습니다 — 마켓플레이스를 추가했는지 확인하세요"}
-        else {id: $x, error: ("마켓플레이스가 여럿입니다 — 이름@마켓으로 고르세요: " + ($m | map(.id) | join(", ")))} end)' <<<"$chosen")"
+        else {id: $x, error: ("마켓플레이스가 여럿입니다 — 이름@마켓으로 고르세요: " + ($m | map(.id) | join(", ")))} end)
+      | (map(select(.error)) + (map(select(.error | not)) | unique_by(.id)))' <<<"$chosen")"
   bad="$(jq -r 'map(select(.error) | "\(.id): \(.error)") | join("\n")' <<<"$resolved")"
   [ -z "$bad" ] || die "$bad"
 
@@ -743,7 +766,7 @@ cmd_install() {
 emit_install() {
   case "$FORMAT" in
     json) jq '.' ;;
-    ids|names) jq -r '.results[] | select(.status == "installed" or .status == "planned" or .status == "listed") | .id' ;;
+    ids|names) jq -r '.results[] | select(.status == "installed" or .status == "planned") | .id' ;;
     tsv) jq -r '(["rank", "id", "status", "message"] | join("\t")), (.results[] | [.rank, .id, .status, (.message // "")] | map(tostring) | join("\t"))' ;;
   esac
 }

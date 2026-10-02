@@ -15,7 +15,7 @@
 - CLI 를 못 쓰면 `$CLAUDE_CONFIG_DIR`(기본 `~/.claude`)`/plugins/known_marketplaces.json` · `installed_plugins.json` 으로 읽는다
 - 원격 source(github · url · npm …)이고 설치 전이면 구성요소를 모른다 — `componentsKnown: false`
 - 설명 · 이름의 제어 문자는 지운다. 터미널에 그대로 찍히면 화면을 조작할 수 있다
-- 캐시: `~/.cache/plugin-search-install/catalog.json`. 마켓플레이스 목록 · 설치 상태 · 매니페스트 크기 · 시각의 지문이 같고 10분 안이면 재사용. `--refresh` 로 다시 만든다. 설치하면 지문을 지운다
+- 캐시: `~/.cache/plugin-search-install/catalog-<지문>.json`. 지문은 현재 디렉터리 · 마켓플레이스 목록 · 설치 상태 · 매니페스트 크기 · 시각. 10분 안이면 재사용, `--refresh` 로 다시 만든다. 설치하면 지운다
 
 환경 변수: `PLUGIN_SEARCH_CATALOG`(카탈로그 파일 주입) · `PLUGIN_SEARCH_CLAUDE`(claude 실행 파일) · `PLUGIN_SEARCH_CACHE_DIR` · `PLUGIN_SEARCH_CACHE_TTL`(분).
 
@@ -92,6 +92,7 @@ IDF = ln((전체 + 1) / 그 단어를 가진 플러그인 수) + 0.1 — 흔한 
 - **대상 불일치** — 플러그인 이름에 감지되지 않은 언어 · 프레임워크(신호의 `exclusive`) 단어가 있으면 ×0.3 (Java 프로젝트의 `kotlin-*`)
 - 파일 색인은 깊이 8, `prune` 디렉터리(node_modules · .git · build …)를 뺀다
 - `--only declared|missing|recommended`. 기본 한도 없음, 최소 점수 1
+- 설정 파일이 JSON 이 아니면 그 파일만 건너뛰고 `settingsErrors` 에 경로를 낸다
 
 ## 6. 설치 (`install`)
 
@@ -105,7 +106,9 @@ IDF = ln((전체 + 1) / 그 단어를 가진 플러그인 수) + 0.1 — 흔한 
 | `--dry-run` | 실행할 명령만 (`planned`) |
 | `--scope user\|project\|local` | 기본 `project` — 팀이 같은 설정을 받는다 |
 
-- 이름이 여러 마켓에 있거나 카탈로그에 없으면 **아무것도 설치하지 않고** 2로 멈춘다
+- 이름이 여러 마켓에 있거나(위치 인자 · `--select` 둘 다) 카탈로그에 없으면 **아무것도 설치하지 않고** 2로 멈춘다
+- 범위의 번호가 하나라도 목록에 없거나 거꾸로(`3-1`)면 2. 같은 대상은 한 번만 설치한다
+- `--from` 의 줄 목록은 id 줄 또는 이 스크립트의 tsv 출력(헤더 건너뜀, 둘째 칸이 id)
 - 이미 설치된 것은 `skipped`. 명령 실행 확인이 필요한 플러그인(command source)은 `-y` 를 붙이지 않고 `failed` 로 직접 실행 명령을 알린다
 - 하나라도 실패하면 1. 나머지는 계속한다. 설치가 하나라도 되면 `restartRequired: true`
 
@@ -115,4 +118,4 @@ IDF = ln((전체 + 1) / 그 단어를 가진 플러그인 수) + 0.1 — 흔한 
 
 결과 항목 필드: `rank` · `id` · `name` · `marketplace` · `description` · `version` · `category` · `tags` · `keywords` · `dependencies` · `installed` · `enabled` · `scopes` · `installCount` · `componentCounts` · `score` · `why`(사람이 읽는 이유) · `group` · `status`. 검색은 `matches`(단어 · 필드 · 동의어/오타)와 `relaxed` 를 더한다.
 
-종료 코드: 0 정상 · 1 설치 일부 실패 · 2 잘못된 입력 (모르는 옵션 · 값, 모르는 플러그인, 모호한 이름, 목록에 없는 선택).
+종료 코드: 0 정상 · 1 설치 일부 실패 · 2 잘못된 입력 (모르는 옵션 · 값, 잘못된 정규식, 모르는 플러그인, 모호한 이름, 목록에 없는 선택).

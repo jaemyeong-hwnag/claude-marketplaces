@@ -75,7 +75,7 @@ parse_opts() {
       *) ENGINE_ARGS+=("$1"); shift ;;
     esac
   done
-  case "$WIDTH" in ''|[1-9]|[1-9][0-9]|[1-9][0-9][0-9]|[1-9][0-9][0-9][0-9]) ;; *) die "--width 는 1 이상의 정수: $WIDTH" ;; esac
+  case "$WIDTH" in ''|[1-9][0-9]|[1-9][0-9][0-9]|[1-9][0-9][0-9][0-9]) ;; *) die "--width 는 10 이상의 정수: $WIDTH" ;; esac
   case "$COLOR" in auto|always|never) ;; *) die "--color 는 auto · always · never 중 하나: $COLOR" ;; esac
   case "$SCOPE" in ''|user|project|local) ;; *) die "--scope 는 user · project · local 중 하나: $SCOPE" ;; esac
 }
@@ -148,14 +148,16 @@ def inr($r): . as $c
   | .f;
 def cw: if . < 32 then 0 elif . < 127 then 1 elif . < 160 then 0 elif . >= 44032 and . <= 55203 then 2
   elif inr($wt[0].zero) then 0 elif inr($wt[0].wide) then 2 elif inr($wt[0].ambiguous) then $o.amb else 1 end;
-def clean: tostring | gsub("[\u0001-\u001f\u007f-\u009f]+"; " ");
-def dw: [explode[] | cw] | add // 0;
+def clean: tostring | explode | map(if . < 32 or (. >= 127 and . < 160) then 32 else . end) | implode;
+# 글자마다 [코드포인트, 폭] — VS16(FE0F) 은 앞의 한 칸 글자를 이모지(두 칸)로 그리게 한다
+def cws: reduce explode[] as $c ([]; . + [[$c, (if $c == 65039 and length > 0 and .[-1][1] == 1 then 1 else ($c | cw) end)]]);
+def dw: [cws[][1]] | add // 0;
 def sp($k): if $k > 0 then " " * $k else "" end;
 def rep($s; $k): if $k > 0 then $s * $k else "" end;
 def trunc($n):
   clean as $s
   | if $n <= 0 then ""
-    else ([$s | explode[] | [., cw]]) as $cs
+    else ($s | cws) as $cs
     | if ([$cs[][1]] | add // 0) <= $n then $s
       else ($o.ell | dw) as $ew
       | if $n < $ew then rep("."; $n)
@@ -170,8 +172,9 @@ def wrap($n):
       ($w | dw) as $ww
       | if $ww > $n then
           (if .cw > 0 then .lines += [.cur] | .cur = "" | .cw = 0 else . end)
-          | reduce ($w | explode[]) as $c (.; ([$c] | implode) as $ch | ($c | cw) as $k
-              | if .cw + $k > $n then .lines += [.cur] | .cur = $ch | .cw = $k else .cur += $ch | .cw += $k end)
+          | reduce ($w | cws[]) as $c (.; ([$c[0]] | implode) as $ch | $c[1] as $k
+              | if $k > $n then .
+                elif .cw + $k > $n then .lines += [.cur] | .cur = $ch | .cw = $k else .cur += $ch | .cw += $k end)
         elif .cw == 0 then .cur = $w | .cw = $ww
         elif .cw + 1 + $ww <= $n then .cur += " " + $w | .cw += 1 + $ww
         else .lines += [.cur] | .cur = $w | .cw = $ww end)
@@ -193,7 +196,7 @@ def mp_tags: ([.marketplace] + (if (.tags // []) | length > 0 then [tags_s] else
 def glabel: {declared: "필수 · 프로젝트 설정에 선언", dependency: "필수 · 선언된 플러그인의 의존", recommended: "추천 · 파일 신호",
   match: "직접 일치", related: "연관"}[. // ""] // null;
 def segments: reduce .[] as $x ([]; if length > 0 and (.[-1][0].group // "") == ($x.group // "") then .[-1] += [$x] else . + [[$x]] end);
-def W: ($o.width - 1) | if . < 9 then 9 else . end;
+def W: $o.width - 1;
 
 def title:
   if .command == "search" then
@@ -208,7 +211,8 @@ def counts_s: (.results | length) as $n
 def subtitle:
   if .command == "project" then
     ["필수 \(.summary.declared) · 없음 \(.summary.missing) · 추천 \(.summary.recommended)",
-     ("신호 " + (if (.signals | length) > 0 then (.signals | map(.label) | join($o.sep)) else "없음 — 파일로 알 수 있는 것이 없습니다" end))]
+     ("신호 " + (if (.signals | length) > 0 then (.signals | map(.["label"]) | join($o.sep)) else "없음 — 파일로 알 수 있는 것이 없습니다" end))]
+    + (if (.settingsErrors // []) | length > 0 then ["설정 파일을 읽지 못했습니다 (JSON 오류): " + (.settingsErrors | join(", "))] else [] end)
   elif .relaxed == true then ["모든 단어에 맞는 결과가 없어 일부만 맞는 결과입니다"]
   elif .ambiguous != null then ["같은 이름이 여러 마켓에 있습니다: " + (.ambiguous | join(", "))]
   else [] end;
@@ -271,10 +275,11 @@ def hint($w):
 
 def render_show:
   W as $w | . as $p
-  | def kv($k; $v): ($v | tostring) as $s | if ($s | length) == 0 then empty else
-      ([$s | wrap($w - 10)[]] | to_entries[] | (if .key == 0 then ($k | fit(8) | dim) + "  " else sp(10) end) + .value) end;
-    def comp($k; $label): ($p.components[$k] // []) as $cs | if ($cs | length) == 0 then empty else
-      ($label + " \($cs | length)" | bold),
+  | def kv($k; $v): ($v | tostring) as $s | if ($s | length) == 0 then empty
+      elif $w - 10 < 4 then ($k + " " + $s) | trunc($w)
+      else ([$s | wrap($w - 10)[]] | to_entries[] | (if .key == 0 then ($k | fit(8) | dim) + "  " else sp(10) end) + .value) end;
+    def comp($k; $title): ($p.components[$k] // []) as $cs | if ($cs | length) == 0 then empty else
+      ($title + " \($cs | length)" | trunc($w) | bold),
       ($cs[] | (if type == "string" then {n: ., d: ""} else {n: (.name // ""), d: (.description // "")} end)
         | (.n | trunc($w - 2)) as $t
         | "  " + ($t | bold) + (if .d != "" and $w - 4 - ($t | dw) > 4 then "  " + (.d | trunc($w - 4 - ($t | dw)) | dim) else "" end)) end;
@@ -299,8 +304,8 @@ def render_facets:
   W as $w | . as $f
   | [ ("관점별 개수 · 플러그인 \(.total)개" | trunc($w) | bold), rule($w),
       ( ["tag", "category", "marketplace", "has", "installed", "keyword"][] as $k | select($f[$k] != null) | $f[$k] as $vs
-        | {tag: "태그", category: "카테고리", marketplace: "마켓", has: "구성요소", installed: "설치", keyword: "키워드"}[$k] as $label
-        | "", ($label | bold),
+        | {tag: "태그", category: "카테고리", marketplace: "마켓", has: "구성요소", installed: "설치", keyword: "키워드"}[$k] as $title
+        | "", ($title | trunc($w) | bold),
           ( ($vs | to_entries | map({n: (.key + 1), t: ((.value.value | clean) + " " + (.value.count | tostring))})) as $items
             | ([$items[] | .t | dw] | max // 1) as $cw
             | ([(($w) / ($cw + 6) | floor), 1] | max) as $ncol
@@ -393,10 +398,13 @@ numbered_pick() {
       q|Q) return 0 ;;
       a|A|all) confirm_install all; return $? ;;
       *[!0-9,\ -]*) echo "번호 · 쉼표 · 하이픈만 쓸 수 있습니다" ;;
-      *) if engine install --from "$TMP/res.json" --select "${a// /}" --dry-run --format ids >/dev/null 2> "$TMP/err"; then
-           confirm_install "${a// /}"; return $?
+      *[0-9]*)
+         a="$(printf '%s' "$a" | tr ' ' ',')"
+         if engine install --from "$TMP/res.json" --select "$a" --dry-run --format ids >/dev/null 2> "$TMP/err"; then
+           confirm_install "$a"; return $?
          fi
          sed 's/^plugin-search-install: //' "$TMP/err" ;;
+      *) echo "번호를 하나 이상 넣으세요" ;;
     esac
   done
 }
@@ -429,7 +437,7 @@ draw() { # $1=행 $2=열
     if [ $i -lt $N ]; then
       if [ $i -eq $CUR ]; then cur_mark="$CURSOR "; else cur_mark="  "; fi
       if [ "${SEL[$i]}" = 1 ]; then line="$cur_mark$on ${ROWS[$i]}"; else line="$cur_mark$off ${ROWS[$i]}"; fi
-      if [ $i -eq $CUR ] && use_color; then line=$'\033[7m'"$line"$'\033[0m'; fi
+      if [ $i -eq $CUR ] && use_color; then line=$'\033[7m'"${line//$'\033[0m'/$'\033[0;7m'}"$'\033[0m'; fi
       frame+="$line"
     fi
     frame+=$'\033[K\n'
@@ -447,7 +455,7 @@ draw() { # $1=행 $2=열
   printf '%s' "$frame" >/dev/tty
 }
 pick() { # 결과: PICKED (번호 목록) · 반환 0 확정 · 1 취소
-  local size rows cols prev="" key k2 rc dirty=1 i t0 eofs=0
+  local size rows cols prev="" key k2 rc dirty=1 i t0
   PICKED=""
   TTY_OLD="$(stty -g </dev/tty 2>/dev/null)"
   stty -echo -icanon min 1 time 0 </dev/tty 2>/dev/null
@@ -476,13 +484,13 @@ pick() { # 결과: PICKED (번호 목록) · 반환 0 확정 · 1 취소
       printf '\033[2J' >/dev/tty
     fi
     [ $dirty -eq 1 ] && { draw "$rows" "$cols"; dirty=0; }
-    # bash 3.2 는 시간 초과와 EOF 가 둘 다 1 이다 — 곧바로 돌아오면 EOF 로 본다
+    # bash 3.2 는 시간 초과 · EOF · 신호로 깬 read 가 모두 1 이다 — 곧바로 돌아왔고 tty 가 닫혔을 때만 끝낸다
     key=""; t0=$SECONDS; IFS= read -rsn1 -t 1 key </dev/tty; rc=$?
     if [ $rc -ne 0 ] && [ -z "$key" ]; then
-      if [ $rc -le 128 ] && [ $SECONDS -eq $t0 ]; then eofs=$((eofs + 1)); [ $eofs -ge 3 ] && break; else eofs=0; fi
+      if [ $SECONDS -eq $t0 ] && ! stty size </dev/tty >/dev/null 2>&1; then break; fi
       continue
     fi
-    eofs=0 dirty=1
+    dirty=1
     case "$key" in
       $'\033')
         k2=""; IFS= read -rsn2 -t 1 k2 </dev/tty
@@ -508,7 +516,7 @@ pick() { # 결과: PICKED (번호 목록) · 반환 0 확정 · 1 취소
         PICKED="${PICKED#,}"
         printf '\033[?25h\033[?1049l' >/dev/tty; stty "$TTY_OLD" </dev/tty; TTY_OLD=""
         return 0 ;;
-      q|Q) break ;;
+      q|Q|$'\004') break ;;
     esac
   done
   printf '\033[?25h\033[?1049l' >/dev/tty; stty "$TTY_OLD" </dev/tty; TTY_OLD=""
@@ -576,6 +584,7 @@ case "$cmd" in -h|--help|help) usage; exit 0 ;; -*) cmd="" ;; *) [ $# -gt 0 ] &&
 parse_opts "$@"
 AMB="$(ambiguous_width)"
 W_NOW="$(term_width)"
+[ "$W_NOW" -ge 10 ] || die "터미널이 너무 좁습니다 (${W_NOW}열) — 10열 이상이거나 --width 로 지정하세요"
 
 case "$cmd" in
   '')
