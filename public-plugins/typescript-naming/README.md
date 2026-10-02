@@ -8,7 +8,7 @@ TypeScript 소스의 식별자를 TypeScript 관례로 강제한다 — 타입·
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-/plugin install typescript-naming@plugin-marketplace
+/plugin install typescript-naming@jaemyeong-hwnag-plugins
 ```
 
 ## 의존성

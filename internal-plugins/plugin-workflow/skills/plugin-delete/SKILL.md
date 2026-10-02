@@ -12,7 +12,7 @@ description: 플러그인을 지우거나 끌 때 사용한다. 삭제 전에 �
 | | 비활성화 | 삭제 |
 |---|---|---|
 | 언제 | 잠시 쓰지 않는다, 다시 켤 수 있다 | 더는 쓰지 않는다 |
-| 방법 | `.claude/settings.json` 의 `enabledPlugins["<이름>@plugin-marketplace"]` 를 `false` 로 (또는 `claude plugin disable`) | 아래 순서 |
+| 방법 | `.claude/settings.json` 의 `enabledPlugins["<이름>@jaemyeong-hwnag-plugins"]` 를 `false` 로 (또는 `claude plugin disable`) | 아래 순서 |
 | 엔트리 · 디렉터리 | 그대로 | 지운다 |
 | 태그 | 그대로 | 그대로 |
 

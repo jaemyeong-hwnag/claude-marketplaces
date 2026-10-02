@@ -1,7 +1,7 @@
 {
   "name": "kotlin-naming",
   "description": "Kotlin 코드의 이름을 Kotlin 컨벤션으로 강제한다 — 패키지 소문자 시작, 타입 UpperCamelCase, 클래스 하나뿐인 파일과 파일명, const val SCREAMING_SNAKE_CASE, 함수·프로퍼티 lowerCamelCase. 새로 생긴 위반만 막고 단어 선택은 스킬이 판단한다.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "황재명",
     "email": "woaudsla@gmail.com"

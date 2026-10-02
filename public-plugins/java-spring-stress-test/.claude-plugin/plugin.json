@@ -1,7 +1,7 @@
 {
   "name": "java-spring-stress-test",
   "description": "Java · Spring Boot 3.x 서버를 부하 측정할 때 프레임워크 몫을 맡는다 — Actuator · Prometheus 지연 히스토그램과 in-flight · Tomcat 스레드 계측, 측정을 무효로 만드는 설정(devtools · DEBUG 로그 · show-sql · fork 0 JMH) 탐지, 스레드 · 커넥션 풀 손잡이 점검, JMH 마이크로벤치마크.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "황재명",
     "email": "woaudsla@gmail.com"

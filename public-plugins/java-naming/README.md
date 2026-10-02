@@ -8,7 +8,7 @@ Java 코드의 이름을 Java 컨벤션으로 강제한다 — 패키지 소문�
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-/plugin install java-naming@plugin-marketplace
+/plugin install java-naming@jaemyeong-hwnag-plugins
 ```
 
 ## 의존성

@@ -8,7 +8,7 @@ Kotlin 코드의 이름을 Kotlin 컨벤션으로 강제한다 — 패키지 소
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-/plugin install kotlin-naming@plugin-marketplace
+/plugin install kotlin-naming@jaemyeong-hwnag-plugins
 ```
 
 ## 의존성

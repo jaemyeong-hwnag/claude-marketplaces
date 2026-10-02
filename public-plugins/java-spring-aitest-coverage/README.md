@@ -8,7 +8,7 @@ AI 가 코드를 고치고 테스트 없이, 또는 성공 케이스 하나만 �
 
 ```bash
 claude plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-claude plugin install java-spring-aitest-coverage@plugin-marketplace --scope project
+claude plugin install java-spring-aitest-coverage@jaemyeong-hwnag-plugins --scope project
 ```
 
 설치한 뒤 `@AiTest` 환경이 없으면 "AiTest 환경 만들어줘" 로 `aitest-environment-create` 를 부른다. 환경이 생기기 전에는 게이트가 꺼져 있다.

@@ -8,7 +8,7 @@ Node.js 프로젝트의 이름을 npm 규칙과 JavaScript 관례로 강제한�
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-/plugin install node-naming@plugin-marketplace
+/plugin install node-naming@jaemyeong-hwnag-plugins
 ```
 
 ## 의존성

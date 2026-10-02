@@ -14,7 +14,7 @@ service-health-review    실측 수치          → 지표별 판정 + 미측정
 
 ```bash
 claude plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-claude plugin install project-completeness@plugin-marketplace --scope project
+claude plugin install project-completeness@jaemyeong-hwnag-plugins --scope project
 ```
 
 필요한 것: `bash`, `jq`, `find`, `grep`. 레시피를 적용할 때는 그 레시피의 도구(Node · Python · Go 툴체인, Docker 등).

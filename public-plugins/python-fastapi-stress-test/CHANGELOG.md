@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.1
+
+### Changed
+- 마켓플레이스 이름이 `plugin-marketplace` 에서 `jaemyeong-hwnag-plugins` 로 바뀌었다 (#44) — 설치 명령은 `python-fastapi-stress-test@jaemyeong-hwnag-plugins`
+
 ## 0.1.0
 
 ### Added

@@ -8,7 +8,7 @@ Go 코드의 이름을 Go 컨벤션으로 강제한다 — 패키지 소문자 �
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-/plugin install go-naming@plugin-marketplace
+/plugin install go-naming@jaemyeong-hwnag-plugins
 ```
 
 ## 의존성

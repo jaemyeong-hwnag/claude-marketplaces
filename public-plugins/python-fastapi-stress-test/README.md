@@ -8,7 +8,7 @@ FastAPI 서버 부하 측정을 준비한다 — 지연 히스토그램 · in-fl
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-/plugin install python-fastapi-stress-test@plugin-marketplace
+/plugin install python-fastapi-stress-test@jaemyeong-hwnag-plugins
 ```
 
 ## 의존성

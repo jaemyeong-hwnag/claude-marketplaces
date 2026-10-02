@@ -37,7 +37,7 @@ PSI="${CLAUDE_PLUGIN_ROOT}/scripts/plugin-search-install.sh"
 ```bash
 "$PSI" install --from /tmp/psi-list.json --select 1,3 --dry-run       # 계획
 "$PSI" install --from /tmp/psi-list.json --select 1,3 --scope project # 실행
-"$PSI" install github-workflow java-naming@plugin-marketplace          # 이름으로 바로
+"$PSI" install github-workflow java-naming@jaemyeong-hwnag-plugins          # 이름으로 바로
 ```
 
 - 처음이거나 3개 이상이면 `--dry-run` 결과를 먼저 보이고 확인받는다

@@ -1,6 +1,6 @@
 # claude-marketplaces
 
-Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름은 `plugin-marketplace` 다.
+Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름은 `jaemyeong-hwnag-plugins` 다.
 
 이 문서는 **매번 알아야 하는 것**만 담는다. 규칙의 세부는 각 플러그인의 규칙 원본에 있고, 그 작업을 할 때는 해당 스킬을 쓴다.
 규칙 원본과 이 문서가 다르면 규칙 원본이 맞다.

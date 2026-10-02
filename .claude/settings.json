@@ -18,16 +18,16 @@
     ]
   },
   "enabledPlugins": {
-    "github-workflow@plugin-marketplace": true,
-    "marketplace-directory-structure@plugin-marketplace": true,
-    "plugin-authoring@plugin-marketplace": true,
-    "plugin-dependency@plugin-marketplace": true,
-    "plugin-naming@plugin-marketplace": true,
-    "plugin-versioning@plugin-marketplace": true,
-    "plugin-workflow@plugin-marketplace": true
+    "github-workflow@jaemyeong-hwnag-plugins": true,
+    "marketplace-directory-structure@jaemyeong-hwnag-plugins": true,
+    "plugin-authoring@jaemyeong-hwnag-plugins": true,
+    "plugin-dependency@jaemyeong-hwnag-plugins": true,
+    "plugin-naming@jaemyeong-hwnag-plugins": true,
+    "plugin-versioning@jaemyeong-hwnag-plugins": true,
+    "plugin-workflow@jaemyeong-hwnag-plugins": true
   },
   "extraKnownMarketplaces": {
-    "plugin-marketplace": {
+    "jaemyeong-hwnag-plugins": {
       "source": {
         "source": "directory",
         "path": "."

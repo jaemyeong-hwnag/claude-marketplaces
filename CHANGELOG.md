@@ -2,6 +2,9 @@
 
 ## 미출시
 
+### Changed
+- 마켓플레이스 이름을 `plugin-marketplace` 에서 `jaemyeong-hwnag-plugins` 로 바꿨다 — 흔한 이름이라 다른 마켓과 겹쳤다. 설치 id 가 `<플러그인>@jaemyeong-hwnag-plugins` 로 바뀐다 (#44)
+
 ### Added
 - 스트레스 테스트 public 플러그인 일곱 — `common-stress-test`(운영 호스트 부하 차단 `ST-01`, open 모델 · thresholds · p99 점검, 단계 결과로 지속 가능 용량 · Kneedle knee · USL · Little 정합성, Mann-Whitney U · Cliff's delta 회귀 판정, local · Docker · k8s 템플릿)와 이에 의존하는 `java-spring` · `python-fastapi` · `python-django` · `node-express` · `typescript-nestjs` · `go-gin` `-stress-test`(서버 계측 · 무효 설정 탐지 · 손잡이 · 마이크로벤치마크). 근거 문헌과 Docker 실측으로 확인한 것만 담았다 (#33)
 - `domain-document-sync` public 플러그인 — 도메인 지식 문서를 3계층(`_index` → `_meta` → concept)으로 두고 코드와 맞춰 둔다. 도메인 ↔ 코드 매핑을 `_meta.md` 프런트매터 `code:` 글롭으로 해 언어 · 프레임워크를 가정하지 않는다. 도메인 문서를 코드와 맞춰 두는 플러그인이다 (#14)
@@ -46,7 +49,7 @@
 
 ## 0.1.0
 
-- 마켓플레이스 `plugin-marketplace` 와 `public-plugins/` · `internal-plugins/` 배치 구조
+- 마켓플레이스 `jaemyeong-hwnag-plugins` 와 `public-plugins/` · `internal-plugins/` 배치 구조
 - 배치 정책 검증 훅 `.claude/hooks/validate-plugin-scope.sh`
 - 내부 플러그인 설치 동기화 훅 `.claude/hooks/sync-internal-plugins.sh`
 - SessionStart 훅 등록과 플러그인 활성화 설정

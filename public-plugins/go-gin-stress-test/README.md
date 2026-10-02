@@ -8,7 +8,7 @@ Go · Gin 서버를 부하 측정할 때 프레임워크 몫을 맡는다 — Pr
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-/plugin install go-gin-stress-test@plugin-marketplace
+/plugin install go-gin-stress-test@jaemyeong-hwnag-plugins
 ```
 
 ## 의존성

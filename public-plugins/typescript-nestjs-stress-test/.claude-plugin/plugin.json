@@ -1,7 +1,7 @@
 {
   "name": "typescript-nestjs-stress-test",
   "description": "NestJS 서버 부하 측정을 준비한다 — prom-client 지연 히스토그램 · in-flight 게이지 계측, nest start · ts-node · debug 로그 같은 무효 설정 탐지, Express/Fastify 어댑터 · 요청 스코프 · DB 풀 손잡이 확인, tinybench 마이크로벤치마크.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "황재명",
     "email": "woaudsla@gmail.com"

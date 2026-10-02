@@ -50,7 +50,7 @@ make_plugin() { # $1=배치(internal|public, 기본 internal) → 플러그인 �
 }
 write_readme() { # $1=플러그인 $2=배치
   local install="SessionStart 훅이 설치한다."
-  [ "$2" = public ] && install="/plugin install order-sync@plugin-marketplace"
+  [ "$2" = public ] && install="/plugin install order-sync@jaemyeong-hwnag-plugins"
   cat > "$1/README.md" <<EOF
 # order-sync
 
@@ -339,7 +339,7 @@ readme_sub "$P" "없음" "| common-naming | 공통 |"
 run "$P"; expect_code 0
 
 tc TC-A51 "public 플러그인의 설치 절에 설치 명령이 없으면 막는다 (A-28)"
-P="$(make_plugin public)"; readme_sub "$P" "/plugin install order-sync@plugin-marketplace" "설치한다."
+P="$(make_plugin public)"; readme_sub "$P" "/plugin install order-sync@jaemyeong-hwnag-plugins" "설치한다."
 run "$P"; expect_code 2; expect_out "(A-28)"
 
 tc TC-A52 "public 플러그인이 설치 명령을 가지면 통과한다"

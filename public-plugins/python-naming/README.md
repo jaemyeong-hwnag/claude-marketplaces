@@ -8,7 +8,7 @@ Python 코드의 이름을 PEP 8 로 강제한다 — 모듈 파일 소문자 sn
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-/plugin install python-naming@plugin-marketplace
+/plugin install python-naming@jaemyeong-hwnag-plugins
 ```
 
 ## 의존성

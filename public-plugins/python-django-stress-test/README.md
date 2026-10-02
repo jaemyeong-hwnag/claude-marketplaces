@@ -8,7 +8,7 @@ Django 서버 부하 측정을 Django 에 맞게 준비한다 — runserver · D
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-/plugin install python-django-stress-test@plugin-marketplace
+/plugin install python-django-stress-test@jaemyeong-hwnag-plugins
 ```
 
 ## 의존성
