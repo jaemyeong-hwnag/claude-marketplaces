@@ -7,6 +7,8 @@ description: 조회한 플러그인을 설치할 때 사용한다. 전부 · 번
 
 규칙 원본: [`references/search-rules.md`](../../references/search-rules.md) — 6절.
 
+설치 대상은 이 마켓의 public 플러그인뿐이다. MCP 도구 `install_plugins` 가 보이면 그것을 쓴다 — 기본이 dry-run 이라 계획을 먼저 보이고, 사용자가 고른 뒤 `dry_run: false` 로 다시 부른다.
+
 ```bash
 PSI="${CLAUDE_PLUGIN_ROOT}/scripts/plugin-search-install.sh"
 ```
@@ -39,7 +41,7 @@ PSI="${CLAUDE_PLUGIN_ROOT}/scripts/plugin-search-install.sh"
 ```
 
 - 처음이거나 3개 이상이면 `--dry-run` 결과를 먼저 보이고 확인받는다
-- 종료 코드 2 는 **아무것도 설치하지 않았다** — 같은 이름이 여러 마켓(`이름@마켓` 으로 다시), 카탈로그에 없음(마켓 추가가 먼저), 목록에 없는 번호
+- 종료 코드 2 (MCP 는 `isError`) 는 **아무것도 설치하지 않았다** — 이 마켓의 public 이 아님(다른 마켓 · internal · 없는 이름), 목록에 없는 번호 · 범위, 모호한 이름
 
 ## 3. 결과를 알린다
 

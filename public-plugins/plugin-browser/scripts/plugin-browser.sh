@@ -25,6 +25,8 @@ die() { echo "plugin-browser: $*" >&2; exit 2; }
 usage() { sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 command -v jq >/dev/null 2>&1 || die "jq 가 필요합니다"
 
+# jq 1.6 의 -e 는 입력이 비어 있으면 성공한다 — 출력이 정확히 true 인지 본다
+jq_true() { local out; out="$(jq "$@" 2>/dev/null)" && [ "$out" = true ]; }
 TMP="$(mktemp -d)"
 TTY_OLD=""
 cleanup() {
@@ -203,7 +205,7 @@ def title:
     "검색 " + ((.terms // []) | join(" ")) + (if (.excluded // []) | length > 0 then " " + (.excluded | join(" ")) else "" end)
       + (if (.filters // []) | length > 0 then " " + (.filters | join(" ")) else "" end)
   elif .command == "related" then "연관 " + (.target // "") + (if .mode == "feature" then " (기능어)" else "" end)
-  elif .command == "project" then "프로젝트 " + ((.root // "") | split("/") | last)
+  elif .command == "project" then "프로젝트 " + ((.root // "") | split("/") | last) + (if .marketplace then " · " + .marketplace else "" end)
   elif .command == "installed" then "설치된 플러그인"
   else "플러그인" end;
 def counts_s: (.results | length) as $n
@@ -213,6 +215,7 @@ def subtitle:
     ["필수 \(.summary.declared) · 없음 \(.summary.missing) · 추천 \(.summary.recommended)",
      ("신호 " + (if (.signals | length) > 0 then (.signals | map(.["label"]) | join($o.sep)) else "없음 — 파일로 알 수 있는 것이 없습니다" end))]
     + (if (.settingsErrors // []) | length > 0 then ["설정 파일을 읽지 못했습니다 (JSON 오류): " + (.settingsErrors | join(", "))] else [] end)
+    + (if (.outOfScope // []) | length > 0 then ["대상 밖 선언 \(.outOfScope | length)개 (다른 마켓 · internal): " + (.outOfScope | join(", "))] else [] end)
   elif .relaxed == true then ["모든 단어에 맞는 결과가 없어 일부만 맞는 결과입니다"]
   elif .ambiguous != null then ["같은 이름이 여러 마켓에 있습니다: " + (.ambiguous | join(", "))]
   else [] end;
@@ -302,15 +305,22 @@ def render_show:
 
 def render_facets:
   W as $w | . as $f
-  | [ ("관점별 개수 · 플러그인 \(.total)개" | trunc($w) | bold), rule($w),
-      ( ["tag", "category", "marketplace", "has", "installed", "keyword"][] as $k | select($f[$k] != null) | $f[$k] as $vs
-        | {tag: "태그", category: "카테고리", marketplace: "마켓", has: "구성요소", installed: "설치", keyword: "키워드"}[$k] as $title
+  | [ ("관점별 개수 · " + (if .marketplace then .marketplace + " · " else "" end) + "public 플러그인 \(.total)개" | trunc($w) | bold), rule($w),
+      ( ["domain", "technology", "tag", "has", "installed", "keyword"][] as $k | select($f[$k] != null) | $f[$k] as $vs
+        | {domain: "도메인", technology: "기술", tag: "태그", has: "구성요소", installed: "설치", keyword: "키워드"}[$k] as $title
         | "", ($title | trunc($w) | bold),
+          # 설명(tags.json)이 있으면 한 줄에 하나, 없으면 여러 칸으로
+          if any($vs[]; (.description // "") != "") then
+            ([$vs[] | (.value | clean | dw)] | max // 1) as $vw
+            | ($vs | to_entries[] | ("\(.key + 1)" | rfit(3)) + " " + (.value.value | clean | fit([$vw, 20] | min)) + " " + ("\(.value.count)" | rfit(3))
+                + (if (.value.description // "") != "" then "  " + (.value.description | trunc($w - 2 - 3 - 1 - ([$vw, 20] | min) - 1 - 3 - 2) | dim) else "" end)
+              | "  " + . | trunc($w))
+          else
           ( ($vs | to_entries | map({n: (.key + 1), t: ((.value.value | clean) + " " + (.value.count | tostring))})) as $items
             | ([$items[] | .t | dw] | max // 1) as $cw
             | ([(($w) / ($cw + 6) | floor), 1] | max) as $ncol
             | [range(0; ($items | length); $ncol) as $i | $items[$i:$i + $ncol]]
-            | .[] | "  " + (map(("\(.n)" | rfit(3)) + " " + (.t | fit($cw))) | join("  ")) | trunc($w) ) ) ] | .[];
+            | .[] | "  " + (map(("\(.n)" | rfit(3)) + " " + (.t | fit($cw))) | join("  ")) | trunc($w) ) end ) ] | .[];
 
 def render_install:
   W as $w
@@ -556,7 +566,7 @@ menu() {
   while :; do
     w="$(term_width)"
     jq -n '[ "플러그인 찾기", "", "  1  이 프로젝트에 필요한 플러그인", "  2  기능으로 검색", "  3  연관 플러그인 (플러그인 이름 또는 기능어)",
-             "  4  태그로 둘러보기", "  5  설치된 플러그인", "  q  끝내기" ]' | render '.[0] as $t | ($t | trunc(W) | bold), rule(W), (.[1:][] | trunc(W))' "$w"
+             "  4  태그(도메인 · 기술)로 둘러보기", "  5  설치된 플러그인", "  q  끝내기" ]' | render '.[0] as $t | ($t | trunc(W) | bold), rule(W), (.[1:][] | trunc(W))' "$w"
     a="$(ask "› ")"
     case "$a" in
       1) run_query project . ${ENGINE_ARGS+"${ENGINE_ARGS[@]}"} && show_results ;;
@@ -603,7 +613,7 @@ case "$cmd" in
   show)
     [ ${#ENGINE_ARGS[@]} -gt 0 ] || die "show 에 플러그인이 필요합니다"
     engine show "${ENGINE_ARGS[@]}" > "$TMP/show.json" 2> "$TMP/err" || { sed 's/^plugin-search-install: //' "$TMP/err" >&2; exit 2; }
-    if jq -e '.ambiguous' "$TMP/show.json" >/dev/null; then
+    if jq_true '.ambiguous != null' "$TMP/show.json"; then
       jq '.plugins[0]' "$TMP/show.json" > "$TMP/one.json"
       render render_show "$W_NOW" < "$TMP/one.json"
       echo "같은 이름: $(jq -r '.ambiguous | join(", ")' "$TMP/show.json") — 이름@마켓 으로 고르세요"
@@ -614,10 +624,10 @@ case "$cmd" in
   render)
     src="${ENGINE_ARGS[0]:--}"
     if [ "$src" = - ]; then cat > "$TMP/res.json"; else [ -r "$src" ] || die "읽을 수 없습니다: $src"; cp "$src" "$TMP/res.json"; fi
-    jq -e . "$TMP/res.json" >/dev/null 2>&1 || die "JSON 이 아닙니다"
-    if jq -e '.command == "install"' "$TMP/res.json" >/dev/null; then render render_install "$W_NOW" < "$TMP/res.json"
-    elif jq -e 'has("results")' "$TMP/res.json" >/dev/null; then render render_list "$W_NOW" < "$TMP/res.json"
-    elif jq -e 'has("total") and has("tag")' "$TMP/res.json" >/dev/null; then render render_facets "$W_NOW" < "$TMP/res.json"
+    jq_true 'true' "$TMP/res.json" || die "JSON 이 아닙니다"
+    if jq_true '.command == "install"' "$TMP/res.json"; then render render_install "$W_NOW" < "$TMP/res.json"
+    elif jq_true 'has("results")' "$TMP/res.json"; then render render_list "$W_NOW" < "$TMP/res.json"
+    elif jq_true 'has("total") and has("tag")' "$TMP/res.json"; then render render_facets "$W_NOW" < "$TMP/res.json"
     else render render_show "$W_NOW" < "$TMP/res.json"; fi ;;
   *) die "모르는 명령: $cmd (--help)" ;;
 esac

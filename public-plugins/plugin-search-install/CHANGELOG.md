@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 0.2.0
+
+### Changed
+- **대상을 이 플러그인이 설치되어 온 마켓플레이스의 `category: public` 플러그인으로 한정** (#42). 다른 마켓 · internal 은 조회 · 연관 · 추천 · 설치 대상이 아니다. 대상 마켓은 캐시 경로 · 디렉터리 마켓 위치로 스스로 판별하고 `PLUGIN_SEARCH_MARKETPLACE` 로 지정할 수 있다
+- 프로젝트 조회 — 대상 밖 선언은 결과에 넣지 않고 `outOfScope` 로 알린다
+- `facets` 의 `category` · `marketplace` 대신 `domain` · `technology`
+
+### Added
+- 마켓의 `tags.json` 관점 — `domain:` · `tech:` 질의, `--domain` · `--technology` 필터, 태그 설명 검색, facets 에 태그 설명
+- 로컬 MCP 서버 `scripts/plugin-search-mcp.sh` (bash + jq, stdio) — `plugin.json` 의 `mcpServers` 로 선언. 도구 `search_plugins` · `list_related_plugins` · `list_project_plugins` · `get_plugin` · `list_plugin_facets` · `install_plugins`(기본 dry-run). 엔진을 감싸므로 로직은 한 곳
+
+### Fixed
+- 설치 목록 JSON 을 jq 인자(`--argjson`)로 넘겨, 환경 변수가 큰 프로세스(Claude Code 가 띄운 MCP 서버)나 리눅스(문자열 하나 128KB 한도)에서 `Argument list too long` 으로 카탈로그를 못 만들던 것 — 파일로 넘긴다. 실제 세션에서 MCP 도구로 처음 드러났다
+- jq 1.6 의 `-e` 가 빈 입력을 성공으로 보아, `claude` CLI 가 없을 때 기록 파일로 넘어가지 못하고 빈 설정 파일을 정상으로 읽던 것 — 출력이 정확히 `true` 인지 본다
+
 ## 0.1.1
 
 ### Fixed
