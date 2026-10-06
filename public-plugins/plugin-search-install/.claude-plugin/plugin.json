@@ -1,7 +1,7 @@
 {
   "name": "plugin-search-install",
   "description": "이 마켓플레이스의 public 플러그인을 조회하고 설치한다 — 프로젝트 선언 · 파일 신호로 필요한 것, 플러그인 · 기능어로 연관된 것, 필드 · 태그 관점 · 동의어 · 오타 허용 기능 검색. 전부 · 일부 · 조회만 설치. CLI 와 로컬 MCP 서버로 쓴다.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "황재명",
     "email": "woaudsla@gmail.com"

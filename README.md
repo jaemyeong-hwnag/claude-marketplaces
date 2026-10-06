@@ -1,6 +1,6 @@
 # claude-marketplaces
 
-Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름은 `plugin-marketplace` 다.
+Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름은 `jaemyeong-hwnag-plugins` 다.
 
 | 경로 | 성격 | 배포 | 반영 시점 |
 |---|---|---|---|
@@ -35,7 +35,7 @@ internal-plugins/plugin-workflow/scripts/eval-all.sh --quick . # 스킬 발동 �
 
 ```
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-/plugin install <이름>@plugin-marketplace
+/plugin install <이름>@jaemyeong-hwnag-plugins
 ```
 
 프로젝트에 고정하려면 `.claude/settings.json` 에 넣는다.
@@ -43,11 +43,11 @@ internal-plugins/plugin-workflow/scripts/eval-all.sh --quick . # 스킬 발동 �
 ```json
 {
   "extraKnownMarketplaces": {
-    "plugin-marketplace": {
+    "jaemyeong-hwnag-plugins": {
       "source": { "source": "github", "repo": "jaemyeong-hwnag/claude-marketplaces" }
     }
   },
-  "enabledPlugins": { "<이름>@plugin-marketplace": true }
+  "enabledPlugins": { "<이름>@jaemyeong-hwnag-plugins": true }
 }
 ```
 

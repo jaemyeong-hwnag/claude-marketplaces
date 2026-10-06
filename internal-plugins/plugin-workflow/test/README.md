@@ -62,7 +62,7 @@ test/workflow-scripts.test.sh TC-W12    # ID 접두사로 필터
 
 | ID | 케이스 | 입력 | 기대 |
 |---|---|---|---|
-| TC-WM05 | 의존성이 같이 설치된다 | main 에서 세션 시작 → `claude plugin list` | `github-workflow@plugin-marketplace` 가 enabled, `Error:` 없음 |
+| TC-WM05 | 의존성이 같이 설치된다 | main 에서 세션 시작 → `claude plugin list` | `github-workflow@jaemyeong-hwnag-plugins` 가 enabled, `Error:` 없음 |
 | TC-WM06 | 스킬이 등록된다 | `/skills` | `release-create` · `plugin-create` · `plugin-delete` |
 
 ## 변이 테스트

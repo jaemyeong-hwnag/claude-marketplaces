@@ -8,7 +8,7 @@ Node.js · Express 앱의 부하 측정을 준비한다 — prom-client 지연 �
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-/plugin install node-express-stress-test@plugin-marketplace
+/plugin install node-express-stress-test@jaemyeong-hwnag-plugins
 ```
 
 ## 의존성

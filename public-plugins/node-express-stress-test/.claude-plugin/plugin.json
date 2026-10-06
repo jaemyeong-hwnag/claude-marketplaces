@@ -1,7 +1,7 @@
 {
   "name": "node-express-stress-test",
   "description": "Node.js · Express 앱의 부하 측정을 준비한다 — prom-client 지연 히스토그램 · in-flight 게이지 계측, 측정을 무효로 만드는 설정(NODE_ENV · nodemon · --watch · 프로파일러 · DEBUG · view cache) 탐지, cluster 워커 · UV_THREADPOOL_SIZE · keep-alive 손잡이, tinybench · mitata 마이크로벤치마크. 부하 도구 실행 전에 훅이 경고한다.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "황재명",
     "email": "woaudsla@gmail.com"

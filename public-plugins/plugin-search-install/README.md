@@ -18,7 +18,7 @@ install   고른 것 설치                전부 · 번호/이름 일부 · 제
 
 ```bash
 claude plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-claude plugin install plugin-search-install@plugin-marketplace --scope project
+claude plugin install plugin-search-install@jaemyeong-hwnag-plugins --scope project
 ```
 
 필요한 것: `bash` (3.2 이상), `jq` (1.6 이상), `find` · `grep` · `awk`. `claude` CLI 가 없으면 `~/.claude/plugins/` 의 기록 파일을 읽는다 (설치는 CLI 가 있어야 한다).
@@ -51,7 +51,7 @@ claude plugin install plugin-search-install@plugin-marketplace --scope project
 플러그인 없이 붙이려면 (마켓 이름을 지정한다):
 
 ```bash
-claude mcp add plugin-search -e PLUGIN_SEARCH_MARKETPLACE=plugin-marketplace -- <경로>/scripts/plugin-search-mcp.sh
+claude mcp add plugin-search -e PLUGIN_SEARCH_MARKETPLACE=jaemyeong-hwnag-plugins -- <경로>/scripts/plugin-search-mcp.sh
 ```
 
 ## 주의

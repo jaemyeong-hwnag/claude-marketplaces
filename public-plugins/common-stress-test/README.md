@@ -8,7 +8,7 @@
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-/plugin install common-stress-test@plugin-marketplace
+/plugin install common-stress-test@jaemyeong-hwnag-plugins
 ```
 
 ## 의존성

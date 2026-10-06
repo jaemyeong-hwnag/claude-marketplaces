@@ -8,7 +8,7 @@ NestJS 서버 부하 측정을 준비한다 — prom-client 지연 히스토그�
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-/plugin install typescript-nestjs-stress-test@plugin-marketplace
+/plugin install typescript-nestjs-stress-test@jaemyeong-hwnag-plugins
 ```
 
 ## 의존성

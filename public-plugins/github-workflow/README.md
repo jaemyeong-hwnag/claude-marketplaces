@@ -8,7 +8,7 @@ GitHub 저장소의 변경이 **이슈에서 머지까지 가는 경로**를 강
 
 ```bash
 claude plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-claude plugin install github-workflow@plugin-marketplace --scope project
+claude plugin install github-workflow@jaemyeong-hwnag-plugins --scope project
 ```
 
 설치한 뒤 템플릿 · 라벨이 없으면 "이슈 · PR 템플릿 준비해줘" 로 `github-template-create` 를 부른다.

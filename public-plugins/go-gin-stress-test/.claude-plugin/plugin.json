@@ -1,7 +1,7 @@
 {
   "name": "go-gin-stress-test",
   "description": "Go · Gin 서버를 부하 측정할 때 프레임워크 몫을 맡는다 — Prometheus 지연 히스토그램 · in-flight · 런타임 계측, 측정을 무효로 만드는 설정(debug 모드 · -race 빌드 · pprof 공개 · GOMAXPROCS 고정) 탐지, GOMAXPROCS · GOMEMLIMIT · 서버 타임아웃 · DB 풀 손잡이 점검, go test -bench · benchstat 마이크로벤치마크.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "황재명",
     "email": "woaudsla@gmail.com"

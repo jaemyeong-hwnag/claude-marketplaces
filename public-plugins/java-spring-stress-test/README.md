@@ -8,7 +8,7 @@ Java · Spring Boot 3.x 서버를 부하 측정할 때 프레임워크 몫을 �
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-/plugin install java-spring-stress-test@plugin-marketplace
+/plugin install java-spring-stress-test@jaemyeong-hwnag-plugins
 ```
 
 ## 의존성

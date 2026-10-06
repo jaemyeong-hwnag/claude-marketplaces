@@ -6,8 +6,8 @@ plugin-search-install 의 조회 결과를 터미널에서 보고 골라 설치�
 검색 테스트 커버리지  3개
 ──────────────────────────────────────────────────────────────────────────────
 #   이름                         마켓                  설명
-1   java-spring-aitest-coverage  plugin-marketplace    Java · Spring Boot(Gr⋯
-2 ✓ project-completeness         plugin-marketplace    프로젝트가 서비스로서 ⋯
+1   java-spring-aitest-coverage  jaemyeong-hwnag-plugins    Java · Spring Boot(Gr⋯
+2 ✓ project-completeness         jaemyeong-hwnag-plugins    프로젝트가 서비스로서 ⋯
 
 ❯ [x]   java-spring-aitest-coverage  Java · Spring Boot(Gradle) 프로젝트에서 ⋯
   [ ] ✓ project-completeness         프로젝트가 서비스로서 갖출 것을 갖췄는지 재⋯
@@ -20,7 +20,7 @@ plugin-search-install 의 조회 결과를 터미널에서 보고 골라 설치�
 
 ```bash
 claude plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-claude plugin install plugin-browser@plugin-marketplace --scope user
+claude plugin install plugin-browser@jaemyeong-hwnag-plugins --scope user
 ```
 
 `plugin-search-install` 은 의존성으로 같이 설치된다. 필요한 것: `bash` (3.2 이상), `jq` (1.6 이상), `stty`.

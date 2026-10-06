@@ -54,7 +54,7 @@ find_engine() {
   [ -n "$v" ] && [ -x "$c" ] && { echo "$c"; return 0; }
   c="$(claude plugin list --json 2>/dev/null | jq -r '[.[] | select(.id | startswith("plugin-search-install@")) | .installPath][0] // empty' 2>/dev/null)"
   [ -n "$c" ] && [ -x "$c/scripts/plugin-search-install.sh" ] && { echo "$c/scripts/plugin-search-install.sh"; return 0; }
-  die "plugin-search-install 을 찾지 못했습니다 — claude plugin install plugin-search-install@plugin-marketplace 또는 PLUGIN_SEARCH_INSTALL=<경로>"
+  die "plugin-search-install 을 찾지 못했습니다 — claude plugin install plugin-search-install@jaemyeong-hwnag-plugins 또는 PLUGIN_SEARCH_INSTALL=<경로>"
 }
 
 # ---- 옵션 --------------------------------------------------------------------

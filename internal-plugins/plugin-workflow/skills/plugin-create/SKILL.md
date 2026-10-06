@@ -60,9 +60,9 @@ jq -r '.plugins[] | "\(.name)\t\(.description)"' .claude-plugin/marketplace.json
 
 ```bash
 .claude/hooks/sync-internal-plugins.sh                                    # internal
-claude plugin install <이름>@plugin-marketplace --scope project           # public — 훅이 설치하지 않는다 (internal 의 의존성이면 같이 설치된다)
-claude plugin list | grep -A3 '<이름>@plugin-marketplace'
-claude plugin details <이름>@plugin-marketplace    # Hooks (N) 이 hooks.json 이벤트 수와 같은가
+claude plugin install <이름>@jaemyeong-hwnag-plugins --scope project           # public — 훅이 설치하지 않는다 (internal 의 의존성이면 같이 설치된다)
+claude plugin list | grep -A3 '<이름>@jaemyeong-hwnag-plugins'
+claude plugin details <이름>@jaemyeong-hwnag-plugins    # Hooks (N) 이 hooks.json 이벤트 수와 같은가
 ```
 
 `Error:` 가 있으면 끝난 것이 아니다. 정적 검증을 모두 통과하고도 훅이 죽어 있던 적이 있다 (`"hooks": "./hooks/hooks.json"` — 구조 규칙 `P-09`).

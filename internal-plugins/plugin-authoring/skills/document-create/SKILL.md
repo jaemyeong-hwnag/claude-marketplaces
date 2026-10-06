@@ -71,7 +71,7 @@ description: {무엇을 하는가 한 문장}. {~할 때 사용한다}. 트리�
 **표는 실제 구성요소와 같아야 한다** (`A-24` ~ `A-27`). 스킬 · 커맨드 · 에이전트 · 훅 이벤트 · 의존성을 추가하거나 지웠으면 README 표도 같이 고친다.
 저장하면 `PostToolUse` 훅이 어긋난 것을 알려 준다.
 
-설치 절 — internal 은 "SessionStart 훅이 설치한다", public 은 `/plugin install {name}@plugin-marketplace` (`A-28`).
+설치 절 — internal 은 "SessionStart 훅이 설치한다", public 은 `/plugin install {name}@jaemyeong-hwnag-plugins` (`A-28`).
 
 ## 5. 검증
 

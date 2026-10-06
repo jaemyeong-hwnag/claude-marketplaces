@@ -1,7 +1,7 @@
 {
   "name": "python-fastapi-stress-test",
   "description": "FastAPI 서버 부하 측정을 준비한다 — 지연 히스토그램 · in-flight 게이지 계측(멀티 워커면 prometheus 멀티프로세스 모드), 개발 서버 · 리로드 · debug 같은 무효 설정 탐지, 워커 · 스레드 토큰 · DB 풀 손잡이, pyperf 마이크로벤치마크.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "황재명",
     "email": "woaudsla@gmail.com"

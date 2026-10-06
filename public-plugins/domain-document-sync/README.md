@@ -17,7 +17,7 @@ docs/domain/
 
 ```bash
 claude plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-claude plugin install domain-document-sync@plugin-marketplace --scope project
+claude plugin install domain-document-sync@jaemyeong-hwnag-plugins --scope project
 ```
 
 설치한 뒤 문서가 없으면 "도메인 문서 만들어줘" 로 `domain-document-create` 를 부른다. 문서 루트가 없는 동안 훅은 아무것도 하지 않는다.
