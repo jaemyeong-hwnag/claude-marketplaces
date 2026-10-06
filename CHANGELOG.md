@@ -3,9 +3,11 @@
 ## 미출시
 
 ### Changed
+- `.gitignore` 에 로컬 IDE · MCP 설정(`.mcp.json` · `.idea/`)을 더했다 (#46)
 - 마켓플레이스 이름을 `plugin-marketplace` 에서 `jaemyeong-hwnag-plugins` 로 바꿨다 — 흔한 이름이라 다른 마켓과 겹쳤다. 설치 id 가 `<플러그인>@jaemyeong-hwnag-plugins` 로 바뀐다 (#44)
 
 ### Added
+- MIT 라이선스 (`LICENSE`) (#46)
 - 스트레스 테스트 public 플러그인 일곱 — `common-stress-test`(운영 호스트 부하 차단 `ST-01`, open 모델 · thresholds · p99 점검, 단계 결과로 지속 가능 용량 · Kneedle knee · USL · Little 정합성, Mann-Whitney U · Cliff's delta 회귀 판정, local · Docker · k8s 템플릿)와 이에 의존하는 `java-spring` · `python-fastapi` · `python-django` · `node-express` · `typescript-nestjs` · `go-gin` `-stress-test`(서버 계측 · 무효 설정 탐지 · 손잡이 · 마이크로벤치마크). 근거 문헌과 Docker 실측으로 확인한 것만 담았다 (#33)
 - `domain-document-sync` public 플러그인 — 도메인 지식 문서를 3계층(`_index` → `_meta` → concept)으로 두고 코드와 맞춰 둔다. 도메인 ↔ 코드 매핑을 `_meta.md` 프런트매터 `code:` 글롭으로 해 언어 · 프레임워크를 가정하지 않는다. 도메인 문서를 코드와 맞춰 두는 플러그인이다 (#14)
 - 언어별 코드 네이밍 public 플러그인 여섯 — `java-naming` · `kotlin-naming` · `typescript-naming` · `node-naming` · `python-naming` · `go-naming`. 각 언어 공식 가이드가 분명히 정한 모양만 `PreToolUse(Write|Edit)` 로 막고(편집 전과 비교해 새로 생긴 위반만), 갈리는 관례는 경고, 단어 선택은 `{언어}-name-create` 스킬이 판단한다 (#13)
