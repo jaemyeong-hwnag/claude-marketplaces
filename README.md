@@ -136,3 +136,7 @@ internal-plugins/plugin-versioning/test/validate-versioning.test.sh
 5. `verify-all.sh` 로 전부 돌린다.
 
 > 마켓플레이스 이름은 `claude` 로 시작할 수 없다. 공식 마켓플레이스 사칭으로 거부된다.
+
+## 라이선스
+
+[MIT](LICENSE)
