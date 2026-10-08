@@ -3,6 +3,7 @@
 ## 미출시
 
 ### Changed
+- README 를 사용자 안내 중심으로 — 처음 시작하기 · 플러그인 찾기 · 필요한 플러그인 자동 설치 · 업데이트 · 문제 해결, 수록 플러그인 표에 public 19개 전부 (#48)
 - `.gitignore` 에 로컬 IDE · MCP 설정(`.mcp.json` · `.idea/`)을 더했다 (#46)
 - 마켓플레이스 이름을 `plugin-marketplace` 에서 `jaemyeong-hwnag-plugins` 로 바꿨다 — 흔한 이름이라 다른 마켓과 겹쳤다. 설치 id 가 `<플러그인>@jaemyeong-hwnag-plugins` 로 바뀐다 (#44)
 
