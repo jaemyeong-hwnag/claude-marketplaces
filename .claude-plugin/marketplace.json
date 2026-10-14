@@ -351,6 +351,16 @@
         "lint",
         "hooks"
       ]
+    },
+    {
+      "name": "git-secret-validate",
+      "source": "./public-plugins/git-secret-validate",
+      "category": "public",
+      "description": "Git 에 키 · 토큰 · 비밀번호가 들어가는 것을 막는다 — git commit · push 전에 실릴 변경의 시크릿과 민감 파일(.env · 키 파일) 차단, 파일 작성 시 ignore 안 된 파일의 새 시크릿 · 민감 파일 경고. 탐지는 gitleaks, 없으면 내장 패턴.",
+      "tags": [
+        "security",
+        "git"
+      ]
     }
   ]
 }
