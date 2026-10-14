@@ -42,10 +42,17 @@ def globs_match($globs):
 
 read_input() { INPUT="$(cat 2>/dev/null || true)"; }
 input_get() { printf '%s' "$INPUT" | jq -r "$1 // empty" 2>/dev/null || true; }
+# 상태는 프로젝트 안에 둔다 — Bash 샌드박스 안의 Claude 가 면제 파일에 쓸 수 있어야 한다
+STATE_REL=".claude/code-edit-guardrail"
+STATE_DIR="${CODE_EDIT_GUARDRAIL_STATE_DIR:-$ROOT/$STATE_REL}"
 state_paths() {
   local sid; sid="$(input_get .session_id)"; sid="$(printf '%s' "${sid:-nosession}" | tr -c 'A-Za-z0-9_.-' '_')"
-  EDITS="${TMPDIR:-/tmp}/code-edit-guardrail-$sid.edits"
-  ACK="${TMPDIR:-/tmp}/code-edit-guardrail-$sid.ack"
+  EDITS="$STATE_DIR/$sid.edits"
+  ACK="$STATE_DIR/$sid.ack"
+}
+state_init() { # 스스로 ignore 해서 git status 를 더럽히지 않는다
+  mkdir -p "$STATE_DIR" 2>/dev/null || return 1
+  [ -f "$STATE_DIR/.gitignore" ] || printf '*\n' > "$STATE_DIR/.gitignore"
 }
 config_ok() { [ -f "$CONFIG" ] && jq -e 'type == "object"' "$CONFIG" >/dev/null 2>&1; }
 
@@ -68,7 +75,9 @@ mode_track() {
   read_input; config_ok || exit 0
   state_paths
   local rel; rel="$(rel_path "$(input_get '.tool_input.file_path // .tool_input.notebook_path')")"
-  [ -n "$rel" ] && printf '%s\n' "$rel" >> "$EDITS"
+  [ -n "$rel" ] || return 0
+  case "$rel" in "$STATE_REL"/*) return 0 ;; esac
+  state_init && printf '%s\n' "$rel" >> "$EDITS"
   return 0
 }
 
@@ -110,7 +119,8 @@ mode_stop() {
 
   while IFS=$'\x1f' read -r name cmd; do
     [ -n "$name" ] || continue
-    out="$(cd "$ROOT" && bash -c "$cmd" 2>&1)"; rc=$?
+    # stdin 은 lane 목록(heredoc)이다 — 명령이 읽어 가면 뒤 lane 이 사라진다
+    out="$(cd "$ROOT" && bash -c "$cmd" 2>&1 </dev/null)"; rc=$?
     [ "$rc" = 0 ] && continue
     viol="${viol}- G-02 품질 lane '$name' 실패 (종료 코드 $rc): $cmd
 $(printf '%s\n' "$out" | tail -n 20 | sed 's/^/    /')

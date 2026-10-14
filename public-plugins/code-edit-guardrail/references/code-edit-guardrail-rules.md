@@ -48,12 +48,12 @@ Claude 가 코드를 고칠 때 넘지 말아야 할 선을 정한다. 기계 �
 
 ## 2. 게이트
 
-편집 기록은 PostToolUse 가 세션별 임시 파일(`$TMPDIR/code-edit-guardrail-<세션>.edits`)에 쌓고, UserPromptSubmit 가 비운다. 그래서 판정 단위는 **한 요청**이고 git 과 무관하다. Bash 로 바꾼 파일(코드 생성기 · `sed`)은 기록되지 않는다.
+편집 기록은 PostToolUse 가 프로젝트의 `.claude/code-edit-guardrail/<세션>.edits` 에 쌓고, UserPromptSubmit 가 비운다. 그래서 판정 단위는 **한 요청**이고 git 과 무관하다. Bash 로 바꾼 파일(코드 생성기 · `sed`)은 기록되지 않는다.
 
 | 조항 | 시점 | 내용 | 판정 |
 |---|---|---|---|
 | `G-01` | Stop | 이번 요청에서 `test.code` 파일을 고쳤는데 `test.tests` 파일을 하나도 안 고쳤다 | 차단 |
-| `G-02` | Stop | 이번 요청에서 고친 파일이 lane 의 `paths` 에 걸리면 그 lane 의 `command` 를 루트에서 돌린다. 0 이 아니면 출력 끝 20줄과 함께 | 차단 |
+| `G-02` | Stop | 이번 요청에서 고친 파일이 lane 의 `paths` 에 걸리면 그 lane 의 `command` 를 루트에서 stdin 없이 돌린다. 0 이 아니면 출력 끝 20줄과 함께 | 차단 |
 | `G-03` | PreToolUse (`Edit` · `Write` · `MultiEdit`) | 고칠 파일이 `shared.paths` 에 걸리거나 새 내용이 `shared.content` 에 걸린다 | 사용자 확인 (`ask`) |
 
 - `G-01` · `G-02` 가 한 번 막은 뒤 다시 멈출 때(`stop_hook_active`)는 경고만 하고 완료를 허용한다 — 무한 반복을 막는다
@@ -66,8 +66,10 @@ Claude 가 코드를 고칠 때 넘지 말아야 할 선을 정한다. 기계 �
 동작이 그대로인 변경(리팩터 · 포맷 · 주석 · 이름만 바꿈)은 사용자에게 알린 뒤 면제한다. 차단 메시지에 나온 파일에 사유를 남긴다.
 
 ```bash
-echo 'test: 포맷만 바꿈' >> "$TMPDIR/code-edit-guardrail-<세션>.ack"
+echo 'test: 포맷만 바꿈' >> ".claude/code-edit-guardrail/<세션>.ack"
 ```
+
+상태 디렉터리는 프로젝트 안이라 Bash 샌드박스에서도 쓸 수 있고, 스스로 만든 `.gitignore` 로 git status 에 나오지 않는다. 경로는 `CODE_EDIT_GUARDRAIL_STATE_DIR` 로 바꿀 수 있다.
 
 사유가 빈 `test:` 는 면제가 아니다. 면제는 그 요청에만 유효하다. `G-02` 는 면제가 없다 — 명령을 고치거나 lane 을 고친다.
 

@@ -47,6 +47,7 @@ claude plugin install code-edit-guardrail@jaemyeong-hwnag-plugins --scope projec
 - 판정 단위는 한 요청이다. Claude 의 편집 도구로 바꾼 파일만 본다 — Bash 로 바꾼 파일(코드 생성기 · `sed`)은 보지 않는다. git 과 무관하다
 - `G-01` 은 "테스트 파일을 하나라도 고쳤는가" 만 본다. 커버리지는 보지 않는다
 - 동작이 그대로인 변경은 사용자에게 알린 뒤 면제한다 — 차단 메시지에 면제 파일 경로가 나온다. 면제는 그 요청에만 유효하다
+- 편집 기록 · 면제 파일은 프로젝트의 `.claude/code-edit-guardrail/` 에 둔다. 스스로 ignore 하므로 커밋되지 않는다
 - 품질 lane 은 Stop 마다 돈다. 전체 빌드 · 테스트가 아니라 빠른 검사 명령을 쓴다 (시간 제한 600초)
 - 설정 경로는 환경 변수 `CODE_EDIT_GUARDRAIL_CONFIG` 로 바꿀 수 있다 (기본 `.claude/code-edit-guardrail.json`)
 - 시크릿 · 코드 ↔ 문서 동기는 다루지 않는다

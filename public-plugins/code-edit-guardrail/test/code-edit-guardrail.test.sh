@@ -36,10 +36,10 @@ expect_out() { [ "$TC_ON" = 1 ] || return 0; printf '%s' "$OUT" | grep -qF -- "$
 expect_not() { [ "$TC_ON" = 1 ] || return 0; printf '%s' "$OUT" | grep -qF -- "$1" && fail_tc "출력에 '$1' 가 있으면 안 됩니다"; return 0; }
 expect_no_out() { [ "$TC_ON" = 1 ] || return 0; [ -z "$OUT" ] || fail_tc "출력이 있으면 안 됩니다"; }
 
+# ID 로 거른 TC 도 인자를 펼치므로 make_repo 전에 값을 둔다
+REPO="$TMP/repo"; PROJECT=""; EDITS="$REPO/.claude/code-edit-guardrail/tc.edits"; ACK="$REPO/.claude/code-edit-guardrail/tc.ack"
 S='{"session_id":"tc"}'
 ACTIVE='{"session_id":"tc","stop_hook_active":true}'
-EDITS="$TMPDIR/code-edit-guardrail-tc.edits"
-ACK="$TMPDIR/code-edit-guardrail-tc.ack"
 edit() { # $1=루트 기준 경로 — PostToolUse 기록
   hook track "{\"session_id\":\"tc\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$REPO/$1\"}}"
 }
@@ -59,6 +59,7 @@ FULL='{
 }'
 make_repo() {
   REPO="$TMP/repo"; PROJECT=""; rm -rf "$REPO" "$TMPDIR"; mkdir -p "$TMPDIR" "$REPO/.claude"
+  EDITS="$REPO/.claude/code-edit-guardrail/tc.edits"; ACK="$REPO/.claude/code-edit-guardrail/tc.ack"
   cd "$REPO" || exit 1
   git init -q . && git config user.email tc@example.com && git config user.name tc
   mkdir -p src/main/kotlin/order src/main/kotlin/generated src/test/kotlin web/src db/migration api
@@ -106,6 +107,10 @@ edit src/main/kotlin/order/Order.kt; [ "$TC_ON" = 1 ] && echo 'test: x' > "$ACK"
 hook stop "$S"; expect_code 0; expect_no_out
 tc TC-A11 "편집이 없는 요청은 막지 않는다"
 hook stop "$S"; expect_code 0; expect_no_out
+tc TC-A13 "면제 파일은 프로젝트 안에 있고 git status 에 나오지 않는다"
+edit src/main/kotlin/order/Order.kt; hook stop "$S"; expect_out "$ACK"
+[ "$TC_ON" = 1 ] && git -C "$REPO" status --porcelain | grep -q 'code-edit-guardrail/' && fail_tc "상태 디렉터리가 git status 에 나온다"
+true
 tc TC-A12 "test 절이 없으면 G-01 을 보지 않는다"
 config '{"shared":{"paths":["db/migration/"]}}'; edit src/main/kotlin/order/Order.kt; hook stop "$S"
 expect_code 0; expect_no_out
@@ -135,6 +140,13 @@ tc TC-B06 "한 번 되돌린 뒤에는 lane 실패도 경고만 한다"
 [ "$TC_ON" = 1 ] && touch "$REPO/web.fail"
 edit web/src/cart.test.ts; hook stop "$ACTIVE"
 expect_code 0; expect_out "'web'"
+
+tc TC-B07 "lane 명령이 stdin 을 읽어도 뒤 lane 이 돈다"
+config '{"quality":[{"name":"reader","paths":["web/"],"command":"cat >/dev/null"},{"name":"after","paths":["web/"],"command":"touch after.ran"}]}'
+edit web/src/cart.ts; hook stop "$S"
+expect_code 0
+[ "$TC_ON" = 1 ] && [ ! -e "$REPO/after.ran" ] && fail_tc "뒤 lane 이 돌지 않았다"
+true
 
 section "C. 공유자원 (G-03)"
 tc TC-C01 "공유 디렉터리 아래 파일은 사용자 확인으로 돌린다"
@@ -177,6 +189,10 @@ expect_code 0; expect_no_out
 tc TC-D04 "설정이 깨져 있으면 훅은 조용히 통과한다"
 config '{ broken'; edit src/main/kotlin/order/Order.kt; hook stop "$S"
 expect_code 0; expect_no_out
+tc TC-D06 "상태 디렉터리(면제 파일)를 고친 것은 편집으로 기록하지 않는다"
+hook track "{\"session_id\":\"tc\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$REPO/.claude/code-edit-guardrail/tc.ack\"}}"
+[ "$TC_ON" = 1 ] && [ -s "$EDITS" ] && fail_tc "상태 파일이 기록됐다"
+true
 tc TC-D05 "CODE_EDIT_GUARDRAIL_CONFIG 로 설정 경로를 바꾼다"
 if [ "$TC_ON" = 1 ]; then mv "$REPO/.claude/code-edit-guardrail.json" "$REPO/guard.json"; export CODE_EDIT_GUARDRAIL_CONFIG=guard.json; fi
 edit src/main/kotlin/order/Order.kt; hook stop "$S"

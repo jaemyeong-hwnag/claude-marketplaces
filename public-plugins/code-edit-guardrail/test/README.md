@@ -11,7 +11,7 @@ test/code-edit-guardrail.test.sh TC-B     # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. 필요한 것: `git`, `jq`.
 
-## 자동 TC (44건)
+## 자동 TC (47건)
 
 픽스처는 **모든 절을 갖춘 설정**과 두 스택(루트 Kotlin `src/main` · `src/test` + `web/src` TypeScript), 생성 코드(`generated/`), 공유자원(`db/migration/` · `*.proto`)이 있는 저장소다. 품질 lane 명령은 표식 파일(`api.fail` · `web.fail`)이 있으면 실패하고, `web` lane 은 돌았다는 표식(`web.ran`)을 남긴다. TC 마다 한 곳만 바꾼다 — 절 하나를 빼는 TC(`A12` · `C07`)를 따로 둔다.
 
@@ -31,6 +31,7 @@ test/code-edit-guardrail.test.sh TC-B     # ID 접두사로 필터
 | TC-A10 | 새 요청(reset)이면 지난 편집 · 면제를 잊는다 |
 | TC-A11 | 편집이 없는 요청은 막지 않는다 |
 | TC-A12 | test 절이 없으면 G-01 을 보지 않는다 |
+| TC-A13 | 면제 파일은 프로젝트 안에 있고 git status 에 나오지 않는다 |
 
 ### B. 품질 lane (G-02)
 
@@ -42,6 +43,7 @@ test/code-edit-guardrail.test.sh TC-B     # ID 접두사로 필터
 | TC-B04 | lane 명령은 프로젝트 루트에서 돈다 |
 | TC-B05 | G-01 과 G-02 를 한 번에 알린다 |
 | TC-B06 | 한 번 되돌린 뒤에는 lane 실패도 경고만 한다 |
+| TC-B07 | lane 명령이 stdin 을 읽어도 뒤 lane 이 돈다 |
 
 ### C. 공유자원 (G-03)
 
@@ -64,6 +66,7 @@ test/code-edit-guardrail.test.sh TC-B     # ID 접두사로 필터
 | TC-D03 | 설정이 없으면 기록 · 판정을 하지 않는다 |
 | TC-D04 | 설정이 깨져 있으면 훅은 조용히 통과한다 |
 | TC-D05 | CODE_EDIT_GUARDRAIL_CONFIG 로 설정 경로를 바꾼다 |
+| TC-D06 | 상태 디렉터리(면제 파일)를 고친 것은 편집으로 기록하지 않는다 |
 
 ### E. 설정 검증 (validate)
 
