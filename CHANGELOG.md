@@ -8,6 +8,7 @@
 - 마켓플레이스 이름을 `plugin-marketplace` 에서 `jaemyeong-hwnag-plugins` 로 바꿨다 — 흔한 이름이라 다른 마켓과 겹쳤다. 설치 id 가 `<플러그인>@jaemyeong-hwnag-plugins` 로 바뀐다 (#44)
 
 ### Added
+- `git-secret-validate` public 플러그인 — `git commit` · `git push` 전에 실릴 변경의 시크릿(`GS-01`) · 민감 파일(`GS-02`)을 막고, 파일 작성 시 ignore 안 된 파일의 새 시크릿(`GS-03`) · 민감 파일(`GS-04`)을 경고한다. 탐지는 gitleaks, 없으면 내장 패턴(`GS-05`). 판단 · 조치는 `secret-review` 스킬 (#50)
 - `code-edit-guardrail` public 플러그인 — 프로젝트 설정 `.claude/code-edit-guardrail.json` 하나로 코드 편집의 선을 강제한다. 코드만 고치고 테스트를 안 고치면(`G-01`) · 고친 경로의 품질 lane 이 실패하면(`G-02`) 완료 차단, 공유자원 편집은 사용자 확인(`G-03`). 엔진은 플러그인 훅이 돌려 프로젝트에 스크립트를 복사하지 않는다 (#51)
 - MIT 라이선스 (`LICENSE`) (#46)
 - 스트레스 테스트 public 플러그인 일곱 — `common-stress-test`(운영 호스트 부하 차단 `ST-01`, open 모델 · thresholds · p99 점검, 단계 결과로 지속 가능 용량 · Kneedle knee · USL · Little 정합성, Mann-Whitney U · Cliff's delta 회귀 판정, local · Docker · k8s 템플릿)와 이에 의존하는 `java-spring` · `python-fastapi` · `python-django` · `node-express` · `typescript-nestjs` · `go-gin` `-stress-test`(서버 계측 · 무효 설정 탐지 · 손잡이 · 마이크로벤치마크). 근거 문헌과 Docker 실측으로 확인한 것만 담았다 (#33)
