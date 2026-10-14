@@ -143,6 +143,7 @@ PSI="$(claude plugin list --json | jq -r '[.[] | select(.id=="plugin-search-inst
 | | [`plugin-browser`](public-plugins/plugin-browser) | 위 결과를 터미널 화면(표 · 카드 · 화살표 선택)으로 |
 | 코드 네이밍 | [`java-naming`](public-plugins/java-naming) · [`kotlin-naming`](public-plugins/kotlin-naming) · [`typescript-naming`](public-plugins/typescript-naming) · [`node-naming`](public-plugins/node-naming) · [`python-naming`](public-plugins/python-naming) · [`go-naming`](public-plugins/go-naming) | 언어 공식 가이드가 정한 이름 모양을 훅으로 막고, 단어 선택은 스킬이 판단 |
 | 테스트 | [`java-spring-aitest-coverage`](public-plugins/java-spring-aitest-coverage) | Spring Boot 변경 메서드를 `@AiTest` 로 덮고 JaCoCo 100% 게이트 |
+| 코드 편집 가드레일 | [`code-edit-guardrail`](public-plugins/code-edit-guardrail) | 코드만 고치고 테스트를 안 고치면 · 고친 경로의 린트 · 포맷 검사가 실패하면 완료 차단, 공유자원 편집은 사용자 확인. 언어 무관 |
 | 부하 · 성능 | [`common-stress-test`](public-plugins/common-stress-test) | 부하 테스트를 정량으로 설계 · 판정 (운영 호스트 차단 · 지속 가능 용량 · 회귀 통계). 언어 무관 |
 | | [`java-spring`](public-plugins/java-spring-stress-test) · [`python-fastapi`](public-plugins/python-fastapi-stress-test) · [`python-django`](public-plugins/python-django-stress-test) · [`node-express`](public-plugins/node-express-stress-test) · [`typescript-nestjs`](public-plugins/typescript-nestjs-stress-test) · [`go-gin`](public-plugins/go-gin-stress-test) `-stress-test` | 프레임워크별 서버 계측 · 측정을 무효로 만드는 설정 탐지 · 마이크로벤치마크 |
 | 프로젝트 품질 | [`project-completeness`](public-plugins/project-completeness) | 서비스로서 갖출 것을 갖췄는지 진단 · 적용 · 운영 지표 판정 |

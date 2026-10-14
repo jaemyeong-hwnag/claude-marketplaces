@@ -1,0 +1,51 @@
+{
+  "description": "요청마다 편집 기록 초기화 · 공유자원 편집 확인 · 편집 기록 · 작업 완료 시 테스트 동반과 품질 lane 게이트",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/code-edit-guardrail.sh\" reset",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/code-edit-guardrail.sh\" shared",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/code-edit-guardrail.sh\" track",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/code-edit-guardrail.sh\" stop",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}
