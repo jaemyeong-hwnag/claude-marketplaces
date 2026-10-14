@@ -1,0 +1,16 @@
+{
+  "name": "code-edit-guardrail",
+  "description": "Claude 가 코드를 고칠 때 넘지 말아야 할 선을 프로젝트 설정 하나로 강제한다 — 언어 무관. 코드를 고치고 테스트를 안 고치면 완료 차단, 고친 경로의 린트 · 포맷 · 타입 검사 명령 실패 시 완료 차단, 공유자원 편집은 사용자 확인.",
+  "version": "0.1.0",
+  "author": {
+    "name": "황재명",
+    "email": "woaudsla@gmail.com"
+  },
+  "homepage": "https://github.com/jaemyeong-hwnag/claude-marketplaces",
+  "keywords": [
+    "guardrail",
+    "test",
+    "lint",
+    "hooks"
+  ]
+}
