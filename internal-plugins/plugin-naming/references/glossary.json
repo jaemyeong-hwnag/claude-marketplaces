@@ -298,6 +298,14 @@
       "meaning": "다른 것에 기대는 관계"
     },
     {
+      "use": "guardrail",
+      "deny": [
+        "guard",
+        "safeguard"
+      ],
+      "meaning": "작업이 넘지 말아야 할 선을 정해 두고 넘으면 막는 장치"
+    },
+    {
       "use": "naming",
       "deny": [
         "nameing",
