@@ -100,7 +100,7 @@ edit src/main/kotlin/order/Order.kt; [ "$TC_ON" = 1 ] && echo 'test:  ' > "$ACK"
 expect_code 2; expect_out "G-01"
 tc TC-A09 "한 번 되돌린 뒤(stop_hook_active)에는 경고만 한다"
 edit src/main/kotlin/order/Order.kt; hook stop "$ACTIVE"
-expect_code 0; expect_out "⚠️"; expect_out "G-01"
+expect_code 0; expect_out '"systemMessage"'; expect_out "⚠️"; expect_out "G-01"
 tc TC-A10 "새 요청(reset)이면 지난 편집 · 면제를 잊는다"
 edit src/main/kotlin/order/Order.kt; [ "$TC_ON" = 1 ] && echo 'test: x' > "$ACK"; hook reset "$S"
 [ "$TC_ON" = 1 ] && { [ -e "$EDITS" ] || [ -e "$ACK" ]; } && fail_tc "기록 · 면제가 남았다"
@@ -139,7 +139,7 @@ expect_code 2; expect_out "G-01"; expect_out "'web'"
 tc TC-B06 "한 번 되돌린 뒤에는 lane 실패도 경고만 한다"
 [ "$TC_ON" = 1 ] && touch "$REPO/web.fail"
 edit web/src/cart.test.ts; hook stop "$ACTIVE"
-expect_code 0; expect_out "'web'"
+expect_code 0; expect_out '"systemMessage"'; expect_out "'web'"
 
 tc TC-B07 "lane 명령이 stdin 을 읽어도 뒤 lane 이 돈다"
 config '{"quality":[{"name":"reader","paths":["web/"],"command":"cat >/dev/null"},{"name":"after","paths":["web/"],"command":"touch after.ran"}]}'
@@ -147,6 +147,10 @@ edit web/src/cart.ts; hook stop "$S"
 expect_code 0
 [ "$TC_ON" = 1 ] && [ ! -e "$REPO/after.ran" ] && fail_tc "뒤 lane 이 돌지 않았다"
 true
+tc TC-B08 "여러 줄 command 는 끝까지 돈다"
+config '{"quality":[{"name":"multi","paths":["web/"],"command":"true\nexit 3"}]}'
+edit web/src/cart.ts; hook stop "$S"
+expect_code 2; expect_out "종료 코드 3"
 
 section "C. 공유자원 (G-03)"
 tc TC-C01 "공유 디렉터리 아래 파일은 사용자 확인으로 돌린다"
@@ -193,6 +197,13 @@ tc TC-D06 "상태 디렉터리(면제 파일)를 고친 것은 편집으로 기�
 hook track "{\"session_id\":\"tc\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$REPO/.claude/code-edit-guardrail/tc.ack\"}}"
 [ "$TC_ON" = 1 ] && [ -s "$EDITS" ] && fail_tc "상태 파일이 기록됐다"
 true
+tc TC-D07 "들어갈 수 없는 프로젝트면 훅은 막지 않고 validate 만 실패한다"
+if [ "$TC_ON" = 1 ]; then
+  for m in reset track shared stop; do
+    OUT="$(printf '%s' "$S" | CLAUDE_PROJECT_DIR="$TMP/nope" "$SCRIPT" "$m" 2>&1)"; CODE=$?; expect_code 0; expect_no_out
+  done
+  OUT="$("$SCRIPT" validate "$TMP/nope" 2>&1)"; CODE=$?; expect_code 2
+fi
 tc TC-D05 "CODE_EDIT_GUARDRAIL_CONFIG 로 설정 경로를 바꾼다"
 if [ "$TC_ON" = 1 ]; then mv "$REPO/.claude/code-edit-guardrail.json" "$REPO/guard.json"; export CODE_EDIT_GUARDRAIL_CONFIG=guard.json; fi
 edit src/main/kotlin/order/Order.kt; hook stop "$S"

@@ -15,7 +15,8 @@ MODE="${1:-}"
 command -v jq >/dev/null 2>&1 || { [ "$MODE" = validate ] && { echo "❌ jq 가 필요하다" >&2; exit 2; }; exit 0; }
 
 if [ "$MODE" = validate ] && [ -n "${2:-}" ]; then ROOT_IN="$2"; else ROOT_IN="${CLAUDE_PROJECT_DIR:-$(pwd)}"; fi
-ROOT="$(cd "$ROOT_IN" 2>/dev/null && pwd -P)" || { echo "❌ $ROOT_IN 에 들어갈 수 없다" >&2; exit 2; }
+# 훅 모드에서 exit 2 는 프롬프트 · 편집을 막는다 — 들어갈 수 없는 프로젝트는 fail-open
+ROOT="$(cd "$ROOT_IN" 2>/dev/null && pwd -P)" || { [ "$MODE" = validate ] || exit 0; echo "❌ $ROOT_IN 에 들어갈 수 없다" >&2; exit 2; }
 CONFIG="${CODE_EDIT_GUARDRAIL_CONFIG:-.claude/code-edit-guardrail.json}"
 case "$CONFIG" in /*) ;; *) CONFIG="$ROOT/$CONFIG" ;; esac
 
@@ -117,22 +118,26 @@ mode_stop() {
     fi
   fi
 
-  while IFS=$'\x1f' read -r name cmd; do
-    [ -n "$name" ] || continue
-    # stdin 은 lane 목록(heredoc)이다 — 명령이 읽어 가면 뒤 lane 이 사라진다
+  # 줄 단위로 읽지 않는다 — 여러 줄 command 가 첫 줄만 돌게 된다
+  local lanes n i=0
+  lanes="$(jq -c --argjson files "$files" "$JQ_LIB"'
+    [(.quality // [])[] | . as $l | select(any($files[]; globs_match($l.paths))) | {name, command}]' "$CONFIG" 2>/dev/null)"
+  n="$(printf '%s' "${lanes:-[]}" | jq 'length' 2>/dev/null || echo 0)"
+  while [ "$i" -lt "${n:-0}" ]; do
+    name="$(printf '%s' "$lanes" | jq -r ".[$i].name")"; cmd="$(printf '%s' "$lanes" | jq -r ".[$i].command")"; i=$((i+1))
+    # lane 이 입력을 기다리며 멈추지 않게
     out="$(cd "$ROOT" && bash -c "$cmd" 2>&1 </dev/null)"; rc=$?
     [ "$rc" = 0 ] && continue
     viol="${viol}- G-02 품질 lane '$name' 실패 (종료 코드 $rc): $cmd
 $(printf '%s\n' "$out" | tail -n 20 | sed 's/^/    /')
 "
-  done <<EOF
-$(jq -r --argjson files "$files" "$JQ_LIB"'
-  (.quality // [])[] | . as $l | select(any($files[]; globs_match($l.paths))) | "\($l.name)\u001f\($l.command)"' "$CONFIG" 2>/dev/null)
-EOF
+  done
 
   [ -n "$viol" ] || exit 0
   if [ "$active" = true ]; then
-    { echo "⚠️ code-edit-guardrail — 완료 조건이 남았지만 한 번 되돌렸으므로 완료를 허용한다. 사용자에게 알린다:"; printf '%s' "$viol"; } >&2
+    # exit 0 의 stderr 는 아무도 못 본다 — systemMessage 로 사용자에게 보인다
+    jq -n --arg m "⚠️ code-edit-guardrail — 완료 조건이 남았지만 한 번 되돌렸으므로 완료를 허용했다:
+$viol" '{systemMessage: $m}'
     exit 0
   fi
   { echo "❌ code-edit-guardrail — 완료 보류"; printf '%s' "$viol"; } >&2

@@ -56,7 +56,7 @@ Claude 가 코드를 고칠 때 넘지 말아야 할 선을 정한다. 기계 �
 | `G-02` | Stop | 이번 요청에서 고친 파일이 lane 의 `paths` 에 걸리면 그 lane 의 `command` 를 루트에서 stdin 없이 돌린다. 0 이 아니면 출력 끝 20줄과 함께 | 차단 |
 | `G-03` | PreToolUse (`Edit` · `Write` · `MultiEdit`) | 고칠 파일이 `shared.paths` 에 걸리거나 새 내용이 `shared.content` 에 걸린다 | 사용자 확인 (`ask`) |
 
-- `G-01` · `G-02` 가 한 번 막은 뒤 다시 멈출 때(`stop_hook_active`)는 경고만 하고 완료를 허용한다 — 무한 반복을 막는다
+- `G-01` · `G-02` 가 한 번 막은 뒤 다시 멈출 때(`stop_hook_active`)는 사용자에게 경고(`systemMessage`)만 하고 완료를 허용한다 — 무한 반복을 막는다
 - `G-02` 는 경로가 안 걸린 lane 을 돌리지 않는다. 다른 스택만 고친 요청은 비용 0 이다
 - `G-02` 명령은 Stop 훅 시간 제한(600초) 안에 끝나야 한다. 전체 빌드 대신 바뀐 파일만 보는 명령을 쓴다
 - `G-03` 의 `Edit` 내용 검사는 `new_string` 만 본다. 파일 전체가 아니다

@@ -40,7 +40,7 @@ claude plugin install code-edit-guardrail@jaemyeong-hwnag-plugins --scope projec
 | code-edit-guardrail.sh reset | UserPromptSubmit | 이번 요청의 편집 기록 · 면제를 비운다 |
 | code-edit-guardrail.sh shared | PreToolUse (Edit\|Write\|MultiEdit) | 공유자원 경로 · 내용 패턴에 걸리면 **사용자 확인** (`G-03`) |
 | code-edit-guardrail.sh track | PostToolUse (Edit\|Write\|MultiEdit\|NotebookEdit) | 고친 파일을 기록한다 |
-| code-edit-guardrail.sh stop | Stop | 코드만 고치고 테스트를 안 고쳤으면 (`G-01`), 고친 경로의 품질 lane 이 실패하면 (`G-02`) 완료를 **차단**. 한 번 되돌린 뒤에는 경고만 |
+| code-edit-guardrail.sh stop | Stop | 코드만 고치고 테스트를 안 고쳤으면 (`G-01`), 고친 경로의 품질 lane 이 실패하면 (`G-02`) 완료를 **차단**. 한 번 되돌린 뒤에는 사용자에게 경고(`systemMessage`)만 |
 
 ## 주의
 
