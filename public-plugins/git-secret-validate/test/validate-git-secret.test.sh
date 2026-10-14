@@ -122,7 +122,7 @@ tc TC-S13 "--history 는 나중에 지운 시크릿 · 민감 파일도 찾는�
 r="$(repo)"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/old.py"; printf 'X=1\n' > "$r/.env"
 git -C "$r" add old.py .env && git -C "$r" commit -qm add && git -C "$r" rm -q old.py .env && git -C "$r" commit -qm rm
 run --all "$r"; expect_code 0
-run --history "$r"; expect_code 2; expect_out "[GS-01] old.py"; expect_out "[GS-02] .env"
+run --history "$r"; expect_code 2; expect_out "[GS-01] old.py"; expect_out "[GS-02] .env — 민감 파일이 커밋 이력에 있다"; expect_not "커밋에 들어간다"
 
 tc TC-S14 "바이너리 파일은 보지 않는다"
 r="$(repo)"; printf 'key=%s\000\001\002' "$AWS_KEY" > "$r/blob.bin"
@@ -137,6 +137,12 @@ tc TC-S16 "하위 디렉터리를 루트로 주면 그 아래만 본다"
 r="$(repo)"; mkdir -p "$r/svc" "$r/other"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/other/k.py"; printf 'x = 1\n' > "$r/svc/a.py"
 run --all "$r/svc"; expect_code 0
 run --all "$r/other"; expect_code 2; expect_out "other/k.py"
+
+tc TC-S17 "파일 인자도 .git-secret-allow 를 따른다"
+r="$(repo)"; mkdir -p "$r/fixtures"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/fixtures/k.py"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/c.py"
+printf 'fixtures\n' > "$r/.git-secret-allow"
+run "$r/fixtures/k.py"; expect_code 0
+run "$r/c.py"; expect_code 2; expect_out "c.py"
 
 # --- B. 훅 — Bash ------------------------------------------------------------
 tc TC-S30 "스테이징된 시크릿이 있으면 git commit 을 막는다 (GS-01)"
@@ -204,6 +210,17 @@ run_stdin ""; expect_code 0; expect_no_out
 r="$(repo)"; printf 'X=1\n' > "$r/.env"; git -C "$r" add .env
 run_stdin "$(payload_bash "$r" 'git commit -m x' | jq '.hook_event_name = "PostToolUse"')"; expect_code 0; expect_no_out
 
+tc TC-S43 "git 과 commit 사이의 전역 옵션(--no-pager · -c)이 있어도 -a 를 본다"
+r="$(repo)"; printf 'key = "%s"\n' "$AWS_KEY" >> "$r/app.py"
+for c in 'git --no-pager commit -am x' 'git -c core.pager=cat commit -am x' 'git --no-pager -C . commit --all -m x'; do
+  run_stdin "$(payload_bash "$r" "$c")"; expect_code 2; expect_out "[GS-01] app.py"
+done
+
+tc TC-S44 "git 이 없는 Bash 명령은 jq · 임시 디렉터리 전에 끝난다"
+OUT="$(payload_bash "$TMP" 'ls -la && make build' | TMPDIR=/nonexistent "$SCRIPT" 2>&1)"; CODE=$?; expect_code 0; expect_no_out
+# 대조 — git 명령은 임시 디렉터리를 만들려다 실패한다
+OUT="$(payload_bash "$TMP" 'git commit -m x' | TMPDIR=/nonexistent "$SCRIPT" 2>&1)"; CODE=$?; expect_code 1
+
 # --- C. 훅 — Write · Edit ---------------------------------------------------
 tc TC-S50 "ignore 안 된 파일에 시크릿을 쓰면 경고하고 통과한다 (GS-03)"
 r="$(repo)"; run_stdin "$(payload_write "$r/config.py" "key = \"$AWS_KEY\"\n")"
@@ -259,8 +276,18 @@ if command -v gitleaks >/dev/null 2>&1; then
   tc TC-S74 "gitleaks 엔진도 편집 전후를 비교한다"
   r="$(repo)"; printf 'key = "%s"\nx = 1\n' "$AWS_KEY" > "$r/c.py"
   OUT="$(payload_edit "$r/c.py" 'x = 1' 'x = 2' | GIT_SECRET_ENGINE=gitleaks "$SCRIPT" 2>&1)"; CODE=$?; expect_code 0; expect_no_out
+
+  tc TC-S75 "gitleaks 엔진은 여러 줄 개인 키의 본문을 출력하지 않는다"
+  r="$(repo)"
+  if [ "$TC_ON" = 1 ]; then
+    ssh-keygen -q -t ed25519 -N '' -C tc -f "$TMP/tc-key" >/dev/null 2>&1
+    cp "$TMP/tc-key" "$r/deploy_key.txt"; body="$(sed -n 2p "$TMP/tc-key")"; rm -f "$TMP/tc-key" "$TMP/tc-key.pub"
+  fi
+  OUT="$(GIT_SECRET_ENGINE=gitleaks "$SCRIPT" --all "$r" 2>&1)"; CODE=$?
+  expect_code 2; expect_out "[GS-01] deploy_key.txt — private-key: ----…"; expect_not "${body:0:12}"
+  [ "$TC_ON" = 1 ] && [ "$(printf '%s\n' "$OUT" | grep -c '^  - \[GS-01\]')" != 1 ] && fail_tc "키 하나가 GS-01 한 줄이 아니다"
 else
-  echo "  SKIP      TC-S72 ~ TC-S74 — gitleaks 가 없다"
+  echo "  SKIP      TC-S72 ~ TC-S75 — gitleaks 가 없다"
 fi
 
 flush_tc

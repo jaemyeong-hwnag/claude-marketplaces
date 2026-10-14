@@ -14,6 +14,16 @@
 # 종료 코드: 0 통과(경고만 있어도) / 2 위반 / 1 실행 오류
 set -uo pipefail
 
+# 훅은 모든 Bash 명령마다 돈다 — git 이 없는 명령은 jq · 임시 디렉터리 전에 끝낸다
+PAYLOAD=""
+if [ "$#" -eq 0 ] && [ ! -t 0 ]; then
+  PAYLOAD="$(cat)"
+  if [[ "$PAYLOAD" =~ \"tool_name\"[[:space:]]*:[[:space:]]*\"Bash\" ]] && command -v jq >/dev/null 2>&1; then
+    # cwd · 경로에 git 이 흔히 들어가므로 명령만 본다
+    [[ "$(printf '%s' "$PAYLOAD" | jq -r '.tool_input.command // ""' 2>/dev/null)" == *git* ]] || exit 0
+  fi
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 RULES="$PLUGIN_ROOT/references/secret-rules.md"
@@ -57,9 +67,11 @@ scan_dir() {
     # 디렉터리 안에서 . 을 넘겨야 File 이 상대 경로로 나온다 (TMPDIR 의 // · 심볼릭 링크와 무관하게)
     ( cd "$dir" && gitleaks dir . ${cfg+"${cfg[@]}"} --no-banner --report-format json \
       --report-path "$TMP/gitleaks.json" --exit-code 0 -l error >/dev/null 2>&1 ) || die "gitleaks 실행에 실패했습니다"
-    # 값은 직접 앞 4글자로 가린다 — 내장 엔진과 같은 모양이어야 편집 전후를 비교할 수 있다
-    jq -r '.[] | [(.File | ltrimstr("./")), .RuleID, (.Secret // .Match)] | join("\u001f")' "$TMP/gitleaks.json" 2>/dev/null \
-      | while IFS=$'\037' read -r f r s; do printf '%s\037%s\037%s\n' "$f" "$r" "$(redact "$s")"; done
+    # 값은 jq 안에서 앞 4글자로 가린다 — 개인 키처럼 여러 줄인 값이 줄 단위 읽기로 새어 나가지 않게.
+    # 모양은 내장 엔진의 redact 와 같아야 편집 전후를 비교할 수 있다
+    jq -r '.[] | [(.File | ltrimstr("./")), .RuleID,
+        ((.Secret // .Match // "") | if length > 4 then .[0:4] + "…" else "…" end)]
+      | map(gsub("[\r\n\u001f]"; " ")) | join("\u001f")' "$TMP/gitleaks.json" 2>/dev/null
     return 0
   fi
   local placeholder id flags re hit file rest line m
@@ -150,14 +162,14 @@ collect_findings() {
     ERRORS+=("[$3] $f — $r: $s")
   done < "$2"
 }
-# $1=저장소 $2=경로 목록 파일 — 민감 파일이면 GS-02
+# $1=저장소 $2=경로 목록 파일 $3=설명(기본: 커밋에 들어간다) — 민감 파일이면 GS-02
 collect_sensitive() {
   local p
   while IFS= read -r p; do
     [ -n "$p" ] || continue
     is_sensitive "$p" || continue
     is_allowed "$1" "$p" && continue
-    ERRORS+=("[GS-02] $p — 민감 파일이 커밋에 들어간다")
+    ERRORS+=("[GS-02] $p — 민감 파일이 ${3:-커밋에 들어간다}")
   done < <(sort -u "$2")
 }
 
@@ -167,13 +179,15 @@ engine_note() {
 }
 
 # ---- 훅: Bash ------------------------------------------------------------------
-# 명령에서 git 하위 명령이 있는지 — git -C dir · git -c k=v 같은 전역 옵션을 건너뛴다
+# git 과 하위 명령 사이의 전역 옵션 — git -C dir · git -c k=v · git --no-pager. 두 함수가 같이 쓴다
+GIT_GLOBAL_OPTS='([[:space:]]+-[Cc][[:space:]]+[^[:space:]]+|[[:space:]]+--?[A-Za-z][A-Za-z-]*(=[^[:space:]]+)?)*'
+# 명령에서 git 하위 명령이 있는지
 has_git_sub() { # $1=명령 $2=하위 명령
-  printf '%s' "$1" | grep -qE "(^|[;&|(\`[:space:]])git([[:space:]]+-[Cc][[:space:]]+[^[:space:]]+|[[:space:]]+--?[A-Za-z][A-Za-z-]*(=[^[:space:]]+)?)*[[:space:]]+$2([[:space:]]|\$|[;&|)])"
+  printf '%s' "$1" | grep -qE "(^|[;&|(\`[:space:]])git$GIT_GLOBAL_OPTS[[:space:]]+$2([[:space:]]|\$|[;&|)])"
 }
 # 하위 명령 뒤 인자 — 다음 셸 구분자까지
 git_sub_args() { # $1=명령 $2=하위 명령
-  printf '%s' "$1" | tr '\n' ' ' | sed -nE "s/.*git([[:space:]]+-[Cc][[:space:]]+[^[:space:]]+)*[[:space:]]+$2([[:space:]]+([^;&|]*))?.*/\\3/p" | head -1
+  printf '%s' "$1" | tr '\n' ' ' | sed -nE "s/.*git$GIT_GLOBAL_OPTS[[:space:]]+$2([[:space:]]+([^;&|]*))?.*/\\4/p" | head -1
 }
 # 명령이 작업할 디렉터리 — 앞쪽 cd X && 와 git -C X 를 따른다
 command_dir() { # $1=명령 $2=훅 cwd
@@ -342,8 +356,7 @@ hook_file() { # $1=payload
 }
 
 hook() {
-  local payload event tool
-  payload="$(cat)"
+  local payload="$PAYLOAD" event tool
   [ -n "$payload" ] || exit 0
   event="$(printf '%s' "$payload" | jq -r '.hook_event_name // "PreToolUse"' 2>/dev/null)"
   [ "$event" = PreToolUse ] || exit 0
@@ -411,16 +424,22 @@ check_history() { # $1=디렉터리
   scan_dir "$scan" "$repo" | sort -u > "$TMP/found"
   collect_findings "$repo" "$TMP/found" GS-01
   g -C "$repo" log --all --name-only --diff-filter=A --format= 2>/dev/null > "$TMP/history-paths"
-  collect_sensitive "$repo" "$TMP/history-paths"
+  collect_sensitive "$repo" "$TMP/history-paths" "커밋 이력에 있다"
 }
 
 check_paths() { # $@=파일 · 디렉터리
-  local a scan="$TMP/paths" base
+  local a scan="$TMP/paths" base repo rel
   mkdir -p "$scan"
   for a in "$@"; do
     if [ -d "$a" ]; then check_tree "$a"
     elif [ -f "$a" ]; then
       base="$(cd "$(dirname "$a")" && pwd -P)"
+      # 저장소 안 파일이면 .git-secret-allow 를 따른다
+      if repo="$(git -C "$base" rev-parse --show-toplevel 2>/dev/null)"; then
+        repo="$(cd "$repo" && pwd -P)"
+        rel="${base#"$repo"}/$(basename "$a")"
+        is_allowed "$repo" "${rel#/}" && continue
+      fi
       copy_file "$base" "$(basename "$a")" "$scan"
     else die "파일이 없습니다: $a"
     fi

@@ -31,10 +31,11 @@ test/validate-git-secret.test.sh TC-S3    # ID 접두사로 필터
 | TC-S10 | .env.example · *.pub · 일반 파일은 민감 파일이 아니다 (과잉 차단 방지) |
 | TC-S11 | 키 · 인증서 · 자격 증명 파일을 민감 파일로 본다 (GS-04) |
 | TC-S12 | .git-secret-allow 의 파일 · 디렉터리는 건너뛴다 |
-| TC-S13 | --history 는 나중에 지운 시크릿 · 민감 파일도 찾는다 |
+| TC-S13 | --history 는 나중에 지운 시크릿 · 민감 파일도 찾고, 이력 문구로 알린다 |
 | TC-S14 | 바이너리 파일은 보지 않는다 |
 | TC-S15 | git 저장소가 아닌 디렉터리 · 파일 인자도 본다 |
 | TC-S16 | 하위 디렉터리를 루트로 주면 그 아래만 본다 |
+| TC-S17 | 파일 인자도 .git-secret-allow 를 따른다 |
 
 ### B. 훅 — Bash
 
@@ -53,6 +54,8 @@ test/validate-git-secret.test.sh TC-S3    # ID 접두사로 필터
 | TC-S40 | git push 는 원격에 없는 커밋의 시크릿을 막고, 푸시된 뒤에는 통과한다 |
 | TC-S41 | git commit · push 가 아닌 명령은 보지 않는다 |
 | TC-S42 | git 저장소 밖 · 빈 입력 · PostToolUse 는 통과한다 |
+| TC-S43 | git 과 commit 사이의 전역 옵션(--no-pager · -c)이 있어도 -a 를 본다 |
+| TC-S44 | git 이 없는 Bash 명령은 jq · 임시 디렉터리 전에 끝난다 |
 
 ### C. 훅 — Write · Edit
 
@@ -76,3 +79,4 @@ test/validate-git-secret.test.sh TC-S3    # ID 접두사로 필터
 | TC-S72 | gitleaks 엔진도 같은 경로 · 가린 값으로 보고한다 (gitleaks 가 있을 때) |
 | TC-S73 | gitleaks 엔진으로 커밋을 막고 gitleaks:allow 를 따른다 (gitleaks 가 있을 때) |
 | TC-S74 | gitleaks 엔진도 편집 전후를 비교한다 (gitleaks 가 있을 때) |
+| TC-S75 | gitleaks 엔진은 여러 줄 개인 키의 본문을 출력하지 않는다 (gitleaks 가 있을 때) |
