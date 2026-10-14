@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.9.0
+
+### Added
+- 사전 `quality` 에 `guardrail` (동의어 `guard` · `safeguard` 금지) (#52) — 새 플러그인 `code-edit-guardrail`(#51) 과 스킬 `code-edit-guardrail-apply`
+
 ## 0.8.0
 
 ### Added
