@@ -245,9 +245,11 @@ validate_marketplace() { # $1=루트
 
 # ---- V-12 · V-13 : git 태그 ------------------------------------------------
 validate_tags() { # $1=루트
-  local root="${1%/}" tag name ver manifest man_ver d found
+  local root="${1%/}" tag name ver manifest man_ver d found merged
   command -v git >/dev/null 2>&1 || return 0
   git -C "$root" rev-parse --git-dir >/dev/null 2>&1 || return 0
+  # V-13 은 HEAD 에 든 태그만 — 리베이스 전 브랜치는 main 에 새로 달린 태그보다 매니페스트가 낮다
+  merged="$(git -C "$root" tag --merged HEAD 2>/dev/null)"
 
   while IFS= read -r tag; do
     [ -n "$tag" ] || continue
@@ -263,6 +265,7 @@ validate_tags() { # $1=루트
     fi
     # 플러그인이 지금 없어도 태그는 과거의 릴리즈다. 형식만 본다.
     # 있으면 태그가 매니페스트보다 앞서는지 본다.
+    printf '%s\n' "$merged" | grep -qxF -- "$tag" || continue
     for d in "$root"/*plugins/"$name"; do
       manifest="$d/.claude-plugin/plugin.json"
       [ -r "$manifest" ] || continue

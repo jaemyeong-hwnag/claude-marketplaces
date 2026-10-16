@@ -347,6 +347,13 @@ tc TC-V69 "--all 이 태그까지 검사한다"
 R="$(make_git_root gt10 0.2.0)"; git -C "$R" tag order-sync--v9.9.9
 run --all "$R"; expect_code 2; expect_out "(V-13)"
 
+tc TC-V140 "HEAD 에 없는 태그는 매니페스트와 비교하지 않는다 (V-13)"
+R="$(make_git_root gt11 0.2.0)"
+git -C "$R" checkout -q -b later
+put_plugin "$R" order-sync 0.3.0; git -C "$R" commit -qam bump; git -C "$R" tag order-sync--v0.3.0
+git -C "$R" checkout -q -
+run --tag "$R"; expect_code 0; expect_no_out
+
 echo "== E. PreToolUse 훅 (차단) =="
 
 tc TC-V70 "plugin.json 에 0.0.x 를 쓰려 하면 차단한다"
