@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.10.0
+
+### Added
+- 사전 `quality` 에 `performance` (동의어 `perf` · `efficiency` 금지) (#57) — 새 플러그인 `common-performance`(#56) 와 스킬 `performance-review`
+
 ## 0.9.0
 
 ### Added
