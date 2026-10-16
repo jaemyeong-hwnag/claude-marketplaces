@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.4
+
+### Fixed
+- `branch-create.sh` — 워크트리 디렉터리가 무시되지 않는 저장소면 `.git/info/exclude` 에 `/.claude/worktrees/` 를 넣는다 (#76). `git add -A` 가 워크트리를 gitlink 로 넣었다
+
 ## 0.1.3
 
 ### Fixed

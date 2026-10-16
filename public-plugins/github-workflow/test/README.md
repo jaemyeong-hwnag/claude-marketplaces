@@ -119,6 +119,7 @@ test/validate-workflow.test.sh TC-W5    # ID 접두사로 필터
 | TC-W100 | branch-create 는 잘못된 이름을 거부한다 |
 | TC-W101 | branch-create 는 (받아온) origin/main 에서 브랜치와 워크트리를 만든다 — 로컬 main 이 뒤처져 있어도 |
 | TC-W102 | branch-create 는 이미 있는 워크트리를 거부한다 |
+| TC-W103 | branch-create 는 워크트리 디렉터리를 git 이 무시하게 한다 — 한 번만 |
 
 ### H. 기본 브랜치 (origin/HEAD)
 
