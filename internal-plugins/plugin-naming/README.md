@@ -31,7 +31,7 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 �
 
 | 스크립트 | 이벤트 | 동작 |
 |---|---|---|
-| validate-naming.sh | PreToolUse (Write\|Edit) | 경로에서 이름을 뽑아 규칙 위반이면 **차단**, 통과하면 AI 판단 요청 |
+| validate-naming.sh | PreToolUse (Write\|Edit) | 경로에서 이름을 뽑아 규칙 위반이면 **차단**, 통과한 새 이름이면 AI 판단 요청 |
 | validate-naming.sh | PostToolUse (Write\|Edit) | `glossary.json` 을 저장하면 사전 구조를 검증 |
 
 ## 파일

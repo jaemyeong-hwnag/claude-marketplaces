@@ -118,7 +118,7 @@ kotlin-spring-api-naming-validate
 **기계 규칙을 통과한 이름은 예외 없이 전부 판단 대상이다.** 규칙을 지켰다고 옳은 이름은 아니다.
 어떤 단어가 모호한지 사전에 미리 표시해두지 않는다 — 같은 단어도 무엇을 만드느냐에 따라 충분하기도, 모자라기도 하다.
 
-스크립트는 막지 않고 넘긴다. 훅은 `additionalContext` 로, CLI 는 `🤔 AI 가 판단할 것` 으로 출력한다.
+스크립트는 막지 않고 넘긴다. 훅은 `additionalContext` 로, CLI 는 `🤔 AI 가 판단할 것` 으로 출력한다. 훅은 **새 이름**(대상 디렉터리 · 파일이 아직 없을 때)만 넘긴다 — 기존 파일을 고칠 때마다 이름을 다시 판단하지 않는다.
 
 판단할 것은 다섯이다.
 
@@ -222,4 +222,4 @@ kotlin-spring-api-naming-validate
 "${CLAUDE_PLUGIN_ROOT}/scripts/validate-naming.sh" --glossary
 ```
 
-종료 코드 `2` 는 규칙 위반이다. `Write`/`Edit` PreToolUse 훅에 연결돼 있어 위반하는 이름으로는 파일이 만들어지지 않는다.
+종료 코드 `2` 는 규칙 위반이다. `Write`/`Edit` PreToolUse 훅에 연결돼 있어 위반하는 이름으로는 이 도구로 파일을 만들 수 없다. `mkdir` · `git mv` · `cp` 는 훅 밖이라 `--all` 이 사후에 잡는다.
