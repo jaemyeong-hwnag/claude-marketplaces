@@ -6,7 +6,7 @@
 #   .claude/hooks/sync-internal-plugins.sh --quiet    변경이 있을 때만 출력
 #
 # 마켓플레이스 소스는 .claude/settings.json 의 extraKnownMarketplaces 선언을 따른다.
-# github 소스일 때는 푸시된 커밋만 읽으므로, 로컬 변경은 커밋·푸시해야 반영된다.
+# directory 소스면 플러그인은 등록된 디렉터리에서 로드되고, github 소스면 푸시된 커밋만 읽는다.
 #
 # 규칙
 #   - enabledPlugins 에 키가 없으면 true 로 추가한다. 명시적 false 는 존중한다 (끈 플러그인은 설치도 건너뛴다).
@@ -65,10 +65,16 @@ done < <(jq -r '.plugins[]? | select(.category == "internal") | select((.source 
 
 # 2. 마켓플레이스가 등록되어 있는가 (설치할 플러그인이 있을 때만)
 #    등록에 쓸 소스는 settings.json 의 선언을 따른다 (github 저장소 또는 로컬 디렉터리).
-SOURCE="./"
+#    상대 path 는 cwd 가 아니라 PROJECT_DIR 기준이다 — 다른 디렉터리에서 수동 실행해도 같은 곳을 등록한다.
+SOURCE="$PROJECT_DIR"
 if [ -r "$SETTINGS_FILE" ]; then
   repo="$(jq -r --arg m "$MARKET" '.extraKnownMarketplaces[$m].source.repo // empty' "$SETTINGS_FILE" 2>/dev/null)"
-  [ -n "$repo" ] && SOURCE="$repo"
+  spath="$(jq -r --arg m "$MARKET" '.extraKnownMarketplaces[$m].source.path // empty' "$SETTINGS_FILE" 2>/dev/null)"
+  if [ -n "$repo" ]; then
+    SOURCE="$repo"
+  elif [ -n "$spath" ]; then
+    case "$spath" in /*) SOURCE="$spath" ;; *) SOURCE="$(cd "$PROJECT_DIR/$spath" 2>/dev/null && pwd || echo "$PROJECT_DIR/$spath")" ;; esac
+  fi
 fi
 
 MARKETS="$(claude plugin marketplace list --json 2>/dev/null || echo '[]')"

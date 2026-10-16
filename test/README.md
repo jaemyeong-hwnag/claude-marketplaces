@@ -60,6 +60,8 @@ test/sync-internal-plugins.test.sh    # 내부 플러그인 동기화 (TC-Y)
 | TC-Y03 | plugin.json 이 없는 디렉터리는 세지 않는다 | 통과 |
 | TC-Y04 | 마켓플레이스가 미등록이면 등록한다 | `marketplace add` 호출 |
 | TC-Y05 | settings.json 의 github repo 선언을 등록 소스로 쓴다 | `marketplace add owner/repo` |
+| TC-Y38 | 다른 cwd 에서 실행해도 프로젝트 디렉터리를 등록 소스로 쓴다 | `marketplace add <프로젝트>` (`./` 아님) |
+| TC-Y39 | settings.json 의 directory `path` 는 프로젝트 기준으로 푼다 | `marketplace add <프로젝트>` |
 | TC-Y06 | marketplace.json 에 `category: internal` 과 source 경로로 등록한다 | 파일 반영 |
 | TC-Y07 | settings.json 의 enabledPlugins 에 추가한다 | 파일 반영 |
 | TC-Y08 | 설치되어 있지 않으면 설치한다 | `plugin install` 호출 |

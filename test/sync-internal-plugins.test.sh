@@ -105,6 +105,17 @@ printf '{"extraKnownMarketplaces":{"test-marketplace":{"source":{"source":"githu
 run_hook
 expect_code 0; expect_call "marketplace add owner/repo"
 
+tc TC-Y38 "다른 cwd 에서 실행해도 프로젝트 디렉터리를 등록 소스로 쓴다"
+setup market-cwd; add_plugin "$P" order-sync
+OUT="$(cd "$TMP" && CLAUDE_PROJECT_DIR="$P" "$HOOK" 2>&1)"; CODE=$?
+expect_code 0; expect_call "marketplace add $P "; expect_nocall "marketplace add ./"
+
+tc TC-Y39 "settings.json 의 directory path 는 프로젝트 기준으로 푼다"
+setup market-path; add_plugin "$P" order-sync
+printf '{"extraKnownMarketplaces":{"test-marketplace":{"source":{"source":"directory","path":"."}}}}' > "$P/.claude/settings.json"
+OUT="$(cd "$TMP" && CLAUDE_PROJECT_DIR="$P" "$HOOK" 2>&1)"; CODE=$?
+expect_code 0; expect_call "marketplace add $(cd "$P" && pwd) "
+
 tc TC-Y06 "marketplace.json 에 category internal 과 source 경로로 등록한다"
 setup market-entry; add_plugin "$P" order-sync; market_registered; run_hook
 expect_code 0
