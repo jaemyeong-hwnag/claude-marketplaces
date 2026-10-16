@@ -141,6 +141,17 @@ printf '{"enabledPlugins":{"order-sync@test-marketplace":true}}' > "$P/.claude/s
 run_hook
 expect_code 0; expect_out "재설치"; expect_call "plugin uninstall"; expect_call "plugin install"
 
+tc TC-Y38 "설치본에만 있는 .in_use 는 차이로 보지 않는다"
+setup inuse; add_plugin "$P" order-sync; market_registered
+cp -R "$P/internal-plugins/order-sync" "$P/installed"
+mkdir -p "$P/installed/.in_use"
+plugin_installed "order-sync@test-marketplace" "$P/installed"
+jq '.plugins += [{"name":"order-sync","source":"./internal-plugins/order-sync","category":"internal"}]' \
+  "$P/.claude-plugin/marketplace.json" > "$P/m.tmp" && mv "$P/m.tmp" "$P/.claude-plugin/marketplace.json"
+printf '{"enabledPlugins":{"order-sync@test-marketplace":true}}' > "$P/.claude/settings.json"
+run_hook
+expect_code 0; expect_out "1/1 설치됨"; expect_nocall "plugin uninstall"
+
 tc TC-Y11 "설치에 실패해도 세션을 막지 않고 복구 명령을 알려준다"
 setup fail; add_plugin "$P" order-sync; market_registered
 export STUB_INSTALL_FAIL=1; run_hook; unset STUB_INSTALL_FAIL
