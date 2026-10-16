@@ -402,6 +402,103 @@ tc TC-W144 "branch-create 는 origin/HEAD 가 가리키는 브랜치에서 딴�
 run "$BC" feature 13 trunk-base "$W"; expect_code 0; expect_out "origin/trunk"
 [ "$TC_ON" = 1 ] && { [ "$(git -C "$W/.claude/worktrees/13-trunk-base" rev-parse HEAD)" = "$(git -C "$W" rev-parse origin/trunk)" ] || fail_tc "origin/trunk 기준이 아니다"; }; true
 
+mkmaster() { # git init 뒤 remote add 로 만든 저장소 — origin/HEAD 가 없고 기본 브랜치는 master
+  O="$TMP/master.git"; W="$TMP/master"; rm -rf "$O" "$W"
+  git init -q --bare "$O"
+  git init -q "$W"; gitq "$W" checkout -q -b master
+  git -C "$W" config user.email t@example.com; git -C "$W" config user.name t
+  git -C "$W" remote add origin "$O"
+  echo a > "$W/a.txt"; gitq "$W" add -A; gitq "$W" commit -qm init; gitq "$W" push -q -u origin master
+}
+mkmaster
+
+tc TC-W145 "origin/HEAD 가 없고 origin/master 만 있으면 master 를 기본 브랜치로 본다 (W-09)"
+HOOK "git commit -m x"; expect_code 2; expect_out "master 에 직접 커밋하지"
+HOOK "git push origin master"; expect_code 2; expect_out "(W-09)"
+
+echo "== I. 따옴표 · 옵션 값 · 우회 =="
+
+MN="$TMP/mn"; FB="$TMP/fb"; PR="$TMP/pr"
+
+tc TC-W150 "제목 안의 -w 는 --web 이 아니다 — W-06 을 건너뛰지 않는다"
+HOOK 'gh pr create --title "feat: -w 옵션 추가" --label feature --template feature.md' "$PR"; expect_code 2; expect_out "(W-06)"
+
+tc TC-W151 "제목 안의 --fill 은 --fill 이 아니다 (W-05)"
+HOOK 'gh pr create --title "refactor: remove --fill usage" --label feature --template feature.md' "$PR"; expect_not "--fill 를 쓰지"
+
+tc TC-W152 "heredoc PR 본문 안의 단어는 명령이 아니다"
+HOOK "gh pr create --label feature --body-file x.md --title \"\$(cat <<'EOF'
+remove --fill; git push --force origin main
+EOF
+)\"" "$PR"; expect_not "--fill 를 쓰지"; expect_not "(W-08)"; expect_not "직접 푸시"
+
+tc TC-W153 "gh pr merge 는 --subject 값이 아니라 PR 번호를 조회한다"
+: > "$CALLS"; HOOK 'gh pr merge --merge --subject "Merge #12" 12' "$PR"
+expect_call "gh pr view 12 "; expect_not "gh pr view 실패"
+
+tc TC-W154 "gh pr merge 의 --body 값 -s 는 스쿼시가 아니고, -R 은 조회에 넘긴다"
+: > "$CALLS"; HOOK 'gh pr merge 12 --merge --body "-s" -R o/r' "$PR"
+expect_not "스쿼시"; expect_call "gh pr view 12 -R o/r"
+
+tc TC-W155 "파일로 쓰는 heredoc 본문은 명령이 아니다"
+HOOK "cat > f.md <<'EOF'
+git push origin main
+git commit -m x
+EOF" "$MN"; expect_code 0
+
+tc TC-W156 "따옴표 안의 git 명령은 인자다"
+HOOK 'git commit -m "fix: git push origin main 을 막는다"' "$FB"; expect_code 0
+
+tc TC-W160 "--force-with-lease --force-if-includes 는 통과한다 (W-08)"
+HOOK "git push --force-with-lease --force-if-includes origin feature/7-order-sync" "$FB"; expect_code 0
+
+tc TC-W161 "main 에서 --ff-only 가 아닌 git pull 을 막는다 (W-09)"
+HOOK "git pull" "$MN"; expect_code 2; expect_out "--ff-only"
+HOOK "git pull --rebase origin main" "$MN"; expect_code 2
+HOOK "git pull" "$FB"; expect_code 0
+
+tc TC-W162 "pull.ff=only 면 main 에서 git pull 은 통과한다"
+git -C "$MN" config pull.ff only; HOOK "git pull" "$MN"; expect_code 0; git -C "$MN" config --unset pull.ff
+
+tc TC-W163 "main 에서 cherry-pick · revert · am 을 막는다 (W-09)"
+HOOK "git cherry-pick abc123" "$MN"; expect_code 2; expect_out "git cherry-pick"
+HOOK "git revert HEAD" "$MN"; expect_code 2
+HOOK "git am x.patch" "$MN"; expect_code 2
+HOOK "git cherry-pick --abort" "$MN"; expect_code 0
+
+tc TC-W170 "서브셸 · 중괄호 안의 명령도 본다"
+HOOK "(git commit -m x)" "$MN"; expect_code 2
+HOOK "{ git commit -m x; }" "$MN"; expect_code 2
+
+tc TC-W171 "경로 · command · env 로 부른 git 도 본다"
+HOOK "/usr/bin/git commit -m x" "$MN"; expect_code 2
+HOOK "command git commit -m x" "$MN"; expect_code 2
+HOOK "env -i FOO=1 git commit -m x" "$MN"; expect_code 2
+
+tc TC-W172 "bash -c · eval 의 문자열도 본다"
+HOOK 'bash -c "git commit -m x"' "$MN"; expect_code 2
+HOOK "bash -lc 'git push origin main'" "$FB"; expect_code 2
+HOOK 'eval "git commit -m x"' "$MN"; expect_code 2
+HOOK "bash -c 'cd $MN
+git commit -m x'" "$FB"; expect_code 2
+
+tc TC-W173 "\$( ) 안의 명령도 본다"
+HOOK 'echo "$(git commit -m x)"' "$MN"; expect_code 2
+
+tc TC-W174 "cd ~ 를 홈으로 풀어 디렉터리를 따라간다"
+HOME="$TMP" HOOK "cd ~/mn && git commit -m x" "$FB"; expect_code 2
+
+tc TC-W175 "리다이렉션 대상 · 2>&1 은 refspec 이 아니다"
+HOOK "git push -u origin feature/7-order-sync > /dev/null 2>&1" "$FB"; expect_code 0
+
+tc TC-W180 "jq 가 없으면 git · gh 명령을 막고 다른 명령은 통과시킨다"
+NOJQ="$TMP/nojq"; mkdir -p "$NOJQ"
+for b in bash env cat grep dirname; do ln -sf "$(command -v "$b")" "$NOJQ/$b"; done
+run env PATH="$NOJQ" bash -c "printf '%s' '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m x\"}}' | '$V'"
+expect_code 2; expect_out "jq 가 없어"
+run env PATH="$NOJQ" bash -c "printf '%s' '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"ls -la\"}}' | '$V'"
+expect_code 0
+
 flush_tc
 echo
 printf '통과 %d / 실패 %d' "$PASS" "$FAIL"
