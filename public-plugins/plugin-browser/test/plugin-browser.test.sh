@@ -143,9 +143,10 @@ pty() { # $1=크기 "행 열" $2=입력(초 간격 키) $3...=명령 → 화면 
     | if script -q /dev/null true </dev/null >/dev/null 2>&1; then script -q "$WORK/pty.out" bash -c "$cmd"
       else script -qec "$cmd" "$WORK/pty.out"; fi >/dev/null 2>&1 &
   # 키에 반응하지 않고 멈춘 화면이 테스트 전체를 붙잡지 않게
+  # 감시의 출력은 떼어 둔다 — 명령 치환 $(pty …) 의 파이프를 물면 남은 sleep 이 끝날 때까지 기다린다 (#77)
   local pid=$! wd
-  ( sleep 40; kill -9 "$pid" 2>/dev/null ) & wd=$!
-  wait "$pid" 2>/dev/null; kill "$wd" 2>/dev/null; wait "$wd" 2>/dev/null
+  ( sleep 40; kill -9 "$pid" 2>/dev/null ) >/dev/null 2>&1 & wd=$!
+  wait "$pid" 2>/dev/null; pkill -P "$wd" 2>/dev/null; kill "$wd" 2>/dev/null; wait "$wd" 2>/dev/null
   sed -e $'s/\033\\[[0-9;?]*[A-Za-z]//g' "$WORK/pty.out" | tr '\r' '\n'
 }
 export -f pty; export WORK
