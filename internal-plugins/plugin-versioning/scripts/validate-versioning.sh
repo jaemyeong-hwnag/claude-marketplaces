@@ -10,7 +10,7 @@
 #   validate-versioning.sh --all [루트]          루트 + 모든 플러그인 + 태그
 #   validate-versioning.sh --marketplace [루트]  루트 엔트리만
 #   validate-versioning.sh --tag [루트]          git 태그만
-#   validate-versioning.sh --since <ref> [루트]  ref 이후 바뀐 플러그인이 버전을 올렸는가 (V-14)
+#   validate-versioning.sh --since <ref> [루트]  ref 와의 merge-base 이후 바뀐 플러그인이 버전을 올렸는가 (V-14)
 #
 # 종료 코드: 0 통과 / 2 위반(훅에서 차단) / 1 실행 오류
 set -uo pipefail
@@ -168,10 +168,14 @@ check_dependencies() { # $1=plugin.json $2=라벨
     [ -n "$line" ] || continue
     dep="${line%%$'\t'*}"; ver="${line#*$'\t'}"
     [ -n "$ver" ] && [ "$ver" != "null" ] || continue
+    if [ "$ver" = $'\x1f' ]; then
+      err "$label: dependencies '$dep' 의 version 은 문자열이어야 합니다 (V-11)"
+      continue
+    fi
     is_semver_range "$ver" || \
       err "$label: dependencies '$dep' 의 version '$ver' 은 semver 범위 문자열이 아닙니다 (V-11)"
   done < <(jq -r '(.dependencies // [])[] | select(type == "object")
-                  | "\(.name // "?")\t\(.version // "")"' "$file" 2>/dev/null)
+                  | "\(.name // "?")\t\(.version // "" | if type == "string" then . else "\u001f" end)"' "$file" 2>/dev/null)
 }
 
 # ---- 플러그인 하나 ---------------------------------------------------------
@@ -272,27 +276,30 @@ validate_tags() { # $1=루트
 }
 
 # ---- V-14 : 바뀌었으면 올렸는가 ------------------------------------------
-# ref 이후 플러그인 디렉터리의 어떤 파일이든 바뀌었으면 version 이 올라가야 한다.
-# ref 에 없던 플러그인은 새 플러그인이다 (V-03 이 본다).
+# ref 와 HEAD 의 merge-base 이후 플러그인 디렉터리의 어떤 파일이든 바뀌었으면 version 이 올라가야 한다.
+# merge-base 기준이라야 리베이스 전 브랜치가 ref 쪽에서만 바뀐 플러그인을 지적하지 않는다.
+# 기준에 없던 플러그인은 새 플러그인이다 (V-03 이 본다).
 validate_since() { # $1=ref $2=루트
-  local ref="$1" root="${2%/}" pd d rel old cur
+  local ref="$1" root="${2%/}" pd d rel old cur base
   command -v git >/dev/null 2>&1 || { err "--since: git 이 필요합니다"; return; }
   git -C "$root" rev-parse --git-dir >/dev/null 2>&1 || { err "--since: $root 는 git 저장소가 아닙니다"; return; }
   git -C "$root" rev-parse --verify -q "$ref^{commit}" >/dev/null || { err "--since: '$ref' 를 찾을 수 없습니다"; return; }
+  base="$(git -C "$root" merge-base "$ref" HEAD 2>/dev/null)" || base=""
+  [ -n "$base" ] || base="$ref"
 
   while IFS= read -r d; do
     [ -r "$d/.claude-plugin/plugin.json" ] || continue
     rel="${d#"$root"/}"
-    old="$(git -C "$root" show "$ref:$rel/.claude-plugin/plugin.json" 2>/dev/null | jq -r '.version // ""' 2>/dev/null)" || old=""
+    old="$(git -C "$root" show "$base:$rel/.claude-plugin/plugin.json" 2>/dev/null | jq -r '.version // ""' 2>/dev/null)" || old=""
     [ -n "$old" ] || continue
-    if git -C "$root" diff --quiet "$ref" -- "$rel" 2>/dev/null \
+    if git -C "$root" diff --quiet "$base" -- "$rel" 2>/dev/null \
        && [ -z "$(git -C "$root" ls-files --others --exclude-standard -- "$rel" 2>/dev/null)" ]; then
       continue
     fi
     cur="$(jq -r '.version // ""' "$d/.claude-plugin/plugin.json" 2>/dev/null)"
     is_semver "$cur" && is_semver "$old" || continue
     ver_gt "$cur" "$old" || \
-      err "$rel: $ref 이후 파일이 바뀌었는데 version 이 '$old' → '$cur' 입니다 — 올려야 합니다 (V-14)"
+      err "$rel: $ref 와의 merge-base(${base:0:7}) 이후 파일이 바뀌었는데 version 이 '$old' → '$cur' 입니다 — 올려야 합니다 (V-14)"
   done < <(
     find "$root" -mindepth 1 -maxdepth 1 -type d -name '*plugins' -not -path '*/.git*' 2>/dev/null \
       | while IFS= read -r pd; do find "$pd" -mindepth 1 -maxdepth 1 -type d 2>/dev/null; done | sort
@@ -338,16 +345,22 @@ report() {
 }
 
 # ---- 훅 모드 ---------------------------------------------------------------
-# Write 는 tool_input.content, Edit 는 tool_input.new_string 에 새 내용이 들어온다.
+# 편집 뒤의 파일 전체에서 최상위 version 만 본다. Edit 조각만 보면 의존 항목의 version 을 플러그인 version 으로 읽는다.
 hook_pre() { # $1=경로 $2=payload
-  local path="$1" payload="$2" body ver
+  local path="$1" payload="$2" ver
   case "$path" in */.claude-plugin/plugin.json) ;; *) exit 0 ;; esac
-  body="$(printf '%s' "$payload" | jq -r '.tool_input.content // .tool_input.new_string // ""' 2>/dev/null)"
-  [ -n "$body" ] || exit 0
-  ver="$(printf '%s' "$body" | jq -r '.version // empty' 2>/dev/null)"
-  if [ -z "$ver" ]; then
-    # Edit 의 부분 문자열이라 JSON 이 아닐 수 있다. 한 줄에서 찾는다.
-    ver="$(printf '%s' "$body" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+  if printf '%s' "$payload" | jq -e '.tool_input | has("content")' >/dev/null 2>&1; then
+    ver="$(printf '%s' "$payload" | jq -r '.tool_input.content | fromjson | .version // empty' 2>/dev/null)" || exit 0
+  else
+    [ -r "$path" ] || exit 0
+    ver="$(printf '%s' "$payload" | jq -r --rawfile f "$path" '
+      .tool_input as $t | ($t.old_string // "") as $o
+      | if $o == "" then error("no old_string") else . end
+      | ($f | split($o)) as $p
+      | if ($p | length) < 2 then error("old_string not found") else . end
+      | (if $t.replace_all == true then $p | join($t.new_string // "")
+         else $p[0] + ($t.new_string // "") + ($p[1:] | join($o)) end)
+      | fromjson | .version // empty' 2>/dev/null)" || exit 0
   fi
   [ -n "$ver" ] || exit 0
   check_version_value "$ver" "$(basename "$(dirname "$(dirname "$path")")")"

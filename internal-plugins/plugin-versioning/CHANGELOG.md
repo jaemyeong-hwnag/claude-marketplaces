@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.3.2
+
+### Fixed
+- PreToolUse 가 Edit 조각의 의존 항목 `version`(`^1.0.0`)을 플러그인 version 으로 읽어 막던 것 — 편집 결과의 최상위 `version` 만 본다 (#61)
+- `V-14` 가 ref 끝과 비교해 리베이스 전 브랜치에서 ref 쪽에서만 바뀐 플러그인을 지적하던 것 — merge-base 와 비교한다 (#61)
+- `V-11` 이 문자열이 아닌 `version`(`1`)을 통과시키던 것 (#61)
+
 ## 0.3.1
 
 ### Fixed

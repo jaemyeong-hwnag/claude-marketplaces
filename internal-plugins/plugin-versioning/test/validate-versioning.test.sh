@@ -82,9 +82,9 @@ PRE_JSON() { # $1=경로 $2=content
   jq -nc --arg p "$1" --arg c "$2" \
     '{hook_event_name:"PreToolUse",tool_name:"Write",tool_input:{file_path:$p,content:$c}}'
 }
-PRE_EDIT_JSON() { # $1=경로 $2=new_string
-  jq -nc --arg p "$1" --arg s "$2" \
-    '{hook_event_name:"PreToolUse",tool_name:"Edit",tool_input:{file_path:$p,old_string:"x",new_string:$s}}'
+PRE_EDIT_JSON() { # $1=경로 $2=old_string $3=new_string
+  jq -nc --arg p "$1" --arg o "$2" --arg s "$3" \
+    '{hook_event_name:"PreToolUse",tool_name:"Edit",tool_input:{file_path:$p,old_string:$o,new_string:$s}}'
 }
 POST_JSON() { # $1=경로
   jq -nc --arg p "$1" '{hook_event_name:"PostToolUse",tool_name:"Edit",tool_input:{file_path:$p}}'
@@ -362,16 +362,16 @@ tc TC-V72 "정상 버전은 통과시킨다"
 run_stdin "$(PRE_JSON "$P" '{"name":"order-sync","version":"0.3.0"}')"
 expect_code 0; expect_no_out
 
-tc TC-V73 "Edit 의 new_string 조각에서도 버전을 찾는다"
-run_stdin "$(PRE_EDIT_JSON "$P" '  "version": "1.0",')"
+tc TC-V73 "Edit 결과의 최상위 version 을 본다"
+run_stdin "$(PRE_EDIT_JSON "$P" '"version": "0.1.0"' '"version": "1.0"')"
 expect_code 2; expect_out "(V-01)"
 
-tc TC-V74 "Edit 의 정상 버전 조각은 통과시킨다"
-run_stdin "$(PRE_EDIT_JSON "$P" '  "version": "1.2.3",')"
+tc TC-V74 "Edit 의 정상 버전은 통과시킨다"
+run_stdin "$(PRE_EDIT_JSON "$P" '"version": "0.1.0"' '"version": "1.2.3"')"
 expect_code 0; expect_no_out
 
-tc TC-V75 "version 이 없는 조각에는 반응하지 않는다"
-run_stdin "$(PRE_EDIT_JSON "$P" '  "description": "x",')"
+tc TC-V75 "version 을 건드리지 않는 Edit 에는 반응하지 않는다"
+run_stdin "$(PRE_EDIT_JSON "$P" '"name": "order-sync"' '"name": "order-sync", "description": "x"')"
 expect_code 0; expect_no_out
 
 tc TC-V76 "plugin.json 이 아닌 경로에는 반응하지 않는다"
@@ -387,6 +387,28 @@ run_stdin ""; expect_code 0; expect_no_out
 
 tc TC-V79 "경로가 없는 훅 입력은 통과시킨다"
 run_stdin '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls"}}'
+expect_code 0; expect_no_out
+
+tc TC-V7A "Edit 조각이 의존 항목의 범위면 막지 않는다"
+P="$(make_plugin_raw '{ "name": "order-sync", "version": "0.1.0", "dependencies": ["a-sync"] }')/.claude-plugin/plugin.json"
+run_stdin "$(PRE_EDIT_JSON "$P" '"a-sync"' '{ "name": "a-sync", "version": "^1.0.0" }')"
+expect_code 0; expect_no_out
+
+tc TC-V7B "의존 항목과 같이 고쳐도 최상위 version 이 틀리면 막는다"
+run_stdin "$(PRE_EDIT_JSON "$P" '"version": "0.1.0", "dependencies": ["a-sync"]' '"version": "0.0.2", "dependencies": [{ "name": "a-sync", "version": "^1.0.0" }]')"
+expect_code 2; expect_out "'0.0.2'"; expect_out "(V-03)"
+
+tc TC-V7C "Write 에 최상위 version 이 없으면 의존 항목의 version 을 보지 않는다"
+run_stdin "$(PRE_JSON "$P" '{"name":"order-sync","dependencies":[{"name":"a-sync","version":"^1.0.0"}]}')"
+expect_code 0; expect_no_out
+
+tc TC-V7D "replace_all Edit 은 모든 자리를 바꾼 결과를 본다"
+P="$(make_plugin_raw '{ "name": "order-sync", "version": "0.1.0", "keywords": ["0.1.0"] }')/.claude-plugin/plugin.json"
+run_stdin "$(jq -nc --arg p "$P" '{hook_event_name:"PreToolUse",tool_name:"Edit",tool_input:{file_path:$p,old_string:"0.1.0",new_string:"v2",replace_all:true}}')"
+expect_code 2; expect_out "'v2'"
+
+tc TC-V7E "old_string 이 파일에 없으면 반응하지 않는다"
+run_stdin "$(PRE_EDIT_JSON "$P" '"no-such"' '"version": "bad"')"
 expect_code 0; expect_no_out
 
 echo "== F. PostToolUse 훅 (알림) =="
@@ -510,6 +532,10 @@ run "$(dep_plugin '~>1.0')"; expect_code 2; expect_out "(V-11)"
 tc TC-V108 "선행 0 을 막는다"
 run "$(dep_plugin '01.0.0')"; expect_code 2; expect_out "(V-11)"
 
+tc TC-V10A "문자열이 아닌 version 을 막는다"
+run "$(make_plugin_raw '{"name":"order-sync","version":"0.1.0","dependencies":[{"name":"a-sync","version":1}]}')"
+expect_code 2; expect_out "문자열이어야 합니다"; expect_out "(V-11)"
+
 tc TC-V109 "* 한 글자가 파일 이름으로 확장되지 않는다"
 touch "$TMP/a-file-that-would-glob"
 ( cd "$TMP" && "$SCRIPT" "$(dep_plugin '*')" >/dev/null 2>&1 ); CODE=$?
@@ -587,6 +613,16 @@ tc TC-V127 "다른 플러그인의 변경은 이 플러그인의 버전을 요�
 R="$(since_root sn8)"; put_plugin "$R" item-sync 0.1.0; git -C "$R" add -A; git -C "$R" commit -qm item; git -C "$R" tag base3
 printf '\n- x\n' >> "$R/internal-plugins/item-sync/CHANGELOG.md"
 run --since base3 "$R"; expect_code 2; expect_out "internal-plugins/item-sync"; expect_not "internal-plugins/order-sync:"
+
+tc TC-V12A "리베이스 전 브랜치는 ref 쪽에서만 바뀐 플러그인을 지적하지 않는다"
+R="$(since_root sna)"; put_plugin "$R" item-sync 0.1.0; git -C "$R" add -A; git -C "$R" commit -qm item
+git -C "$R" checkout -qb topic; git -C "$R" checkout -q -
+put_plugin "$R" item-sync 0.2.0; git -C "$R" commit -qam "item 0.2.0"; git -C "$R" branch -f upstream; git -C "$R" checkout -q topic
+run --since upstream "$R"; expect_code 0; expect_not "item-sync"
+
+tc TC-V12B "리베이스 전 브랜치의 자기 변경은 merge-base 와 비교한다"
+printf '\n- x\n' >> "$R/internal-plugins/order-sync/CHANGELOG.md"
+run --since upstream "$R"; expect_code 2; expect_out "internal-plugins/order-sync"; expect_out "merge-base"; expect_not "item-sync"
 
 tc TC-V128 "없는 ref 는 오류를 낸다"
 R="$(since_root sn9)"; run --since no-such-ref "$R"; expect_code 2; expect_out "찾을 수 없습니다"
