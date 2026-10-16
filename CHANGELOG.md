@@ -8,6 +8,7 @@
 - 마켓플레이스 이름을 `plugin-marketplace` 에서 `jaemyeong-hwnag-plugins` 로 바꿨다 — 흔한 이름이라 다른 마켓과 겹쳤다. 설치 id 가 `<플러그인>@jaemyeong-hwnag-plugins` 로 바뀐다 (#44)
 
 ### Added
+- `common-performance-review` public 플러그인 — 코드 변경의 성능을 9개 범주(시간 · 공간 복잡도 · DB 쿼리 · 네트워크 · IO · 동시성 · 캐싱 · 페이로드 · 자원 해제 · 정규식) 모두 판정하는 `performance-review` 스킬과, 루프 안 쿼리 · 원격 호출 · await · 상한 없는 조회 등 20개 패턴(`PF-01` ~ `PF-20`)을 작성 시 알리는 훅 · `--diff` CLI. 지적마다 규모 가정 · 신뢰도 · 검증 방법을 붙인다 (#56)
 - `git-secret-validate` public 플러그인 — `git commit` · `git push` 전에 실릴 변경의 시크릿(`GS-01`) · 민감 파일(`GS-02`)을 막고, 파일 작성 시 ignore 안 된 파일의 새 시크릿(`GS-03`) · 민감 파일(`GS-04`)을 경고한다. 탐지는 gitleaks, 없으면 내장 패턴(`GS-05`). 판단 · 조치는 `secret-review` 스킬 (#50)
 - `code-edit-guardrail` public 플러그인 — 프로젝트 설정 `.claude/code-edit-guardrail.json` 하나로 코드 편집의 선을 강제한다. 코드만 고치고 테스트를 안 고치면(`G-01`) · 고친 경로의 품질 lane 이 실패하면(`G-02`) 완료 차단, 공유자원 편집은 사용자 확인(`G-03`). 엔진은 플러그인 훅이 돌려 프로젝트에 스크립트를 복사하지 않는다 (#51)
 - MIT 라이선스 (`LICENSE`) (#46)
