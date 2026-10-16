@@ -410,6 +410,26 @@ if on; then
   CLAUDE_PROJECT_DIR="$R/app" run_in "$(hook_in h12)" "$H"; expect_code 2
 fi
 
+tc TC-H13 "요청 안에서 커밋한 Controller 변경도 본다 (C-05)"
+if on; then
+  R="$(repo h13)"; CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h13)" "$H" snapshot
+  change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  git -C "$R" commit -qam change
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h13)" "$H"; expect_code 2; expect_out "완료 보류(java-spring-aitest-coverage)"
+fi
+
+tc TC-H14 "원격 기본 브랜치에서 받아온 커밋은 이번 변경이 아니다 (C-05)"
+if on; then
+  R="$(repo h14)"; git init -q --bare -b main "$TMP/h14-origin.git"
+  git -C "$R" remote add origin "$TMP/h14-origin.git"; git -C "$R" push -q -u origin main
+  git clone -q -b main "$TMP/h14-origin.git" "$TMP/h14-other"
+  change_bar "$TMP/h14-other/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  git -C "$TMP/h14-other" -c user.email=o@o -c user.name=o commit -qam other; git -C "$TMP/h14-other" push -q origin main
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h14)" "$H" snapshot
+  git -C "$R" pull -q --ff-only
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h14)" "$H"; expect_code 0; expect_empty
+fi
+
 flush_tc
 echo
 printf '통과 %d / 실패 %d' "$PASS" "$FAIL"

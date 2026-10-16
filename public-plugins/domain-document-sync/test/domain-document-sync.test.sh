@@ -213,6 +213,26 @@ hook stop "$S"; expect_code 2; expect_out "$ACK_FILE"
 tc TC-C17 "한 번 되돌린 뒤(stop_hook_active)에는 막지 않고 systemMessage 로 알린다"
 hook stop "$ACTIVE"; expect_code 0; expect_out '"systemMessage"'; expect_out "order"
 
+tc TC-C18 "요청 안에서 커밋한 도메인 코드도 이번 변경으로 본다"
+make_repo; hook snapshot "$S"; echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java
+git add -A && git commit -qm order; hook stop "$S"; expect_code 2; expect_out "order: src/main/java/com/shop/order/Order.java"
+
+tc TC-C19 "요청 안에서 코드와 문서를 함께 커밋하면 통과한다"
+make_repo; hook snapshot "$S"; echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java
+echo '- a 추가' >> docs/domain/order/entities.md; git add -A && git commit -qm order; hook stop "$S"; expect_code 0
+
+tc TC-C20 "원격 기본 브랜치에서 받아온 커밋은 이번 변경이 아니다"
+make_repo
+if [ "$TC_ON" = 1 ]; then
+  git init -q --bare "$TMP/origin.git"; git remote add origin "$TMP/origin.git"; git push -q origin HEAD:main; git fetch -q origin
+  git clone -q -b main "$TMP/origin.git" "$TMP/other"
+  ( cd "$TMP/other" && git config user.email o@example.com && git config user.name o \
+    && echo 'class Order { int x; }' > src/main/java/com/shop/order/Order.java && git commit -qam other && git push -q origin main )
+  git branch -q -u origin/main
+fi
+hook snapshot "$S"; [ "$TC_ON" = 1 ] && git pull -q --ff-only; hook stop "$S"; expect_code 0
+[ "$TC_ON" = 1 ] && rm -rf "$TMP/origin.git" "$TMP/other"
+
 tc TC-C18 "문서 루트가 없는 저장소에서는 아무것도 하지 않는다"
 make_repo; rm -rf docs; hook snapshot "$S"; echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java
 hook stop "$S"; expect_code 0; expect_no_out

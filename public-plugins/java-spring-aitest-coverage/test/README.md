@@ -13,7 +13,7 @@ test/diff-coverage-validate.test.sh TC-H     # ID 접두사로 필터
 
 Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아래 "수동 확인" 을 본다.
 
-## 자동 TC (41건)
+## 자동 TC (43건)
 
 ### A. 메서드 커버리지 (method-coverage-get.sh)
 
@@ -70,6 +70,8 @@ Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아�
 | TC-H10 | 소비 모듈을 모르는 main 변경이어도 AiTest diff 가 있으면 통과한다 (C-04) |
 | TC-H11 | 테스트만 바뀌면 막지 않는다 |
 | TC-H12 | 하위 디렉터리에서 호출해도 저장소 루트 기준으로 본다 |
+| TC-H13 | 요청 안에서 커밋한 Controller 변경도 본다 (C-05) |
+| TC-H14 | 원격 기본 브랜치에서 받아온 커밋은 이번 변경이 아니다 (C-05) |
 
 ## 수동 확인 — 실제 Gradle · testcontainer
 
