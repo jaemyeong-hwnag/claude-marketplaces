@@ -56,6 +56,8 @@ test/validate-git-secret.test.sh TC-S3    # ID 접두사로 필터
 | TC-S42 | git 저장소 밖 · 빈 입력 · PostToolUse 는 통과한다 |
 | TC-S43 | git 과 commit 사이의 전역 옵션(--no-pager · -c)이 있어도 -a 를 본다 |
 | TC-S44 | git 이 없는 Bash 명령은 jq · 임시 디렉터리 전에 끝난다 |
+| TC-S45 | git commit <경로> · --only · -i 는 그 경로의 작업 트리 내용을 본다 |
+| TC-S46 | 메시지 · 옵션 값은 경로로 보지 않는다 (과잉 차단 방지) |
 
 ### C. 훅 — Write · Edit
 
@@ -80,3 +82,4 @@ test/validate-git-secret.test.sh TC-S3    # ID 접두사로 필터
 | TC-S73 | gitleaks 엔진으로 커밋을 막고 gitleaks:allow 를 따른다 (gitleaks 가 있을 때) |
 | TC-S74 | gitleaks 엔진도 편집 전후를 비교한다 (gitleaks 가 있을 때) |
 | TC-S75 | gitleaks 엔진은 여러 줄 개인 키의 본문을 출력하지 않는다 (gitleaks 가 있을 때) |
+| TC-S76 | gitleaks 가 실패하면 내장 패턴으로 보고 알린다 |
