@@ -87,10 +87,25 @@ EOF
     if [ -n "$exc" ]; then grep -Ev "$exc"; else cat; fi
 }
 
-# 작업 트리에서 HEAD 와 다른 파일 (tracked 변경 + untracked). 경로는 현재 디렉터리 기준
+# 이번 요청의 비교 기준 — 요청 시작 때의 HEAD. 요청 안에서 한 커밋도 이번 변경이다.
+# 원격 기본 브랜치에서 받아온 커밋은 빼고, HEAD 가 기준에서 이어지지 않으면(리베이스 · 브랜치 전환) HEAD 다
+turn_ref() { # $1=기준 파일
+  local base remote mb
+  base="$(cat "$1" 2>/dev/null)"
+  if [ -z "$base" ] || ! git merge-base --is-ancestor "$base" HEAD 2>/dev/null; then echo HEAD; return; fi
+  remote="$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)"
+  [ -n "$remote" ] || for remote in origin/main origin/master ""; do git rev-parse -q --verify "$remote" >/dev/null 2>&1 && break; done
+  if [ -n "$remote" ]; then
+    mb="$(git merge-base HEAD "$remote" 2>/dev/null)"
+    [ -n "$mb" ] && [ "$mb" != "$base" ] && git merge-base --is-ancestor "$base" "$mb" 2>/dev/null && base="$mb"
+  fi
+  echo "$base"
+}
+
+# 작업 트리에서 $1(기본 HEAD)과 다른 파일 (tracked 변경 + untracked). 경로는 현재 디렉터리 기준
 changed_files() {
   {
-    git diff HEAD --name-only --relative 2>/dev/null || git diff --cached --name-only --relative 2>/dev/null
+    git diff "${1:-HEAD}" --name-only --relative 2>/dev/null || git diff --cached --name-only --relative 2>/dev/null
     git ls-files --others --exclude-standard 2>/dev/null
   } | awk 'NF && !seen[$0]++'
 }
@@ -118,6 +133,7 @@ hook_init() {
   SAFE="$(printf '%s' "$SID" | tr -c 'A-Za-z0-9_.-' '_')"
   STATE="${TMPDIR:-/tmp}/domain-document-sync-${SAFE}.turn"
   ACK="${TMPDIR:-/tmp}/domain-document-sync-${SAFE}.ack"
+  BASE_FILE="${TMPDIR:-/tmp}/domain-document-sync-${SAFE}.base"
 }
 
 # 훅 입력의 file_path 를 프로젝트 기준 상대 경로로
@@ -158,6 +174,7 @@ mode_snapshot() {
   [ -d "$ROOT" ] || exit 0
   git rev-parse --git-dir >/dev/null 2>&1 || exit 0
   local changed slug
+  git rev-parse -q --verify HEAD > "$BASE_FILE" 2>/dev/null || rm -f "$BASE_FILE"
   changed="$(changed_files)"
   domain_slugs | while IFS= read -r slug; do
     printf '%s %s\n' "$slug" "$(printf '%s\n' "$changed" | domain_code_files "$slug" | fingerprint)"
@@ -175,7 +192,7 @@ mode_stop() {
   git rev-parse --git-dir >/dev/null 2>&1 || exit 0
   local active changed slug code now prev acks viol=""
   active="$(printf '%s' "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null || echo false)"
-  changed="$(changed_files)"
+  changed="$(changed_files "$(turn_ref "$BASE_FILE")")"
   [ -z "$changed" ] && exit 0
   acks="$(cat "$ACK" 2>/dev/null || true)"
 
