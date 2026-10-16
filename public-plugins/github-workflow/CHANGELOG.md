@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.3
+
+### Fixed
+- `W-09` — 기본 브랜치에서 `git push origin HEAD` · `@` 를 막는다 (#74). 대상이 문자열 `HEAD` 라 `main` 과 달라 통과했다
+
 ## 0.1.2
 
 ### Fixed

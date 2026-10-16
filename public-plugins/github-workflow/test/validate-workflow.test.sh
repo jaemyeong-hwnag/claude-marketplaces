@@ -466,6 +466,11 @@ HOOK "git revert HEAD" "$MN"; expect_code 2
 HOOK "git am x.patch" "$MN"; expect_code 2
 HOOK "git cherry-pick --abort" "$MN"; expect_code 0
 
+tc TC-W164 "main 에서 git push origin HEAD · @ 를 막는다 (W-09)"
+HOOK "git push origin HEAD" "$MN"; expect_code 2; expect_out "main 에 직접 푸시하지 않습니다"
+HOOK "git push -u origin @" "$MN"; expect_code 2
+HOOK "git push -u origin HEAD" "$FB"; expect_code 0
+
 tc TC-W170 "서브셸 · 중괄호 안의 명령도 본다"
 HOOK "(git commit -m x)" "$MN"; expect_code 2
 HOOK "{ git commit -m x; }" "$MN"; expect_code 2
