@@ -65,14 +65,17 @@ scan_dir() {
     local cfg=()
     [ -n "$repo" ] && [ -f "$repo/.gitleaks.toml" ] && cfg=(-c "$repo/.gitleaks.toml")
     # 디렉터리 안에서 . 을 넘겨야 File 이 상대 경로로 나온다 (TMPDIR 의 // · 심볼릭 링크와 무관하게)
-    ( cd "$dir" && gitleaks dir . ${cfg+"${cfg[@]}"} --no-banner --report-format json \
-      --report-path "$TMP/gitleaks.json" --exit-code 0 -l error >/dev/null 2>&1 ) || die "gitleaks 실행에 실패했습니다"
-    # 값은 jq 안에서 앞 4글자로 가린다 — 개인 키처럼 여러 줄인 값이 줄 단위 읽기로 새어 나가지 않게.
-    # 모양은 내장 엔진의 redact 와 같아야 편집 전후를 비교할 수 있다
-    jq -r '.[] | [(.File | ltrimstr("./")), .RuleID,
-        ((.Secret // .Match // "") | if length > 4 then .[0:4] + "…" else "…" end)]
-      | map(gsub("[\r\n\u001f]"; " ")) | join("\u001f")' "$TMP/gitleaks.json" 2>/dev/null
-    return 0
+    # 실패하면 내장 패턴으로 본다 — 파이프 안이라 die 는 서브셸만 끝내 빈 결과로 통과시킨다
+    if ( cd "$dir" && gitleaks dir . ${cfg+"${cfg[@]}"} --no-banner --report-format json \
+      --report-path "$TMP/gitleaks.json" --exit-code 0 -l error >/dev/null 2>&1 ); then
+      # 값은 jq 안에서 앞 4글자로 가린다 — 개인 키처럼 여러 줄인 값이 줄 단위 읽기로 새어 나가지 않게.
+      # 모양은 내장 엔진의 redact 와 같아야 편집 전후를 비교할 수 있다
+      jq -r '.[] | [(.File | ltrimstr("./")), .RuleID,
+          ((.Secret // .Match // "") | if length > 4 then .[0:4] + "…" else "…" end)]
+        | map(gsub("[\r\n\u001f]"; " ")) | join("\u001f")' "$TMP/gitleaks.json" 2>/dev/null
+      return 0
+    fi
+    : > "$TMP/gitleaks-failed"
   fi
   local placeholder id flags re hit file rest line m
   placeholder="$(jq -r '.placeholder // ""' "$RULES_JSON")"
@@ -175,6 +178,7 @@ collect_sensitive() {
 
 engine_note() {
   [ "$ENGINE" = builtin ] && echo "  ℹ️ gitleaks 가 없어 내장 패턴으로 봤다 (GS-05). 설치하면 더 많이 잡는다: brew install gitleaks" >&2
+  [ -f "$TMP/gitleaks-failed" ] && echo "  ⚠️ gitleaks 실행에 실패해 내장 패턴으로 봤다 (GS-05) — gitleaks 버전(dir 명령) · .gitleaks.toml 을 확인한다" >&2
   return 0
 }
 
@@ -199,6 +203,25 @@ command_dir() { # $1=명령 $2=훅 cwd
   printf '%s' "$d"
 }
 
+# git commit 의 경로 인자 — 따옴표 값(메시지)과 값을 받는 옵션의 값은 뺀다
+commit_pathspecs() { # $1=commit 인자 → 한 줄에 하나
+  local args tok skip=0
+  args="$(printf '%s' "$1" | sed -E "s/\"[^\"]*\"/__q__/g; s/'[^']*'/__q__/g")"
+  set -f
+  for tok in $args; do
+    if [ "$skip" = 1 ]; then skip=0; continue; fi
+    case "$tok" in
+      --|__q__) ;;
+      -m|-F|-C|-c|-t|--message|--file|--reuse-message|--reedit-message|--template|--author|--date|--cleanup|--fixup|--squash|--trailer|--pathspec-from-file) skip=1 ;;
+      --*) ;;
+      -*[mFCct]) skip=1 ;;
+      -*) ;;
+      *) printf '%s\n' "$tok" ;;
+    esac
+  done
+  set +f
+}
+
 hook_commit() { # $1=저장소 $2=명령
   local repo="$1" cmd="$2" scan="$TMP/commit" paths="$TMP/commit-paths" add_args commit_args worktree=0 has_head=1 tok
   mkdir -p "$scan"; : > "$paths"
@@ -207,6 +230,11 @@ hook_commit() { # $1=저장소 $2=명령
   # git add 가 같은 명령에 있으면 아직 스테이징 전이다 — 바뀐 파일 전체를 본다
   if has_git_sub "$cmd" add; then worktree=1; fi
   if printf ' %s ' "$commit_args" | grep -qE '[[:space:]](-[A-Za-z]*a[A-Za-z]*|--all)[[:space:]]'; then worktree=1; fi
+  # git commit <경로> · --only · -i 는 그 경로의 작업 트리 내용을 커밋한다
+  local specs=()
+  if [ "$worktree" = 0 ] && [ "$has_head" = 1 ]; then
+    while IFS= read -r tok; do [ -n "$tok" ] && specs+=("$tok"); done < <(commit_pathspecs "$commit_args")
+  fi
 
   {
     g -C "$repo" diff --cached -U0 --no-color --no-ext-diff 2>/dev/null
@@ -214,8 +242,10 @@ hook_commit() { # $1=저장소 $2=명령
       if [ "$has_head" = 1 ]; then g -C "$repo" diff HEAD -U0 --no-color --no-ext-diff 2>/dev/null
       else g -C "$repo" diff -U0 --no-color --no-ext-diff 2>/dev/null; fi
     fi
+    if [ "${#specs[@]}" -gt 0 ]; then g -C "$CMD_DIR" diff HEAD -U0 --no-color --no-ext-diff -- "${specs[@]}" 2>/dev/null; fi
   } | patch_to_dir "$scan"
   g -C "$repo" diff --cached --name-only --diff-filter=ACMR 2>/dev/null >> "$paths"
+  if [ "${#specs[@]}" -gt 0 ]; then g -C "$CMD_DIR" diff HEAD --name-only --diff-filter=ACMR -- "${specs[@]}" 2>/dev/null >> "$paths"; fi
 
   if [ "$worktree" = 1 ]; then
     g -C "$repo" diff --name-only --diff-filter=ACMR 2>/dev/null >> "$paths"

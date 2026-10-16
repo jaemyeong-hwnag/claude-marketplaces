@@ -165,6 +165,21 @@ tc TC-S34 "git commit -am 은 바뀐 추적 파일을 본다"
 r="$(repo)"; printf 'key = "%s"\n' "$AWS_KEY" >> "$r/app.py"
 run_stdin "$(payload_bash "$r" 'git commit -am "update"')"; expect_code 2; expect_out "[GS-01] app.py"
 
+tc TC-S45 "git commit <경로> · --only · -i 는 그 경로의 작업 트리 내용을 본다"
+r="$(repo)"; printf 'x = 1\n' > "$r/app.py"; git -C "$r" add app.py; git -C "$r" commit -qm base
+printf 'key = "%s"\n' "$AWS_KEY" >> "$r/app.py"
+run_stdin "$(payload_bash "$r" 'git commit app.py -m "update app"')"; expect_code 2; expect_out "[GS-01] app.py"
+run_stdin "$(payload_bash "$r" 'git commit -m x -- app.py')"; expect_code 2
+run_stdin "$(payload_bash "$r" 'git commit --only -m x app.py')"; expect_code 2
+run_stdin "$(payload_bash "$r" 'git commit -qm wip -i app.py')"; expect_code 2
+
+tc TC-S46 "메시지 · 옵션 값은 경로로 보지 않는다 (과잉 차단 방지)"
+r="$(repo)"; printf 'x = 1\n' > "$r/app.py"; git -C "$r" add app.py; git -C "$r" commit -qm base
+printf 'key = "%s"\n' "$AWS_KEY" >> "$r/app.py"; printf 'y = 1\n' > "$r/b.py"; git -C "$r" add b.py
+run_stdin "$(payload_bash "$r" 'git commit -m "fix app.py" --author "a <a@b>"')"; expect_code 0
+run_stdin "$(payload_bash "$r" 'git commit -m app.py')"; expect_code 0
+run_stdin "$(payload_bash "$r" 'git commit b.py -m x')"; expect_code 0
+
 tc TC-S35 "스테이징된 .env 는 막는다 (GS-02)"
 r="$(repo)"; printf 'X=1\n' > "$r/.env"; git -C "$r" add .env
 run_stdin "$(payload_bash "$r" 'git commit -m env')"; expect_code 2; expect_out "[GS-02] .env"
@@ -260,6 +275,12 @@ r="$(repo)"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/c.py"; run --all "$r"; expec
 
 tc TC-S71 "GIT_SECRET_ENGINE 이 잘못되면 실행 오류다"
 OUT="$(GIT_SECRET_ENGINE=nope "$SCRIPT" --all "$TMP" 2>&1)"; CODE=$?; expect_code 1; expect_out "GIT_SECRET_ENGINE"
+
+tc TC-S76 "gitleaks 가 실패하면 내장 패턴으로 보고 알린다"
+r="$(repo)"; printf 'token = "%s"\n' "$GH_TOKEN" > "$r/c.py"; git -C "$r" add c.py
+if [ "$TC_ON" = 1 ]; then mkdir -p "$TMP/fakebin"; printf '#!/bin/sh\nexit 3\n' > "$TMP/fakebin/gitleaks"; chmod +x "$TMP/fakebin/gitleaks"; fi
+OUT="$(payload_bash "$r" 'git commit -m x' | PATH="$TMP/fakebin:$PATH" GIT_SECRET_ENGINE=gitleaks "$SCRIPT" 2>&1)"; CODE=$?
+expect_code 2; expect_out "[GS-01] c.py"; expect_out "gitleaks 실행에 실패해"
 
 if command -v gitleaks >/dev/null 2>&1; then
   tc TC-S72 "gitleaks 엔진도 같은 경로 · 가린 값으로 보고한다"

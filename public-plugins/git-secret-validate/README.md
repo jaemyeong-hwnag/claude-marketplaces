@@ -47,7 +47,7 @@ brew install gitleaks    # 권장 — 없으면 내장 패턴으로 본다
 | `GS-02` | commit · push | 민감 파일 (`.env` · `*.pem` · `id_rsa` · `credentials.json` …) | 차단 |
 | `GS-03` | Write · Edit | ignore 안 된 파일에 새 시크릿 | 경고 |
 | `GS-04` | Write · Edit | ignore 안 됐거나 추적되는 민감 파일 | 경고 |
-| `GS-05` | 언제나 | gitleaks 가 없으면 내장 패턴으로 보고 알림 | 알림 |
+| `GS-05` | 언제나 | gitleaks 가 없거나 실패하면 내장 패턴으로 보고 알림 | 알림 |
 
 원본: [`references/secret-rules.md`](references/secret-rules.md) · 패턴과 파일 목록: [`references/secret-rules.json`](references/secret-rules.json)
 
