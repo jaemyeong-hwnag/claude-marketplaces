@@ -361,6 +361,15 @@
         "security",
         "git"
       ]
+    },
+    {
+      "name": "common-performance-review",
+      "source": "./public-plugins/common-performance-review",
+      "category": "public",
+      "description": "코드 변경의 성능을 빠짐없이 리뷰한다 — 언어 무관. 시간 · 공간 복잡도 · DB 쿼리(N+1 · 인덱스 · 페이지네이션) · 네트워크 · IO · 동시성 · 캐싱 · 페이로드 · 자원 해제 · 정규식 9개 범주 필수 판정, 루프 안 쿼리 · await · 무한 조회 등 20개 패턴 탐지와 작성 시 알림, 측정 방법 제시.",
+      "tags": [
+        "development"
+      ]
     }
   ]
 }
