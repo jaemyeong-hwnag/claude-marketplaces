@@ -314,6 +314,14 @@
       "meaning": "이름 짓기 규칙"
     },
     {
+      "use": "performance",
+      "deny": [
+        "efficiency",
+        "perf"
+      ],
+      "meaning": "시간 · 공간 · 쿼리 · IO 자원을 얼마나 적게 쓰는가"
+    },
+    {
       "use": "standard",
       "deny": [
         "std",
