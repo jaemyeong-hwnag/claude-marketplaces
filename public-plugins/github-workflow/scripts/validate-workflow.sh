@@ -169,6 +169,7 @@ check_git() { # $1=dir, 나머지=git 뒤 토큰
       if [ "${#nonflag[@]}" -ge 2 ]; then
         for t in "${nonflag[@]:1}"; do
           target="${t##*:}"; target="${target#refs/heads/}"
+          case "$target" in HEAD|@) target="$br" ;; esac
           [ "$target" = "$MAIN" ] && err "$MAIN 에 직접 푸시하지 않습니다 — PR 로 넣습니다 (W-09)"
         done
       elif ! has_tok --tags ${a[@]+"${a[@]}"} && ! has_tok --delete ${a[@]+"${a[@]}"} && ! has_tok -d ${a[@]+"${a[@]}"}; then

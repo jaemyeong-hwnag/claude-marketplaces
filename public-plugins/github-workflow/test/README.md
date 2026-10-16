@@ -146,6 +146,7 @@ test/validate-workflow.test.sh TC-W5    # ID 접두사로 필터
 | TC-W161 | main 에서 --ff-only 가 아닌 git pull 을 막는다 (W-09) |
 | TC-W162 | pull.ff=only 면 main 에서 git pull 은 통과한다 |
 | TC-W163 | main 에서 cherry-pick · revert · am 을 막는다 (W-09) |
+| TC-W164 | main 에서 git push origin HEAD · @ 를 막는다 (W-09) |
 | TC-W170 | 서브셸 · 중괄호 안의 명령도 본다 |
 | TC-W171 | 경로 · command · env 로 부른 git 도 본다 |
 | TC-W172 | bash -c · eval 의 문자열도 본다 |
