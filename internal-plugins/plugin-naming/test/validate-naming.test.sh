@@ -481,6 +481,29 @@ tc TC-131 "판단 요청이 단어별 슬롯 구분을 보여준다"
 run_stdin '{"hook_event_name":"PreToolUse","tool_input":{"file_path":"/x/internal-plugins/plugin-directory-structure/README.md"}}'
 expect_out "대상·범위 \\[plugin-directory\\] 관심사 \\[structure\\] 목적 \\[-\\]"
 
+mkdir -p "$TMP/judge/public-plugins/order-sync/skills/order-create" "$TMP/judge/public-plugins/order-sync/agents"
+: > "$TMP/judge/public-plugins/order-sync/skills/order-create/SKILL.md"
+: > "$TMP/judge/public-plugins/order-sync/agents/order-reviewer.md"
+
+tc TC-137 "훅 모드는 이미 있는 이름을 판단으로 넘기지 않는다"
+OUT="$(hook_json PreToolUse "$TMP/judge/public-plugins/order-sync/skills/order-create/SKILL.md" | CLAUDE_PROJECT_DIR="$TMP/judge" "$SCRIPT" 2>&1)"; CODE=$?
+expect_code 0; expect_empty
+OUT="$(hook_json PreToolUse "$TMP/judge/public-plugins/order-sync/agents/order-reviewer.md" | CLAUDE_PROJECT_DIR="$TMP/judge" "$SCRIPT" 2>&1)"; CODE=$?
+expect_code 0; expect_empty
+
+tc TC-138 "훅 모드는 새 이름만 판단으로 넘긴다"
+OUT="$(hook_json PreToolUse "$TMP/judge/public-plugins/order-sync/skills/order-delete/SKILL.md" | CLAUDE_PROJECT_DIR="$TMP/judge" "$SCRIPT" 2>&1)"; CODE=$?
+expect_code 0; expect_out "판단 요청"; expect_out "skill 'order-delete'"; expect_noout "plugin 'order-sync'"
+
+tc TC-139 "이미 있는 이름이어도 기계 위반은 막는다"
+mkdir -p "$TMP/judge/public-plugins/java"; : > "$TMP/judge/public-plugins/java/README.md"
+OUT="$(hook_json PreToolUse "$TMP/judge/public-plugins/java/README.md" | CLAUDE_PROJECT_DIR="$TMP/judge" "$SCRIPT" 2>&1)"; CODE=$?
+expect_code 2; expect_out "plugin 'java'"
+
+tc TC-127b "CLI 는 이미 있는 이름도 판단 항목으로 보여준다"
+run "$TMP/judge/public-plugins/order-sync/skills/order-create/SKILL.md"
+expect_code 0; expect_out "AI 가 판단할 것"; expect_out "skill 'order-create'"
+
 tc TC-127 "훅이 무관한 경로에는 반응하지 않는다"
 run_stdin '{"hook_event_name":"PreToolUse","tool_input":{"file_path":"/x/test/run-thing.test.sh"}}'
 expect_code 0; expect_empty

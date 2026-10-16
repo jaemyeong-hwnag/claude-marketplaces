@@ -87,9 +87,9 @@ is_use_word() {
   printf '%s\n' "$USE_WORDS" | grep -qx -- "$1"
 }
 
-# 이름 하나 검증. $1=종류(plugin|skill|command|agent) $2=이름
+# 이름 하나 검증. $1=종류(plugin|skill|command|agent) $2=이름 $3=판단 요청 여부(기본 1)
 validate_name() {
-  local kind="$1" name="$2" seg hit use cat meaning
+  local kind="$1" name="$2" judge="${3:-1}" seg hit use cat meaning
   local label="$kind '$name'"
 
   if ! [[ "$name" =~ $KEBAB_RE ]]; then
@@ -187,7 +187,7 @@ validate_name() {
   # 기계 규칙과 무관하게, 만들어진 이름은 전부 AI 판단 대상이다.
   # 이름이 옳은지는 무엇을 만드는가에 달렸고 그건 스크립트가 알 수 없다.
   # 슬롯 구분을 같이 넘겨, 단어가 어느 슬롯으로 읽혔는지 드러낸다.
-  JUDGMENTS+=("$kind '$name' — $breakdown")
+  [ "$judge" = 1 ] && JUDGMENTS+=("$kind '$name' — $breakdown")
 
   # 앞 단어의 줄임말 의심은 경고로만 남긴다
   local idx
@@ -201,26 +201,42 @@ validate_name() {
 
 # 경로에서 검증 대상 이름을 뽑는다
 validate_path() {
-  local path="${1%/}"
-  local matched=0
+  local orig="${1%/}" path
+  local matched=0 name
   # 프로젝트 안이면 프로젝트 기준 상대 경로로 본다 — 저장소를 둔 상위 폴더 이름(~/my-plugins/, ~/skills/)이 판정에 끼지 않게
-  path="${path#"${PROJECT_DIR%/}"/}"
+  path="${orig#"${PROJECT_DIR%/}"/}"
   # 앞의 (.*/)? 가 탐욕적이라 가장 오른쪽 일치를 고른다. 가장 왼쪽을 고르면
   # .claude/worktrees/13-x-plugins/public-plugins/… 에서 'public-plugins' 를 플러그인 이름으로 읽는다 (#24)
   # 이름이 plugins 로 끝나는 디렉터리(plugins/, public-plugins/, internal-plugins/ …)를 플러그인 위치로 본다
   if [[ "$path" =~ ^(.*/)?([a-z0-9]+-)*plugins/([^/]+) ]]; then
-    validate_name plugin "${BASH_REMATCH[3]}"; matched=1
+    name="${BASH_REMATCH[3]}"
+    validate_name plugin "$name" "$(judge_flag "$orig" "$path" "${BASH_REMATCH[0]}")"; matched=1
   fi
   if [[ "$path" =~ ^(.*/)?skills/([^/]+) ]]; then
-    validate_name skill "${BASH_REMATCH[2]}"; matched=1
+    name="${BASH_REMATCH[2]}"
+    validate_name skill "$name" "$(judge_flag "$orig" "$path" "${BASH_REMATCH[0]}")"; matched=1
   fi
   if [[ "$path" =~ ^(.*/)?commands/(.+)\.md$ ]]; then
-    validate_name command "$(basename "${BASH_REMATCH[2]}")"; matched=1
+    name="$(basename "${BASH_REMATCH[2]}")"
+    validate_name command "$name" "$(judge_flag "$orig" "$path" "${BASH_REMATCH[0]}")"; matched=1
   fi
   if [[ "$path" =~ ^(.*/)?agents/([^/]+)\.md$ ]]; then
-    validate_name agent "${BASH_REMATCH[2]}"; matched=1
+    name="${BASH_REMATCH[2]}"
+    validate_name agent "$name" "$(judge_flag "$orig" "$path" "${BASH_REMATCH[0]}")"; matched=1
   fi
   return $((1 - matched))
+}
+
+# 훅 모드에서는 새 이름만 판단을 요청한다 — 기존 파일을 고칠 때마다 이름 재검토로 번지지 않게.
+# $1=원래 경로 $2=프로젝트 기준 경로 $3=이름이 가리키는 대상(디렉터리 · 파일) → 1 판단 요청 / 0 생략
+judge_flag() {
+  local target="$3"
+  [ "$MODE" = hook ] || { echo 1; return; }
+  case "$target" in
+    /*) ;;
+    *) [ "$1" != "$2" ] && target="${PROJECT_DIR%/}/$target" ;;
+  esac
+  if [ -e "$target" ]; then echo 0; else echo 1; fi
 }
 
 # glossary.json 구조 검증

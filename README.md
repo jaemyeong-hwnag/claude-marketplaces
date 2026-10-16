@@ -193,7 +193,7 @@ internal-plugins/plugin-workflow/scripts/eval-all.sh --quick . # 스킬 발동 �
 
 ## 네이밍 규칙
 
-플러그인을 추가하기 전에 규칙을 읽는다. 규칙은 `plugin-naming` 이 훅으로 강제하므로, 어기는 이름으로는 파일이 만들어지지 않는다.
+플러그인을 추가하기 전에 규칙을 읽는다. 규칙은 `plugin-naming` 이 `Write` · `Edit` 훅으로 강제하므로, 어기는 이름으로는 이 도구로 파일을 만들 수 없다. `mkdir` · `git mv` · `cp` 는 훅 밖이라 `--all`(`verify-all.sh`)이 사후에 잡는다.
 
 - 규칙: [`naming-rules.md`](internal-plugins/plugin-naming/references/naming-rules.md)
 - 사전: [`glossary.json`](internal-plugins/plugin-naming/references/glossary.json)
@@ -205,7 +205,7 @@ internal-plugins/plugin-naming/test/validate-naming.test.sh          # 이름 �
 
 ## 디렉터리 구조 규칙
 
-어떤 파일을 어디에 두는지는 `marketplace-directory-structure` 가 훅으로 강제한다. 규칙에 없는 위치에는 파일이 만들어지지 않는다.
+어떤 파일을 어디에 두는지는 `marketplace-directory-structure` 가 `Write` · `Edit` 훅으로 강제한다. 규칙에 없는 위치에는 이 도구로 파일을 만들 수 없다. `Bash` 로 옮기거나 만든 것은 `verify-all.sh` 가 사후에 잡는다.
 
 - 규칙: [`directory-structure-rules.md`](internal-plugins/marketplace-directory-structure/references/directory-structure-rules.md)
 
