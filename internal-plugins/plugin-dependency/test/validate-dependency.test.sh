@@ -95,6 +95,14 @@ tc TC-P13 "깨진 plugin.json 을 보고한다"
 repo g11; plug a-sync; printf '{ "name": ' > "$R/internal-plugins/a-sync/.claude-plugin/plugin.json"
 run --all "$R"; expect_code 2; expect_out "a-sync: plugin.json 을 읽을 수 없습니다"
 
+tc TC-P14 "version 이 숫자여도 나머지 조항을 끝까지 본다"
+repo g12; plug b-sync '["a-sync"]'; plug a-sync '[{"name":"b-sync","version":1},"ghost-sync"]'; run --all "$R"
+expect_code 2; expect_out "'ghost-sync' 플러그인이 이 마켓플레이스에 없습니다"; expect_out "순환 의존: a-sync → b-sync → a-sync"
+
+tc TC-P15 "분석이 실패하면 통과시키지 않는다"
+repo g13; plug a-sync '"b-sync"'; run --all "$R"
+expect_code 2; expect_out "의존 그래프 분석 실패"
+
 echo "== B. 층 (D-04 · D-05 · D-06) =="
 
 tc TC-P20 "common 플러그인이 의존하면 막는다 (D-04)"
@@ -238,6 +246,10 @@ expect_code 0; expect_no_out
 
 tc TC-P76 "stdin 이 비면 통과시킨다"
 run_stdin ""; expect_code 0; expect_no_out
+
+tc TC-P77 "분석이 실패하면 저장 뒤 알린다"
+repo h4; plug a-sync '"b-sync"'
+run_stdin "$(POST "$R/internal-plugins/a-sync/.claude-plugin/plugin.json")"; expect_code 0; expect_out "의존 그래프 분석 실패"
 
 echo "== G. CLI =="
 

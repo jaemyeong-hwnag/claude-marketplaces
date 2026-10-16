@@ -30,6 +30,8 @@ test/validate-dependency.test.sh TC-P4    # ID 접두사로 필터
 | TC-P11 | 같은 이름을 두 번 선언하면 막는다 (D-11) |
 | TC-P12 | 문자열과 객체로 섞어 두 번 선언해도 잡는다 (D-11) |
 | TC-P13 | 깨진 plugin.json 을 보고한다 |
+| TC-P14 | version 이 숫자여도 나머지 조항을 끝까지 본다 |
+| TC-P15 | 분석이 실패하면 통과시키지 않는다 |
 
 ### B. 층 (D-04 · D-05 · D-06)
 
@@ -93,6 +95,7 @@ test/validate-dependency.test.sh TC-P4    # ID 접두사로 필터
 | TC-P74 | plugin.json 이 아닌 파일에는 반응하지 않는다 |
 | TC-P75 | PreToolUse 에는 반응하지 않는다 |
 | TC-P76 | stdin 이 비면 통과시킨다 |
+| TC-P77 | 분석이 실패하면 저장 뒤 알린다 |
 
 ### G. CLI
 
