@@ -27,6 +27,11 @@ fi
 git -C "$ROOT" rev-parse -q --verify "refs/heads/$BRANCH" >/dev/null && { echo "❌ 브랜치 $BRANCH 가 이미 있다" >&2; exit 2; }
 git -C "$ROOT" fetch -q origin "$MAIN" || { echo "❌ origin 에서 $MAIN 을 받아올 수 없다" >&2; exit 2; }
 git -C "$ROOT" worktree add -q -b "$BRANCH" "$WT" "origin/$MAIN" || { echo "❌ 워크트리를 만들지 못했다" >&2; exit 2; }
+# 무시되지 않으면 git add -A 가 워크트리를 gitlink 로 넣는다. info/exclude 는 커밋되지 않는다
+if ! git -C "$ROOT" check-ignore -q "$WT"; then
+  EX="$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir)/info/exclude"
+  mkdir -p "$(dirname "$EX")" && echo '/.claude/worktrees/' >> "$EX"
+fi
 
 echo "✅ $BRANCH"
 echo "   워크트리: $WT"

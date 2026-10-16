@@ -370,6 +370,13 @@ run "$BC" feature 12 order-sync "$W"; expect_code 0
 tc TC-W102 "branch-create 는 이미 있는 워크트리를 거부한다"
 run "$BC" feature 12 order-sync "$W"; expect_code 2; expect_out "이미 있다"
 
+tc TC-W103 "branch-create 는 워크트리 디렉터리를 git 이 무시하게 한다 — 한 번만"
+run "$BC" feature 13 order-two "$W"; expect_code 0
+[ "$TC_ON" = 1 ] && {
+  [ -z "$(git -C "$W" status --porcelain -- .claude)" ] || fail_tc ".claude/worktrees 가 untracked 로 보인다"
+  [ "$(grep -c 'worktrees' "$(git -C "$W" rev-parse --path-format=absolute --git-common-dir)/info/exclude")" = 1 ] || fail_tc "exclude 줄이 한 줄이 아니다"
+}
+
 echo "== H. 기본 브랜치 (origin/HEAD) =="
 
 mktrunk() { # origin 의 기본 브랜치가 trunk 인 저장소. origin/HEAD 를 받아 둔다
