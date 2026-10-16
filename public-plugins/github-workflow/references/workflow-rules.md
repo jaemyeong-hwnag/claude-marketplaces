@@ -43,8 +43,8 @@ GitHub 저장소의 변경이 **이슈에서 머지까지 어떤 경로로 가�
 | `W-05` | PR 은 템플릿(`--template` / `--body-file`)과 라벨(`feature` / `bugfix`)을 붙여 연다. `--fill` 은 쓰지 않는다 | 차단 (훅) |
 | `W-06` | PR 을 열거나 머지하기 전에 브랜치가 `origin/main` 을 포함한다 (리베이스됨) | 차단 (훅) |
 | `W-07` | 머지는 머지 커밋(`--merge`)으로만. `--squash` · `--rebase` 를 쓰지 않는다 | 차단 (훅) |
-| `W-08` | 강제 푸시는 `--force-with-lease` 만 | 차단 (훅) |
-| `W-09` | `main` 에 직접 커밋 · 머지 · 푸시하지 않는다. `git pull --ff-only` · `git merge --ff-only` 만 된다 | 차단 (훅) |
+| `W-08` | 강제 푸시는 `--force-with-lease` 만 (`--force-if-includes` 를 더하는 것은 된다) | 차단 (훅) |
+| `W-09` | `main` 에 직접 커밋 · 머지 · 푸시하지 않는다 (`cherry-pick` · `revert` · `am` 도 커밋이다). `git pull --ff-only`(또는 `pull.ff=only`) · `git merge --ff-only` 만 된다 | 차단 (훅) |
 | `W-10` | 태그(`git tag` · `claude plugin tag`)는 `main` 에서만 단다 | 차단 (훅) |
 
 ### 왜 훅인가

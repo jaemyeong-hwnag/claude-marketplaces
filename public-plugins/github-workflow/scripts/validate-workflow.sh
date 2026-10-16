@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # GitHub 개발 플로우를 검증한다 — 이슈·PR 템플릿, 브랜치 이름, main 보호, 머지 방식, 태그 위치.
-# 기본 브랜치는 origin/HEAD 에서 읽는다 (없으면 main). 이하 main 은 기본 브랜치를 뜻한다.
+# 기본 브랜치는 origin/HEAD 에서 읽는다 (없으면 origin/main → origin/master → main). 이하 main 은 기본 브랜치를 뜻한다.
 #
 # 훅 모드 : stdin 으로 훅 JSON 을 받는다.
 #   PreToolUse(Bash) → git · gh · claude plugin tag 명령을 보고 W-03 ~ W-10 위반이면 차단
@@ -26,7 +26,6 @@ ERRORS=()
 NOTICES=()
 
 die() { echo "validate-workflow: $*" >&2; exit 1; }
-command -v jq >/dev/null 2>&1 || die "jq 가 필요합니다"
 
 err() { ERRORS+=("$1"); }
 notice() { NOTICES+=("$1"); }
@@ -74,11 +73,14 @@ check_branch_name() { # $1=이름
 # ---- git 도우미 -------------------------------------------------------------
 branch_of() { git -C "$1" rev-parse --abbrev-ref HEAD 2>/dev/null; }
 
-# 기본 브랜치 — origin/HEAD 가 가리키는 브랜치. 없으면 main
+# 기본 브랜치 — origin/HEAD 가 가리키는 브랜치. clone 이 아닌 저장소(init 뒤 remote add)는 origin/HEAD 가 없다
 detect_main() { # $1=디렉터리
-  local h
+  local h b
   h="$(git -C "$1" symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)"
-  [ -n "$h" ] && MAIN="${h#origin/}"
+  if [ -n "$h" ]; then MAIN="${h#origin/}"; return 0; fi
+  for b in main master; do
+    git -C "$1" rev-parse --verify -q "refs/remotes/origin/$b" >/dev/null 2>&1 && { MAIN="$b"; return 0; }
+  done
   return 0
 }
 
@@ -103,6 +105,13 @@ has_prefix_tok() { # $1=접두사(예: --label=) 나머지=토큰들
   return 1
 }
 unquote() { local s="$1"; s="${s%\"}"; s="${s#\"}"; s="${s%\'}"; s="${s#\'}"; printf '%s' "$s"; }
+# 경로 인자 → 절대 디렉터리. 없는 곳이면 $1 그대로. $1=기준 디렉터리 $2=경로
+resolve_dir() {
+  local to="$2"
+  case "$to" in "~") to="$HOME" ;; "~/"*) to="$HOME/${to#"~/"}" ;; esac
+  case "$to" in /*) ;; *) to="$1/$to" ;; esac
+  if [ -d "$to" ]; then (cd "$to" && pwd); else printf '%s' "$1"; fi
+}
 
 # ---- 명령 한 조각 검사 ------------------------------------------------------
 # $1=작업 디렉터리 $2=명령 조각
@@ -113,7 +122,7 @@ check_git() { # $1=dir, 나머지=git 뒤 토큰
   # 전역 옵션: -C <path> · -c <k=v>
   while [ "$i" -lt "${#a[@]}" ]; do
     case "${a[$i]}" in
-      -C) dir="$(cd "$dir" 2>/dev/null && cd "$(unquote "${a[$((i+1))]:-.}")" 2>/dev/null && pwd || echo "$dir")"; i=$((i+2)) ;;
+      -C) dir="$(resolve_dir "$dir" "${a[$((i+1))]:-.}")"; i=$((i+2)) ;;
       -c) i=$((i+2)) ;;
       -*) i=$((i+1)) ;;
       *) break ;;
@@ -129,13 +138,29 @@ check_git() { # $1=dir, 나머지=git 뒤 토큰
       if [ "$br" = "$MAIN" ] && ! has_tok --ff-only ${a[@]+"${a[@]}"} && ! has_tok --abort ${a[@]+"${a[@]}"}; then
         err "$MAIN 에서 git merge 를 하지 않습니다 — PR 로 머지합니다. 받아오기만 하려면 --ff-only (W-09)"
       fi ;;
+    pull)
+      if [ "$br" = "$MAIN" ]; then
+        if has_tok --rebase ${a[@]+"${a[@]}"} || has_tok -r ${a[@]+"${a[@]}"} || has_prefix_tok --rebase= ${a[@]+"${a[@]}"} \
+           || has_tok --no-ff ${a[@]+"${a[@]}"} || has_tok --ff ${a[@]+"${a[@]}"}; then
+          err "$MAIN 에서 git pull 은 --ff-only 로만 받습니다 (W-09)"
+        elif ! has_tok --ff-only ${a[@]+"${a[@]}"} && [ "$(git -C "$dir" config pull.ff 2>/dev/null)" != only ]; then
+          err "$MAIN 에서 git pull 은 --ff-only 로만 받습니다 — 머지 커밋이 생길 수 있습니다 (W-09)"
+        fi
+      fi ;;
+    cherry-pick|revert|am)
+      if [ "$br" = "$MAIN" ] && ! has_tok --abort ${a[@]+"${a[@]}"} && ! has_tok --quit ${a[@]+"${a[@]}"}; then
+        err "$MAIN 에서 git $sub 를 하지 않습니다 — 커밋이 생깁니다. 작업 브랜치에서 하고 PR 로 넣습니다 (W-09)"
+      fi ;;
     push)
-      for t in ${a[@]+"${a[@]}"}; do
+      n=0
+      while [ "$n" -lt "${#a[@]}" ]; do
+        t="${a[$n]}"; n=$((n+1))
         case "$t" in
-          --force|--force-if-includes) err "강제 푸시는 --force-with-lease 만 씁니다 (W-08)" ;;
-          --force-with-lease*) ;;
+          --force) err "강제 푸시는 --force-with-lease 만 씁니다 (W-08)" ;;
+          -o|--push-option|--repo|--receive-pack|--exec) n=$((n+1)) ;;
           --*) ;;
           -*f*) err "강제 푸시(-f)는 쓰지 않습니다 — --force-with-lease (W-08)" ;;
+          -*) ;;
           +*) err "'$t' — + 로 시작하는 refspec 은 강제 푸시입니다. --force-with-lease 를 쓰세요 (W-08)"; nonflag+=("${t#+}") ;;
           *) nonflag+=("$t") ;;
         esac
@@ -206,23 +231,27 @@ check_gh() { # $1=dir, 나머지=gh 뒤 토큰
   local -a a=("$@")
   [ "${a[0]:-}" = "pr" ] || return 0
   local sub="${a[1]:-}"; a=("${a[@]:2}")
-  local t n label_ok=0 body_ok=0 arg="" head r
+  local t v n label_ok=0 body_ok=0 web=0 arg="" repo="" head r
+  local -a fills=()
+  # 값을 받는 옵션의 값은 플래그로도 PR 번호로도 보지 않는다 — gh pr create · merge --help 기준
   case "$sub" in
     create)
-      has_tok --web ${a[@]+"${a[@]}"} && return 0
-      has_tok -w ${a[@]+"${a[@]}"} && return 0
-      for t in --fill -f --fill-first --fill-verbose; do
-        has_tok "$t" ${a[@]+"${a[@]}"} && err "gh pr create 에 $t 를 쓰지 않습니다 — 템플릿(--template feature.md · bugfix.md)으로 엽니다 (W-05)"
-      done
       n=0
       while [ "$n" -lt "${#a[@]}" ]; do
-        case "${a[$n]}" in
-          -T|--template|-F|--body-file) body_ok=1; n=$((n+2)) ;;
-          --template=*|--body-file=*) body_ok=1; n=$((n+1)) ;;
-          -l|--label) case ",$(unquote "${a[$((n+1))]:-}")," in *,feature,*|*,bugfix,*) label_ok=1 ;; esac; n=$((n+2)) ;;
-          --label=*) case ",$(unquote "${a[$n]#--label=}")," in *,feature,*|*,bugfix,*) label_ok=1 ;; esac; n=$((n+1)) ;;
-          *) n=$((n+1)) ;;
+        t="${a[$n]}"; v="${a[$((n+1))]:-}"; n=$((n+1))
+        case "$t" in
+          -w|--web) web=1 ;;
+          -f|--fill|--fill-first|--fill-verbose) fills+=("$t") ;;
+          -T|--template|-F|--body-file) body_ok=1; n=$((n+1)) ;;
+          --template=*|--body-file=*) body_ok=1 ;;
+          -l|--label) case ",$v," in *,feature,*|*,bugfix,*) label_ok=1 ;; esac; n=$((n+1)) ;;
+          --label=*) case ",${t#--label=}," in *,feature,*|*,bugfix,*) label_ok=1 ;; esac ;;
+          -a|--assignee|-B|--base|-b|--body|-H|--head|-m|--milestone|-p|--project|--recover|-r|--reviewer|-t|--title|-R|--repo) n=$((n+1)) ;;
         esac
+      done
+      [ "$web" = 1 ] && return 0
+      for t in ${fills+"${fills[@]}"}; do
+        err "gh pr create 에 $t 를 쓰지 않습니다 — 템플릿(--template feature.md · bugfix.md)으로 엽니다 (W-05)"
       done
       [ "$body_ok" = 1 ] || err "gh pr create 에 --template 또는 --body-file 이 없습니다 — 타입별 템플릿으로 엽니다 (W-05)"
       [ "$label_ok" = 1 ] || err "gh pr create 에 --label feature 또는 --label bugfix 가 없습니다 (W-05)"
@@ -233,15 +262,23 @@ check_gh() { # $1=dir, 나머지=gh 뒤 토큰
         *) err "origin/$MAIN 과 비교할 수 없습니다 (fetch 실패) — 확인 전에는 PR 을 열지 않습니다 (W-06)" ;;
       esac ;;
     merge)
-      has_tok --squash ${a[@]+"${a[@]}"} && err "스쿼시 머지를 쓰지 않습니다 — gh pr merge --merge (W-07)"
-      has_tok -s ${a[@]+"${a[@]}"} && err "스쿼시 머지(-s)를 쓰지 않습니다 — gh pr merge --merge (W-07)"
-      has_tok --rebase ${a[@]+"${a[@]}"} && err "리베이스 머지를 쓰지 않습니다 — 브랜치를 리베이스한 뒤 gh pr merge --merge (W-07)"
-      has_tok -r ${a[@]+"${a[@]}"} && err "리베이스 머지(-r)를 쓰지 않습니다 — gh pr merge --merge (W-07)"
-      if ! has_tok --merge ${a[@]+"${a[@]}"} && ! has_tok -m ${a[@]+"${a[@]}"}; then
-        err "머지 방식을 --merge 로 명시합니다 (W-07)"
-      fi
-      for t in ${a[@]+"${a[@]}"}; do case "$t" in -*) ;; *) arg="$(unquote "$t")"; break ;; esac; done
-      head="$(cd "$dir" 2>/dev/null && gh pr view ${arg:+"$arg"} --json headRefName -q .headRefName 2>/dev/null)"
+      local method=""
+      n=0
+      while [ "$n" -lt "${#a[@]}" ]; do
+        t="${a[$n]}"; v="${a[$((n+1))]:-}"; n=$((n+1))
+        case "$t" in
+          -s|--squash) err "스쿼시 머지를 쓰지 않습니다 — gh pr merge --merge (W-07)" ;;
+          -r|--rebase) err "리베이스 머지를 쓰지 않습니다 — 브랜치를 리베이스한 뒤 gh pr merge --merge (W-07)" ;;
+          -m|--merge) method=merge ;;
+          -R|--repo) repo="$v"; n=$((n+1)) ;;
+          --repo=*) repo="${t#--repo=}" ;;
+          -A|--author-email|-b|--body|-F|--body-file|--match-head-commit|-t|--subject) n=$((n+1)) ;;
+          -*) ;;
+          *) [ -z "$arg" ] && arg="$t" ;;
+        esac
+      done
+      [ "$method" = merge ] || err "머지 방식을 --merge 로 명시합니다 (W-07)"
+      head="$(cd "$dir" 2>/dev/null && gh pr view ${arg:+"$arg"} ${repo:+-R "$repo"} --json headRefName -q .headRefName 2>/dev/null)"
       if [ -z "$head" ]; then
         err "머지할 PR 의 브랜치를 알 수 없습니다 (gh pr view 실패) — 확인 전에는 머지하지 않습니다 (W-06)"
         return 0
@@ -268,27 +305,121 @@ check_claude() { # $1=dir, 나머지=claude 뒤 토큰
   return 0
 }
 
-# 복합 명령을 조각으로 나눠 차례로 본다. cd 는 이후 조각의 디렉터리를 바꾼다.
+# 셸 명령을 단순 명령 단위로 자른다 — 한 줄에 한 명령, 토큰마다 \037 로 끝난다. 토큰 안의 줄바꿈은 \036.
+# 따옴표 · 이스케이프 · $( ) · 백틱 · heredoc · 리다이렉션 · 주석을 알고, $( ) 안의 명령도 따로 낸다.
+read -r -d '' LEX <<'AWK'
+function emit() { if (CMD != "") print CMD; CMD = "" }
+function endtok() { if (INTOK) { gsub(/\n/, "\036", TOK); CMD = CMD TOK SEP }; TOK = ""; INTOK = 0 }
+function ch(o) { return substr(S, P + o, 1) }
+function blanks() { while (P <= N && (ch(0) == " " || ch(0) == "\t")) P++ }
+function heredocs(   i, e, line, cmp) {
+  for (i = 1; i <= HD; i++) {
+    while (P <= N) {
+      e = index(substr(S, P), "\n")
+      if (e == 0) { line = substr(S, P); P = N + 1 } else { line = substr(S, P, e - 1); P += e }
+      cmp = line; if (HDTAB[i]) sub(/^\t+/, "", cmp)
+      if (cmp == HDEND[i]) break
+    }
+  }
+  HD = 0
+}
+function word(   w, c) {
+  w = ""
+  while (P <= N) {
+    c = ch(0)
+    if (c ~ /[ \t\n;&|()<>]/) break
+    if (c == "\\") { w = w ch(1); P += 2; continue }
+    if (c == "'" || c == "\"") { P++; while (P <= N && ch(0) != c) { w = w ch(0); P++ }; P++; continue }
+    w = w c; P++
+  }
+  return w
+}
+function squote(   s) { s = ""; while (P <= N && ch(0) != "'") { s = s ch(0); P++ }; P++; return s }
+function ansi(   s) { s = ""; while (P <= N && ch(0) != "'") { if (ch(0) == "\\") { s = s ch(1); P += 2 } else { s = s ch(0); P++ } }; P++; return s }
+function arith(   d) { d = 0; while (P <= N) { if (ch(0) == "(") d++; else if (ch(0) == ")") { d--; if (d == 0) { P++; return } }; P++ } }
+function braces(   d, s) { d = 0; s = ""; while (P <= N) { s = s ch(0); if (ch(0) == "{") d++; else if (ch(0) == "}") { d--; if (d == 0) { P++; return s } }; P++ }; return s }
+function nested(stop,   sc, st, si) { sc = CMD; st = TOK; si = INTOK; CMD = ""; TOK = ""; INTOK = 0; lex(stop); CMD = sc; TOK = st; INTOK = si }
+function dquote(   c, c2) {
+  while (P <= N) {
+    c = ch(0)
+    if (c == "\"") { P++; return }
+    if (c == "\\") { c2 = ch(1); if (c2 == "\n") { P += 2; continue }; if (c2 !~ /[$`"\\]/) TOK = TOK c; TOK = TOK c2; P += 2; continue }
+    if (c == "$" && ch(1) == "(") { if (ch(2) == "(") { P++; arith(); continue }; P += 2; nested(")"); continue }
+    if (c == "$" && ch(1) == "{") { P++; TOK = TOK "$" braces(); continue }
+    if (c == "`") { P++; nested("`"); continue }
+    TOK = TOK c; P++
+  }
+}
+function lex(stop,   c, c2) {
+  while (P <= N) {
+    c = ch(0)
+    if (stop != "" && c == stop) { P++; endtok(); emit(); return }
+    if (c == "\\") { if (ch(1) != "\n") { TOK = TOK ch(1); INTOK = 1 }; P += 2; continue }
+    if (c == "'") { P++; TOK = TOK squote(); INTOK = 1; continue }
+    if (c == "\"") { P++; INTOK = 1; dquote(); continue }
+    if (c == "$") {
+      c2 = ch(1)
+      if (c2 == "(") { INTOK = 1; if (ch(2) == "(") { P++; arith(); continue }; P += 2; nested(")"); continue }
+      if (c2 == "{") { P++; TOK = TOK "$" braces(); INTOK = 1; continue }
+      if (c2 == "'") { P += 2; TOK = TOK ansi(); INTOK = 1; continue }
+      TOK = TOK c; INTOK = 1; P++; continue
+    }
+    if (c == "`") { P++; INTOK = 1; nested("`"); continue }
+    if (c == " " || c == "\t") { endtok(); P++; continue }
+    if (c == "\n") { endtok(); emit(); P++; heredocs(); continue }
+    if (c == "#" && !INTOK) { while (P <= N && ch(0) != "\n") P++; continue }
+    if (c == "&" && ch(1) == ">") { endtok(); P += 2; if (ch(0) == ">") P++; blanks(); word(); continue }
+    if (c == ">" || c == "<") {
+      if (INTOK && TOK ~ /^[0-9]+$/) { TOK = ""; INTOK = 0 } else endtok()
+      if (substr(S, P, 3) == "<<<") { P += 3; blanks(); word(); continue }
+      if (substr(S, P, 2) == "<<") { P += 2; HD++; HDTAB[HD] = 0; if (ch(0) == "-") { HDTAB[HD] = 1; P++ }; blanks(); HDEND[HD] = word(); continue }
+      P++; while (P <= N && ch(0) ~ /[>&|]/) P++
+      blanks(); word(); continue
+    }
+    if (c ~ /[;&|()]/) { endtok(); emit(); P++; continue }
+    TOK = TOK c; INTOK = 1; P++
+  }
+  endtok(); emit()
+}
+{ S = (NR == 1) ? $0 : S "\n" $0 }
+END { SEP = "\037"; N = length(S); P = 1; CMD = ""; TOK = ""; INTOK = 0; HD = 0; lex("") }
+AWK
+
+# 명령을 차례로 본다. cd 는 이후 명령의 디렉터리를 바꾼다. bash -c · eval 의 문자열은 다시 자른다.
 check_command() { # $1=명령 $2=시작 디렉터리
-  local cmd="$1" dir="$2" seg
+  local cmd="$1" dir="$2" line base i wrap s
   local -a toks
-  while IFS= read -r seg; do
-    seg="$(printf '%s' "$seg" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
-    [ -n "$seg" ] || continue
-    read -r -a toks <<< "$seg"
-    # 앞의 환경변수 대입(FOO=bar cmd)은 건너뛴다
-    while [ "${#toks[@]}" -gt 0 ] && [[ "${toks[0]}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; do toks=("${toks[@]:1}"); done
+  while IFS= read -r line; do
+    IFS=$'\037' read -r -a toks <<< "$line"
+    # 앞의 환경변수 대입 · 예약어 · 래퍼(command · env · sudo …)와 래퍼의 옵션을 건너뛴다
+    wrap=0
+    while [ "${#toks[@]}" -gt 0 ]; do
+      case "${toks[0]}" in
+        '{'|'}'|'!'|if|then|else|elif|do|while|until) ;;
+        time|command|builtin|exec|nohup|sudo|env) wrap=1 ;;
+        -*) [ "$wrap" = 1 ] || break ;;
+        *) [[ "${toks[0]}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || break ;;
+      esac
+      toks=("${toks[@]:1}")
+    done
     [ "${#toks[@]}" -gt 0 ] || continue
-    case "${toks[0]}" in
-      cd)
-        local to; to="$(unquote "${toks[1]:-$HOME}")"
-        case "$to" in /*) ;; *) to="$dir/$to" ;; esac
-        [ -d "$to" ] && dir="$(cd "$to" && pwd)" ;;
+    base="${toks[0]##*/}"
+    case "$base" in
+      cd|pushd) dir="$(resolve_dir "$dir" "${toks[1]:-$HOME}")" ;;
       git)    check_git "$dir" "${toks[@]:1}" ;;
       gh)     check_gh "$dir" "${toks[@]:1}" ;;
       claude) check_claude "$dir" "${toks[@]:1}" ;;
+      eval)   s="${toks[*]:1}"; check_command "${s//$'\036'/$'\n'}" "$dir" ;;
+      bash|sh|zsh|dash|ksh)
+        for ((i = 1; i < ${#toks[@]}; i++)); do
+          case "${toks[$i]}" in
+            -c|-[a-z]*c) s="${toks[$((i+1))]:-}"; [ -n "$s" ] && check_command "${s//$'\036'/$'\n'}" "$dir"; break ;;
+            -*) ;;
+            *) break ;;
+          esac
+        done ;;
     esac
-  done < <(printf '%s\n' "$cmd" | sed -E 's/(&&|\|\||;|\|)/\n/g')
+  done < <(printf '%s\n' "$cmd" | awk "$LEX")
 }
 
 report() {
@@ -333,6 +464,12 @@ main() {
   local payload tool cmd cwd
   payload="$(cat)"
   [ -n "$payload" ] || exit 0
+  # 기본 브랜치 보호 가드라 확인할 수 없으면 막는다 — exit 1 은 Claude Code 에서 통과다
+  if ! command -v jq >/dev/null 2>&1; then
+    printf '%s' "$payload" | grep -qE '(^|[^[:alnum:]_-])(git|gh|claude)[[:space:]]' || exit 0
+    echo "validate-workflow: jq 가 없어 git · gh 명령을 검사할 수 없습니다 — jq 를 설치하세요" >&2
+    exit 2
+  fi
   tool="$(printf '%s' "$payload" | jq -r '.tool_name // ""' 2>/dev/null)"
   [ "$tool" = "Bash" ] || exit 0
   cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // ""' 2>/dev/null)"

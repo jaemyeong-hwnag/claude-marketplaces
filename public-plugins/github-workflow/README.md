@@ -37,8 +37,10 @@ claude plugin install github-workflow@jaemyeong-hwnag-plugins --scope project
 
 ## 주의
 
-- 설치하면 이 저장소의 **기본 브랜치에서 `git commit` · `git merge` · `git push` 가 막힌다** (`W-09`). 작업은 `{feature|bugfix}/{이슈}-{slug}` 브랜치에서 한다
-- 기본 브랜치는 `origin/HEAD` 에서 읽는다. 없으면 `main` 으로 본다 — `git remote set-head origin --auto` 로 맞춘다
+- 설치하면 이 저장소의 **기본 브랜치에서 `git commit` · `git merge` · `git push` · `cherry-pick` · `revert` · `am` 과 `--ff-only` 가 아닌 `git pull` 이 막힌다** (`W-09`). 작업은 `{feature|bugfix}/{이슈}-{slug}` 브랜치에서 한다
+- 기본 브랜치는 `origin/HEAD` 에서 읽는다. 없으면 `origin/main` → `origin/master` → `main` 순으로 본다 — `git remote set-head origin --auto` 로 맞춘다
+- `jq` 가 없으면 `git` · `gh` · `claude` 명령을 검사할 수 없어 막는다
+- 서브셸 · `bash -c` · `eval` · `$( )` 안의 명령도 본다. 변수로 조립한 명령(`$CMD`)은 보지 못한다
 - 웹 UI 의 머지 · 푸시는 막지 못한다. 브랜치 보호를 켤 수 있으면 같이 켠다
 
 ## 무엇을 막나

@@ -3,7 +3,7 @@
 #
 #   branch-create.sh <feature|bugfix> <이슈 번호> <slug> [루트]
 #
-# 기본 브랜치: origin/HEAD 가 가리키는 브랜치 (없으면 main)
+# 기본 브랜치: origin/HEAD 가 가리키는 브랜치 (없으면 origin/main → origin/master → main)
 # 워크트리 위치: {루트}/.claude/worktrees/{이슈}-{slug}  (W-04)
 # 종료 코드: 0 성공 / 2 규칙 위반·확인 실패 / 1 실행 오류
 set -uo pipefail
@@ -17,7 +17,12 @@ WT="$ROOT/.claude/worktrees/$ISSUE-$SLUG"
 
 "$SCRIPT_DIR/validate-workflow.sh" --branch "$BRANCH" || exit 2
 git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || { echo "❌ $ROOT 는 git 저장소가 아니다" >&2; exit 2; }
-MAIN="$(git -C "$ROOT" symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)"; MAIN="${MAIN#origin/}"; MAIN="${MAIN:-main}"
+MAIN="$(git -C "$ROOT" symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)"; MAIN="${MAIN#origin/}"
+if [ -z "$MAIN" ]; then
+  MAIN=main
+  git -C "$ROOT" rev-parse --verify -q refs/remotes/origin/main >/dev/null || \
+    { git -C "$ROOT" rev-parse --verify -q refs/remotes/origin/master >/dev/null && MAIN=master; }
+fi
 [ -e "$WT" ] && { echo "❌ $WT 가 이미 있다" >&2; exit 2; }
 git -C "$ROOT" rev-parse -q --verify "refs/heads/$BRANCH" >/dev/null && { echo "❌ 브랜치 $BRANCH 가 이미 있다" >&2; exit 2; }
 git -C "$ROOT" fetch -q origin "$MAIN" || { echo "❌ origin 에서 $MAIN 을 받아올 수 없다" >&2; exit 2; }

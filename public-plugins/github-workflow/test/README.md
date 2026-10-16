@@ -129,6 +129,30 @@ test/validate-workflow.test.sh TC-W5    # ID 접두사로 필터
 | TC-W142 | 기본 브랜치가 trunk 면 git push origin trunk 를 막는다 (W-09) |
 | TC-W143 | 기본 브랜치가 trunk 면 origin/trunk 기준으로 최신을 본다 (W-06) |
 | TC-W144 | branch-create 는 origin/HEAD 가 가리키는 브랜치에서 딴다 |
+| TC-W145 | origin/HEAD 가 없고 origin/master 만 있으면 master 를 기본 브랜치로 본다 (W-09) |
+
+### I. 따옴표 · 옵션 값 · 우회
+
+| ID | 케이스 |
+|---|---|
+| TC-W150 | 제목 안의 -w 는 --web 이 아니다 — W-06 을 건너뛰지 않는다 |
+| TC-W151 | 제목 안의 --fill 은 --fill 이 아니다 (W-05) |
+| TC-W152 | heredoc PR 본문 안의 단어는 명령이 아니다 |
+| TC-W153 | gh pr merge 는 --subject 값이 아니라 PR 번호를 조회한다 |
+| TC-W154 | gh pr merge 의 --body 값 -s 는 스쿼시가 아니고, -R 은 조회에 넘긴다 |
+| TC-W155 | 파일로 쓰는 heredoc 본문은 명령이 아니다 |
+| TC-W156 | 따옴표 안의 git 명령은 인자다 |
+| TC-W160 | --force-with-lease --force-if-includes 는 통과한다 (W-08) |
+| TC-W161 | main 에서 --ff-only 가 아닌 git pull 을 막는다 (W-09) |
+| TC-W162 | pull.ff=only 면 main 에서 git pull 은 통과한다 |
+| TC-W163 | main 에서 cherry-pick · revert · am 을 막는다 (W-09) |
+| TC-W170 | 서브셸 · 중괄호 안의 명령도 본다 |
+| TC-W171 | 경로 · command · env 로 부른 git 도 본다 |
+| TC-W172 | bash -c · eval 의 문자열도 본다 |
+| TC-W173 | $( ) 안의 명령도 본다 |
+| TC-W174 | cd ~ 를 홈으로 풀어 디렉터리를 따라간다 |
+| TC-W175 | 리다이렉션 대상 · 2>&1 은 refspec 이 아니다 |
+| TC-W180 | jq 가 없으면 git · gh 명령을 막고 다른 명령은 통과시킨다 |
 
 ## 수동 TC (새 세션 필요)
 
