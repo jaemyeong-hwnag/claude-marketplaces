@@ -175,7 +175,7 @@ def rotate_min: (. [0:-1]) as $c | ($c | index($c | min)) as $i | ($c[$i:] + $c[
       | ["E", .[0], "순환 의존: \(join(" → ")) (D-03)"]),
 
     # D-09 같은 대상에 대한 범위 겹침
-    ([$P[] | .name as $from | .deps[] | select(type == "object" and (.version // "") != "")
+    ([$P[] | .name as $from | .deps[] | select(type == "object" and (.version | type) == "string" and .version != "")
        | {target: .name, from: $from, range: .version, iv: (.version | range_interval)}]
      | group_by(.target)[] | select(length > 1)
      | map(select(.iv != null)) | select(length > 1)
@@ -189,9 +189,16 @@ def rotate_min: (. [0:-1]) as $c | ($c | index($c | min)) as $i | ($c[$i:] + $c[
 JQ
 
 analyze() { # $1=루트 $2=필터할 플러그인(없으면 전체)
-  local root="$1" only="${2:-}" plugins market line kind from msg
+  local root="$1" only="${2:-}" plugins market line kind from msg out errf rc
   plugins="$(collect "$root")"
   market="$(marketplace_info "$root")"
+  errf="$(mktemp)"
+  out="$(printf '%s' "$plugins" | jq -r --argjson market "$market" "$ANALYZE" 2>"$errf")"; rc=$?
+  # 분석이 죽으면 아무 줄도 안 나와 전부 통과로 보인다 — 실패 자체를 위반으로 낸다
+  if [ "$rc" -ne 0 ]; then
+    ERRORS+=("${only:-저장소}: 의존 그래프 분석 실패 — jq: $(head -1 "$errf")")
+  fi
+  rm -f "$errf"
   while IFS=$'\t' read -r kind from msg; do
     [ -n "$kind" ] || continue
     if [ -n "$only" ]; then
@@ -201,7 +208,7 @@ analyze() { # $1=루트 $2=필터할 플러그인(없으면 전체)
       E) ERRORS+=("$from: $msg") ;;
       W) WARNINGS+=("$from: $msg") ;;
     esac
-  done < <(printf '%s' "$plugins" | jq -r --argjson market "$market" "$ANALYZE" 2>&1)
+  done <<< "$out"
 }
 
 dependents() { # $1=이름 $2=루트 — 이 플러그인에 기대는 것. 직접 · 전이
