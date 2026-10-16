@@ -105,13 +105,18 @@ test/validate-versioning.test.sh TC-V3    # ID 접두사로 필터
 | TC-V70 | plugin.json 에 `0.0.x` 를 쓰려 하면 차단한다 | 차단 (2) | `(V-03)` |
 | TC-V71 | plugin.json 에 `v` 접두사를 쓰려 하면 차단한다 | 차단 (2) | `(V-01)` |
 | TC-V72 | 정상 버전은 통과시킨다 | 통과 (0) | 출력 없음 |
-| TC-V73 | Edit 의 `new_string` 조각에서도 버전을 찾는다 | 차단 (2) | JSON 아닌 조각 |
-| TC-V74 | Edit 의 정상 버전 조각은 통과시킨다 | 통과 (0) | 출력 없음 |
-| TC-V75 | version 이 없는 조각에는 반응하지 않는다 | 통과 (0) | 출력 없음 |
+| TC-V73 | Edit 결과의 최상위 version 을 본다 | 차단 (2) | 디스크 파일에 old→new 를 적용 |
+| TC-V74 | Edit 의 정상 버전은 통과시킨다 | 통과 (0) | 출력 없음 |
+| TC-V75 | version 을 건드리지 않는 Edit 에는 반응하지 않는다 | 통과 (0) | 출력 없음 |
 | TC-V76 | plugin.json 이 아닌 경로에는 반응하지 않는다 | 통과 (0) | 출력 없음 |
 | TC-V77 | 이름이 비슷한 다른 파일에는 반응하지 않는다 | 통과 (0) | `.claude-plugin/` 밖 |
 | TC-V78 | stdin 이 비면 통과시킨다 | 통과 (0) | 출력 없음 |
 | TC-V79 | 경로가 없는 훅 입력은 통과시킨다 | 통과 (0) | 출력 없음 |
+| TC-V7A | Edit 조각이 의존 항목의 범위(`^1.0.0`)면 막지 않는다 | 통과 (0) | #61 |
+| TC-V7B | 의존 항목과 같이 고쳐도 최상위 version 이 틀리면 막는다 | 차단 (2) | `(V-03)` |
+| TC-V7C | Write 에 최상위 version 이 없으면 의존 항목의 version 을 보지 않는다 | 통과 (0) | 출력 없음 |
+| TC-V7D | `replace_all` Edit 은 모든 자리를 바꾼 결과를 본다 | 차단 (2) | `'v2'` |
+| TC-V7E | `old_string` 이 파일에 없으면 반응하지 않는다 | 통과 (0) | Edit 자체가 실패한다 |
 
 ### F. PostToolUse 훅 — 알림
 
@@ -155,6 +160,7 @@ test/validate-versioning.test.sh TC-V3    # ID 접두사로 필터
 | TC-V106 | `\|\|` 뒤가 비면 막는다 | 차단 (2) | `(V-11)` |
 | TC-V107 | `~>` 같은 다른 생태계 연산자를 막는다 | 차단 (2) | `(V-11)` |
 | TC-V108 | 선행 0 을 막는다 | 차단 (2) | `(V-11)` |
+| TC-V10A | 문자열이 아닌 version 을 막는다 | 차단 (2) | `문자열이어야 합니다` |
 | TC-V109 | `*` 한 글자가 파일 이름으로 확장되지 않는다 | 통과 (0) | 파일이 있는 디렉터리에서 실행 |
 
 ### I. 루트 CHANGELOG
@@ -180,6 +186,8 @@ test/validate-versioning.test.sh TC-V3    # ID 접두사로 필터
 | TC-V125 | 아직 add 하지 않은 새 파일도 변경으로 본다 | 차단 (2) | `(V-14)` |
 | TC-V126 | ref 에 없던 새 플러그인은 `V-14` 로 보지 않는다 | 통과 (0) | `V-03` 의 몫 |
 | TC-V127 | 다른 플러그인의 변경은 이 플러그인의 버전을 요구하지 않는다 | 차단 (2) | 바뀐 쪽만 나온다 |
+| TC-V12A | 리베이스 전 브랜치는 ref 쪽에서만 바뀐 플러그인을 지적하지 않는다 | 통과 (0) | merge-base 기준 (#61) |
+| TC-V12B | 리베이스 전 브랜치의 자기 변경은 merge-base 와 비교한다 | 차단 (2) | `merge-base` |
 | TC-V128 | 없는 ref 는 오류를 낸다 | 차단 (2) | `찾을 수 없습니다` |
 | TC-V129 | `--since` 에 ref 가 없으면 실행 오류다 | 오류 (1) | `ref 가 필요합니다` |
 
@@ -251,7 +259,7 @@ cp /tmp/vv.bak scripts/validate-versioning.sh && test/validate-versioning.test.s
 
 - 훅은 `Write` / `Edit` 에만 걸린다. `Bash` 로 고친 `plugin.json` 은 못 막는다. `--all` 에서 잡힌다.
 - `PreToolUse` 는 **버전 값만** 본다. CHANGELOG 정합성(`V-06`)은 막지 않는다 — 두 번의 편집이 필요하므로 첫 편집에서 막으면 아무것도 못 한다.
-- Edit 의 `new_string` 은 부분 문자열이라 JSON 으로 못 읽는다. `"version": "..."` 패턴을 정규식으로 찾는다. 그 패턴이 없으면 조용히 넘어간다.
+- Edit 은 디스크의 파일에 `old_string` → `new_string` 을 적용한 결과를 JSON 으로 읽어 최상위 `version` 만 본다. 결과가 JSON 이 아니거나 `old_string` 이 없으면 조용히 넘어간다 — `--all` 에서 잡힌다.
 - **올림 등급(PATCH/MINOR/MAJOR)은 판정하지 않는다.** `version-update` 스킬의 몫이다.
 - 태그가 가리키는 커밋의 `plugin.json` 은 보지 않는다. 현재 작업 트리의 값과만 비교한다.
 - 원격 소스(`github` · `npm` · `archive`) 엔트리는 로컬 `plugin.json` 과 대조하지 않는다. 대조할 파일이 없다.

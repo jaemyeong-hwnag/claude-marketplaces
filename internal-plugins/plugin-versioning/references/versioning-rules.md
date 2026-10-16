@@ -105,10 +105,10 @@ git tag plugin-versioning--v0.1.0   # 직접 만들 때의 형식
 
 | 조항 | 내용 |
 |---|---|
-| `V-14` | 기준 ref 이후 플러그인 디렉터리의 **어떤 파일이든** 바뀌었으면 `version` 이 올라가야 한다. 내려가도 안 된다 |
+| `V-14` | 기준 ref 와 HEAD 의 merge-base 이후 플러그인 디렉터리의 **어떤 파일이든** 바뀌었으면 `version` 이 올라가야 한다. 내려가도 안 된다 |
 
-- 기준 ref 는 PR 의 부모다: `--since origin/main`
-- ref 에 없던 플러그인은 새 플러그인이다 — `V-03` 이 본다
+- 기준 ref 는 PR 의 부모다: `--since origin/main`. 비교는 merge-base 와 한다 — 리베이스 전에도 ref 쪽에서만 바뀐 플러그인을 지적하지 않는다
+- merge-base 에 없던 플러그인은 새 플러그인이다 — `V-03` 이 본다
 - 아직 add 하지 않은 새 파일도 변경이다
 - `--all` 에는 들어가지 않는다. 비교할 ref 가 있어야 하기 때문이다. PR 을 열기 전에 돌린다 (`plugin-workflow`)
 
@@ -151,7 +151,7 @@ AI 가 판단할 것은 셋이다.
 # 태그만
 "${CLAUDE_PLUGIN_ROOT}/scripts/validate-versioning.sh" --tag .
 
-# PR 범위 — origin/main 이후 바뀐 플러그인이 버전을 올렸는가 (V-14)
+# PR 범위 — origin/main 과 갈라진 뒤 바뀐 플러그인이 버전을 올렸는가 (V-14)
 "${CLAUDE_PLUGIN_ROOT}/scripts/validate-versioning.sh" --since origin/main .
 ```
 
