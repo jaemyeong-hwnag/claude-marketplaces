@@ -167,9 +167,10 @@ for name in ${NAMES+"${NAMES[@]}"}; do
   if printf '%s' "$INSTALLED" | jq -e --arg id "$id" 'any(.[]; .id == $id and .enabled == true)' >/dev/null 2>&1; then
     # 설치본은 캐시로 복사된 스냅샷이다. 소스와 어긋나면 낡은 코드가 돈다.
     # claude plugin update 는 버전이 같으면 갱신하지 않으므로 재설치로 강제한다.
+    # .in_use 는 Claude Code 가 캐시에만 만드는 표시라 비교에서 뺀다 — 넣으면 재설치해도 다시 생겨 매번 재설치한다.
     installed_path="$(printf '%s' "$INSTALLED" | jq -r --arg id "$id" '.[] | select(.id == $id) | .installPath // ""')"
     if [ -n "$installed_path" ] && [ -d "$installed_path" ] \
-       && ! diff -rq "$installed_path" "$src" >/dev/null 2>&1; then
+       && ! diff -rq -x .in_use "$installed_path" "$src" >/dev/null 2>&1; then
       if claude plugin uninstall "$id" --scope project >/dev/null 2>&1 \
          && claude plugin install "$id" -y --scope project >/dev/null 2>&1; then
         CHANGED+=("'$id' 재설치 (설치본이 소스와 달랐습니다)")
