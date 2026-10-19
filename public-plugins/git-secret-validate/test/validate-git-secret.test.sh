@@ -144,6 +144,12 @@ printf 'fixtures\n' > "$r/.git-secret-allow"
 run "$r/fixtures/k.py"; expect_code 0
 run "$r/c.py"; expect_code 2; expect_out "c.py"
 
+tc TC-S18 "\$ 가 든 값은 값 전체가 \${…} · \$VAR 일 때만 플레이스홀더다"
+r="$(repo)"; printf 'db_password = "%s"\n' 'Tr0ub4dor$horse' > "$r/a.py"
+run --all "$r"; expect_code 2; expect_out "[GS-01] a.py — generic-secret"
+r="$(repo)"; printf 'db_password = "%s"\napi_key = "%s"\n' '$DB_PASSWORD' '${API_KEY:-none}' > "$r/a.py"
+run --all "$r"; expect_code 0
+
 # --- B. 훅 — Bash ------------------------------------------------------------
 tc TC-S30 "스테이징된 시크릿이 있으면 git commit 을 막는다 (GS-01)"
 r="$(repo)"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/config.py"; git -C "$r" add config.py
@@ -179,6 +185,26 @@ printf 'key = "%s"\n' "$AWS_KEY" >> "$r/app.py"; printf 'y = 1\n' > "$r/b.py"; g
 run_stdin "$(payload_bash "$r" 'git commit -m "fix app.py" --author "a <a@b>"')"; expect_code 0
 run_stdin "$(payload_bash "$r" 'git commit -m app.py')"; expect_code 0
 run_stdin "$(payload_bash "$r" 'git commit b.py -m x')"; expect_code 0
+
+tc TC-S47 "git add <경로> 는 그 경로만 보고, . · -A · -u · 경로 없는 git add 는 바뀐 파일 전체를 본다"
+r="$(repo)"; printf 'DB_HOST=localhost\n' > "$r/.env"; printf 'b\n' > "$r/b.txt"; mkdir -p "$r/src"; printf 'x = 1\n' > "$r/src/a.py"
+run_stdin "$(payload_bash "$r" 'git add b.txt && git commit -m "feat: b"')"; expect_code 0; expect_no_out
+run_stdin "$(payload_bash "$r" 'git add "b.txt" src && git commit -m x')"; expect_code 0
+run_stdin "$(payload_bash "$r" 'git add .env && git commit -m x')"; expect_code 2; expect_out "[GS-02] .env"
+run_stdin "$(payload_bash "$r" 'git add b.txt && git add .env && git commit -m x')"; expect_code 2; expect_out "[GS-02] .env"
+for c in 'git add . && git commit -m x' 'git add -A && git commit -m x' 'git add -u && git commit -m x' 'git add && git commit -m x'; do
+  run_stdin "$(payload_bash "$r" "$c")"; expect_code 2; expect_out "[GS-02] .env"
+done
+printf 'token = "%s"\n' "$GH_TOKEN" > "$r/src/b.py"; printf 'key = "%s"\n' "$AWS_KEY" >> "$r/app.py"
+run_stdin "$(payload_bash "$r" 'git add src && git commit -m x')"; expect_code 2; expect_out "[GS-01] src/b.py"; expect_not "app.py"
+run_stdin "$(payload_bash "$r" 'git add app.py && git commit -m x')"; expect_code 2; expect_out "[GS-01] app.py"; expect_not "src/b.py"
+
+tc TC-S48 "-C · -c 값이 따옴표 문자열이어도 commit 으로 알아본다"
+r="$TMP/sp ace"; git init -q -b work "$r"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py
+run_stdin "$(payload_bash "$TMP" "git -C \"$r\" commit -m x")"; expect_code 2; expect_out "[GS-01] c.py"
+run_stdin "$(payload_bash "$TMP" "git -C '$r' commit -m x")"; expect_code 2; expect_out "[GS-01] c.py"
+run_stdin "$(payload_bash "$r" 'git -c user.name="A B" commit -m x')"; expect_code 2; expect_out "[GS-01] c.py"
+run_stdin "$(payload_bash "$r" "git -c 'user.name=A B' status")"; expect_code 0; expect_no_out
 
 tc TC-S35 "스테이징된 .env 는 막는다 (GS-02)"
 r="$(repo)"; printf 'X=1\n' > "$r/.env"; git -C "$r" add .env
