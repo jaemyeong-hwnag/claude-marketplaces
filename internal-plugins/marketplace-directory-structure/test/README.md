@@ -13,7 +13,7 @@ test/validate-directory-structure.test.sh TC-D1    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. 세션 없이 돌아가므로 커밋 전 검증에 그대로 쓴다.
 
-## 자동 TC (54건)
+## 자동 TC (60건)
 
 ### A. 플러그인 필수 파일
 
@@ -39,6 +39,8 @@ test/validate-directory-structure.test.sh TC-D1    # ID 접두사로 필터
 | ID | 케이스 | 기대 | 추가 확인 |
 |---|---|---|---|
 | TC-D10 | 플러그인 루트의 알 수 없는 파일을 막는다 | 차단 (2) | 메시지: `플러그인 루트에는` |
+| TC-D10a | git 이 무시하는 파일은 보지 않는다 — 루트 · `skills/` 의 `.DS_Store` (#87) | 통과 (0) | - |
+| TC-D10b | git 저장소여도 무시되지 않은 파일은 여전히 막는다 (#87) | 차단 (2) | 메시지: `order-sync/NOTES.md: 플러그인 루트에는`, `.DS_Store` 없음 |
 | TC-D11 | LICENSE 와 .gitignore 는 루트에 둘 수 있다 | 통과 (0) | - |
 | TC-D12 | 알 수 없는 디렉터리를 막는다 | 차단 (2) | 메시지: `알 수 없는 디렉터리 'docs/'` |
 | TC-D13 | .claude-plugin 에 plugin.json 외의 파일을 막는다 | 차단 (2) | 메시지: `.claude-plugin/ 에는 plugin.json 만` |
@@ -75,6 +77,8 @@ test/validate-directory-structure.test.sh TC-D1    # ID 접두사로 필터
 | TC-D34 | tags/categories/plugins/keywords.json 은 허용한다 | 통과 (0) | - |
 | TC-D35 | CLAUDE.md 가 없으면 경고만 한다 | 통과 (0) | 메시지: `CLAUDE.md 가 없습니다` |
 | TC-D36 | 플러그인이 *-plugins 밖에 있으면 막는다 | 차단 (2) | 메시지: `아래에 둡니다` |
+| TC-D36a | git 이 무시하는 경로(`.agent-tasks/` 초안)의 플러그인은 `R-04` 로 보지 않는다 (#87) | 통과 (0) | - |
+| TC-D36b | git 저장소여도 무시되지 않은 경로의 플러그인은 여전히 막는다 (#87) | 차단 (2) | 메시지: `drafts/order-sync: 플러그인은`, `.agent-tasks` 없음 |
 | TC-D37 | 플러그인이 한 단계 더 깊으면 막는다 | 차단 (2) | 메시지: `바로 아래에 둡니다` |
 | TC-D38 | `.claude/worktrees/` 안의 플러그인은 `R-04` 로 보지 않는다 | 통과 (0) | 워크트리는 저장소의 사본이다 |
 | TC-D39 | 그 밖의 `.claude/` 아래 플러그인은 여전히 막는다 | 차단 (2) | 메시지: `(R-04)` |
@@ -89,6 +93,8 @@ test/validate-directory-structure.test.sh TC-D1    # ID 접두사로 필터
 | TC-D43 | *-plugins 바로 아래 파일에는 반응하지 않는다 | 통과 (0) | 출력 없음 |
 | TC-D44 | stdin 이 비면 통과시킨다 | 통과 (0) | 출력 없음 |
 | TC-D45 | 경로가 없는 훅 입력은 통과시킨다 | 통과 (0) | 출력 없음 |
+| TC-D46 | slug 가 `plugins` 로 끝나는 워크트리의 루트 파일(`test/` · `.claude/hooks/` · `.github/`)에는 반응하지 않는다 (#87) | 통과 (0) | 출력 없음 |
+| TC-D47 | 그 워크트리 안의 플러그인 위반은 여전히 막는다 (#87) | 차단 (2) | 메시지: `order-sync/docs/guide.md: 알 수 없는 디렉터리 'docs/'` |
 
 ### F. CLI 인자
 
