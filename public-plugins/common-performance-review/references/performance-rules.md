@@ -35,7 +35,7 @@
 | `PF-20` | 개수 · 존재 확인에 전체 로딩 (`len(qs)` · `findAll().size()`) | 쿼리 · 공간 | Django DB 최적화 문서 |
 
 보는 파일: `.py` · `.java` · `.kt` · `.kts` · `.scala` · `.go` · `.js` · `.jsx` · `.mjs` · `.cjs` · `.ts` · `.tsx` · `.cs` · `.php` · `.swift` · `.rs` · `.sql`.
-테스트 경로(`test/` · `tests/` · `*_test.go` · `*.test.*` · `*.spec.*` · `*Test.java` · `test_*.py` …)는 `--include-tests` 를 줄 때만 본다.
+테스트 경로(`test/` · `tests/` · `*_test.go` · `*.test.*` · `*.spec.*` · `*Test.java` · `test_*.py` …)는 `--include-tests` 를 줄 때만 본다. 테스트 경로인지는 git 최상위(저장소가 아니면 프로젝트 · 대상 디렉터리) 기준 상대 경로로 판정한다 — 저장소 바깥 상위 디렉터리 이름은 보지 않는다.
 의도한 줄이면 그 줄 끝이나 바로 윗줄에 `performance-ignore` 주석을 둔다.
 
 ## 2. 필수 범주 (AI 판단)

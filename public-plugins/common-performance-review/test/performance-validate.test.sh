@@ -379,6 +379,18 @@ if [ "$TC_ON" = 1 ]; then
 fi
 run "$G"; expect_out "a.py"; expect_not "gen/b.py"; expect_out "파일 1개"
 
+tc TC-P46 "테스트 경로는 저장소 기준으로 본다 — 저장소 바깥 상위의 test/ 는 무시하고, 저장소 안 test/ 는 건너뛴다"
+if [ "$TC_ON" = 1 ]; then
+  R="$TMP/test/repo"; mkdir -p "$R/src" "$R/test"; git -C "$R" init -q -b main
+  printf 'x = User.objects.all()\n' > "$R/src/a.py"; printf 'x = User.objects.all()\n' > "$R/test/b.py"
+  N="$TMP/spec/plain"; mkdir -p "$N/src" "$N/tests"
+  printf 'x = User.objects.all()\n' > "$N/src/a.py"; printf 'x = User.objects.all()\n' > "$N/tests/b.py"
+fi
+run "$R"; expect_out "src/a.py"; expect_not "test/b.py"; expect_out "파일 1개"
+run "$R/src"; expect_out "src/a.py"; expect_out "파일 1개"
+run "$R/test"; expect_out "파일 0개"
+OUT=""; [ "$TC_ON" = 1 ] && OUT="$(cd / && "$SCRIPT" "$N" 2>&1)"; expect_out "src/a.py"; expect_not "tests/b.py"; expect_out "파일 1개"
+
 echo "== D. 훅"
 
 tc TC-P50 "PostToolUse Write — additionalContext 로 알린다"
@@ -404,6 +416,14 @@ tc TC-P53 "훅은 경고를 10건으로 자른다"
 if [ "$TC_ON" = 1 ]; then : > "$TMP/many.py"; for i in 1 2 3 4 5 6 7 8 9 10 11 12; do printf 'x%s = User.objects.all()\n' "$i" >> "$TMP/many.py"; done; fi
 run_stdin "$(payload PostToolUse "$TMP/many.py" "$(cat "$TMP/many.py" 2>/dev/null)")"
 expect_out "외 2건"; expect_not "12행"
+
+tc TC-P54 "훅의 테스트 판정은 저장소 기준이다 — 상위 경로의 test/ 는 알리고, 저장소 안 test/ 는 조용하다"
+if [ "$TC_ON" = 1 ]; then
+  R="$TMP/test/hookrepo"; mkdir -p "$R/src" "$R/tests"; git -C "$R" init -q -b main
+  printf 'x = User.objects.all()\n' > "$R/src/svc.py"; printf 'x = User.objects.all()\n' > "$R/tests/svc.py"
+fi
+run_stdin "$(payload PostToolUse "$R/src/svc.py" "x = User.objects.all()")"; expect_code 0; expect_out "PF-12"
+run_stdin "$(payload PostToolUse "$R/tests/svc.py" "x = User.objects.all()")"; expect_code 0; expect_no_out
 
 flush_tc
 echo ""

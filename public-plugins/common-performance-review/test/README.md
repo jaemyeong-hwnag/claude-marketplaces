@@ -11,7 +11,7 @@ test/performance-validate.test.sh TC-P2    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. bash · awk · jq · git 만 쓴다.
 
-## 자동 TC (35건)
+## 자동 TC (37건)
 
 잡아야 하는 것과 잡으면 안 되는 것을 조항마다 같이 둔다.
 
@@ -60,6 +60,7 @@ test/performance-validate.test.sh TC-P2    # ID 접두사로 필터
 | TC-P43 | --diff 는 기준 이후 추가된 줄과 추적 안 된 새 파일만 본다 |
 | TC-P44 | 모르는 옵션 · 없는 경로는 오류(1) |
 | TC-P45 | git 작업 트리는 .gitignore 를 따른다 |
+| TC-P46 | 테스트 경로는 저장소(아니면 대상 디렉터리) 기준이다 — 바깥 상위의 `test/` · `spec/` 는 무시하고 검사하며, 안쪽 `test/` · `tests/` 는 건너뛴다 |
 
 ### D. 훅
 
@@ -69,6 +70,7 @@ test/performance-validate.test.sh TC-P2    # ID 접두사로 필터
 | TC-P51 | Edit — 이번에 쓴 줄에서 나온 것만 알린다 |
 | TC-P52 | PreToolUse · 비대상 파일 · 테스트 파일 · 훅 이벤트 없는 입력은 조용하다 |
 | TC-P53 | 훅은 경고를 10건으로 자른다 |
+| TC-P54 | 훅의 테스트 판정도 저장소 기준이다 — 상위 경로에 `test/` 가 있어도 알리고, 저장소 안 `tests/` 는 조용하다 |
 
 ## eval
 

@@ -31,6 +31,16 @@ is_test_path() {
   return 1
 }
 
+# 테스트 경로는 저장소 최상위(저장소가 아니면 프로젝트 디렉터리) 기준으로 본다 — 바깥 상위 디렉터리(~/test/app)의 이름에 끌려가지 않게
+base_of() { # $1=디렉터리 → 기준 디렉터리 (물리 경로)
+  git -C "$1" rev-parse --show-toplevel 2>/dev/null || (cd "${CLAUDE_PROJECT_DIR:-$PWD}" 2>/dev/null && pwd -P) || pwd -P
+}
+rel_of() { # $1=기준 $2=경로 → 기준 안이면 상대 경로, 아니면 그대로
+  local a
+  a="$(cd "$(dirname "$2")" 2>/dev/null && pwd -P)/${2##*/}" || { printf '%s\n' "$2"; return; }
+  case "$a" in "$1"/*) printf '%s\n' "${a#"$1"/}" ;; *) printf '%s\n' "$2" ;; esac
+}
+
 # 파일 하나 → "줄번호 \x1f 조항 \x1f 메시지" 줄들
 check_file() {
   local f="$1" lang
@@ -240,7 +250,7 @@ if [ "$#" -eq 0 ] && [ ! -t 0 ]; then
     F="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // ""')"
     [ -n "$F" ] && [ -f "$F" ] || exit 0
     [ -n "$(lang_of "$F")" ] || exit 0
-    ! is_test_path "$F" || exit 0
+    ! is_test_path "$(rel_of "$(base_of "$(dirname "$F")")" "$F")" || exit 0
     NEW="$(printf '%s' "$INPUT" | jq -r '[.tool_input.content // empty, .tool_input.new_string // empty, (.tool_input.edits // [] | .[].new_string)] | join("\n")' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
     [ -n "$NEW" ] || exit 0
     OUT=""; TOTAL=0
@@ -286,10 +296,11 @@ done
 # 대상 파일과, 볼 줄 번호 목록 (빈 문자열이면 전체)
 FILES=(); LINESETS=()
 add_file() { FILES+=("$1"); LINESETS+=("$2"); }
-want() { # $1=경로 — 볼 파일인가
+BASE_DIR=""
+want() { # $1=경로 — 볼 파일인가 (테스트 판정은 BASE_DIR 기준)
   [ -n "$(lang_of "$1")" ] || return 1
   [ "$TESTS" = 1 ] && return 0
-  ! is_test_path "$1"
+  ! is_test_path "$(rel_of "$BASE_DIR" "$1")"
 }
 # 디렉터리 → 파일 목록. git 작업 트리면 .gitignore 를 따른다
 list_dir() {
@@ -308,8 +319,9 @@ if [ "$DIFF" = 1 ]; then
   if [ -z "$BASE" ]; then
     BASE="$(git -C "$TOP" merge-base HEAD origin/HEAD 2>/dev/null || git -C "$TOP" merge-base HEAD origin/main 2>/dev/null || git -C "$TOP" rev-parse HEAD)"
   fi
+  BASE_DIR="$TOP"
   while IFS= read -r rel; do
-    [ -n "$rel" ] && [ -f "$TOP/$rel" ] && want "$rel" || continue
+    [ -n "$rel" ] && [ -f "$TOP/$rel" ] && want "$TOP/$rel" || continue
     lines="$(git -C "$TOP" diff -U0 "$BASE" -- "$rel" | awk '/^@@/ { s = $3; sub(/^\+/, "", s); k = split(s, a, ","); c = (k < 2) ? 1 : a[2]; for (i = 0; i < c; i++) printf " %d", a[1] + i }')"
     [ -n "$lines" ] && add_file "$TOP/$rel" "$lines"
   done <<EOF
@@ -317,7 +329,7 @@ $(git -C "$TOP" diff --name-only --diff-filter=AMR "$BASE")
 EOF
   # 추적 안 된 새 파일은 전부 추가된 줄이다
   while IFS= read -r rel; do
-    [ -n "$rel" ] && [ -f "$TOP/$rel" ] && want "$rel" || continue
+    [ -n "$rel" ] && [ -f "$TOP/$rel" ] && want "$TOP/$rel" || continue
     add_file "$TOP/$rel" ""
   done <<EOF
 $(git -C "$TOP" ls-files --others --exclude-standard)
@@ -327,6 +339,8 @@ else
   for t in "${TARGETS[@]}"; do
     [ -e "$t" ] || die "없는 경로: $t"
     if [ -d "$t" ]; then
+      BASE_DIR="$(base_of "$t")"; td="$(cd "$t" && pwd -P)"
+      case "$td/" in "$BASE_DIR"/*) ;; *) BASE_DIR="$td" ;; esac
       while IFS= read -r f; do
         [ -n "$f" ] && [ -f "$f" ] && want "$f" || continue
         add_file "$f" ""
