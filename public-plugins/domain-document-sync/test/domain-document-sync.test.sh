@@ -135,6 +135,10 @@ tc TC-A14 "DOMAIN_DOCUMENT_ROOT 로 문서 루트를 바꾼다"
 make_repo; mkdir -p kb; git mv -k docs/domain kb/domains; git commit -qm mv
 OUT="$(DOMAIN_DOCUMENT_ROOT=kb/domains "$SCRIPT" validate "$REPO" 2>&1)"; CODE=$?; expect_code 0; expect_out "도메인 3개"
 
+tc TC-A15 "중괄호 글롭에 걸리는 파일이 있으면 경고하지 않는다 (D-08)"
+make_repo; printf -- "---\ncode: ['services/billing/*.{py,kt}']\n---\n# 결제\n" > docs/domain/billing/_meta.md
+run validate "$REPO"; expect_code 0; expect_not "D-08"
+
 section "B. code 글롭 (map)"
 
 tc TC-B01 "블록 목록 · 인라인 목록 · 디렉터리 글롭 · ! 제외를 읽는다"
@@ -150,6 +154,17 @@ make_repo; printf -- '---\ncode:\n  - "services/*"\n---\n# 결제\n' > docs/doma
 mkdir -p services/billing/deep; echo x > services/billing/deep/a.py
 run map "$REPO"
 [ "$TC_ON" = 1 ] && { printf '%s' "$OUT" | awk '/^billing$/{o=1} o && /→/{print; exit}' | grep -q "파일 0개" || fail_tc "services/* 는 services/billing/pay.py 를 잡지 않아야 한다"; }
+
+tc TC-B04 "중괄호 글롭 {a,b} 를 펼친다 — 인라인 목록의 쉼표로 쪼개지 않는다"
+make_repo; printf -- "---\ncode: ['services/billing/*.{py,kt}', README.md]\n---\n# 결제\n" > docs/domain/billing/_meta.md
+echo x > services/billing/b.kt; echo x > services/billing/c.go; run map "$REPO"
+expect_out "services/billing/*.{py,kt}"
+[ "$TC_ON" = 1 ] && { printf '%s' "$OUT" | awk '/^billing$/{o=1} o && /→/{print; exit}' | grep -q "파일 3개" || fail_tc "billing 은 3개 (pay.py · b.kt · README.md)"; }
+
+tc TC-B05 "짝이 안 맞는 중괄호는 글자 그대로 본다"
+make_repo; mkdir -p "services/x{y"; echo x > "services/x{y/a.py"
+printf -- '---\ncode:\n  - "services/x{y/*"\n---\n# 결제\n' > docs/domain/billing/_meta.md; run map "$REPO"
+[ "$TC_ON" = 1 ] && { printf '%s' "$OUT" | awk '/^billing$/{o=1} o && /→/{print; exit}' | grep -q "파일 1개" || fail_tc "services/x{y/a.py 1개"; }
 
 section "C. 동기 게이트 (S-01)"
 
@@ -221,17 +236,43 @@ tc TC-C19 "요청 안에서 코드와 문서를 함께 커밋하면 통과한다
 make_repo; hook snapshot "$S"; echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java
 echo '- a 추가' >> docs/domain/order/entities.md; git add -A && git commit -qm order; hook stop "$S"; expect_code 0
 
-tc TC-C20 "원격 기본 브랜치에서 받아온 커밋은 이번 변경이 아니다"
+tc TC-C20 "요청 시작 때 원격 기본 브랜치에 있던 커밋은 요청 안에서 합쳐도 이번 변경이 아니다"
 make_repo
 if [ "$TC_ON" = 1 ]; then
   git init -q --bare "$TMP/origin.git"; git remote add origin "$TMP/origin.git"; git push -q origin HEAD:main; git fetch -q origin
   git clone -q -b main "$TMP/origin.git" "$TMP/other"
   ( cd "$TMP/other" && git config user.email o@example.com && git config user.name o \
     && echo 'class Order { int x; }' > src/main/java/com/shop/order/Order.java && git commit -qam other && git push -q origin main )
-  git branch -q -u origin/main
+  git branch -q -u origin/main; git fetch -q
 fi
-hook snapshot "$S"; [ "$TC_ON" = 1 ] && git pull -q --ff-only; hook stop "$S"; expect_code 0
+hook snapshot "$S"; [ "$TC_ON" = 1 ] && git merge -q --ff-only origin/main; hook stop "$S"; expect_code 0
 [ "$TC_ON" = 1 ] && rm -rf "$TMP/origin.git" "$TMP/other"
+
+tc TC-C23 "요청 안에서 커밋하고 원격 기본 브랜치로 push 해도 막는다"
+make_repo; git update-ref refs/remotes/origin/main HEAD; hook snapshot "$S"
+echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java; git commit -qam order; git update-ref refs/remotes/origin/main HEAD
+hook stop "$S"; expect_code 2; expect_out "order: src/main/java/com/shop/order/Order.java"
+
+tc TC-C24 "요청 시작 HEAD 를 amend 해도 막는다"
+make_repo; git commit -q --allow-empty -m second; hook snapshot "$S"
+echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java; git commit -qa --amend -m second2
+hook stop "$S"; expect_code 2; expect_out "order: src/main/java/com/shop/order/Order.java"
+
+tc TC-C25 "amend 가 도메인 코드를 건드리지 않으면 막지 않는다"
+make_repo; git commit -q --allow-empty -m second; hook snapshot "$S"; git commit -q --amend --allow-empty -m second2
+hook stop "$S"; expect_code 0; expect_no_out
+
+tc TC-C26 "git mv 로 도메인 밖으로 옮기면 원래 도메인을 막는다"
+make_repo; hook snapshot "$S"; mkdir -p src/main/java/com/shop/shared; git mv src/main/java/com/shop/order/Order.java src/main/java/com/shop/shared/
+hook stop "$S"; expect_code 2; expect_out "order: src/main/java/com/shop/order/Order.java"
+
+tc TC-C27 "git mv 로 옮기고 그 도메인 문서도 고치면 통과한다"
+make_repo; hook snapshot "$S"; mkdir -p src/main/java/com/shop/shared; git mv src/main/java/com/shop/order/Order.java src/main/java/com/shop/shared/
+echo '- Order 를 shared 로 옮김' >> docs/domain/order/entities.md; hook stop "$S"; expect_code 0
+
+tc TC-C28 "중괄호 글롭 {py,kt} 에 걸리는 코드가 바뀌면 막는다"
+make_repo; printf -- "---\ncode: ['services/billing/*.{py,kt}', README.md]\n---\n# 결제\n" > docs/domain/billing/_meta.md; git commit -qam brace
+hook snapshot "$S"; echo 'def refund(): pass' >> services/billing/pay.py; hook stop "$S"; expect_code 2; expect_out "billing: services/billing/pay.py"
 
 tc TC-C18 "문서 루트가 없는 저장소에서는 아무것도 하지 않는다"
 make_repo; rm -rf docs; hook snapshot "$S"; echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java
