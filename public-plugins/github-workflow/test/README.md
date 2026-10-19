@@ -11,7 +11,7 @@ test/validate-workflow.test.sh TC-W5    # ID 접두사로 필터
 
 **실제 git 저장소**로 돈다 — 임시 bare 저장소를 `origin` 으로 두고 클론해서 main · 작업 브랜치 · 원격이 앞서 나간 상태를 만든다. `gh` · `claude` 는 PATH 스텁이라 GitHub 를 건드리지 않는다.
 
-## 자동 TC (77건)
+## 자동 TC (103건)
 
 ### A. 템플릿 (W-01 · W-02)
 
@@ -111,6 +111,8 @@ test/validate-workflow.test.sh TC-W5    # ID 접두사로 필터
 | TC-W95 | 관심 없는 명령은 조용히 통과한다 |
 | TC-W96 | Bash 가 아닌 도구에는 반응하지 않는다 |
 | TC-W97 | stdin 이 비면 통과시킨다 |
+| TC-W98 | 지금 없는 디렉터리 · 변수 경로로 cd · -C 하면 시작 디렉터리(main)로 보지 않는다 |
+| TC-W99 | 모르는 디렉터리에서도 git push origin main 은 막고, 그 뒤 절대 경로 cd 는 다시 따라간다 |
 
 ### G. branch-create
 
@@ -120,6 +122,8 @@ test/validate-workflow.test.sh TC-W5    # ID 접두사로 필터
 | TC-W101 | branch-create 는 (받아온) origin/main 에서 브랜치와 워크트리를 만든다 — 로컬 main 이 뒤처져 있어도 |
 | TC-W102 | branch-create 는 이미 있는 워크트리를 거부한다 |
 | TC-W103 | branch-create 는 워크트리 디렉터리를 git 이 무시하게 한다 — 한 번만 |
+| TC-W104 | branch-create 는 워크트리 안에서 불러도 메인 체크아웃 아래에 만든다 — 중첩하지 않는다 |
+| TC-W105 | branch-create 는 [루트]로 워크트리를 받아도 메인 체크아웃 아래에 만든다 |
 
 ### H. 기본 브랜치 (origin/HEAD)
 
@@ -154,6 +158,7 @@ test/validate-workflow.test.sh TC-W5    # ID 접두사로 필터
 | TC-W173 | $( ) 안의 명령도 본다 |
 | TC-W174 | cd ~ 를 홈으로 풀어 디렉터리를 따라간다 |
 | TC-W175 | 리다이렉션 대상 · 2>&1 은 refspec 이 아니다 |
+| TC-W176 | cd 의 옵션(-P · --)을 건너뛰고 대상 디렉터리를 따라간다 |
 | TC-W180 | jq 가 없으면 git · gh 명령을 막고 다른 명령은 통과시킨다 |
 
 ## 수동 TC (새 세션 필요)

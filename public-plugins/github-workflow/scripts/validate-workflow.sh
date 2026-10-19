@@ -71,7 +71,8 @@ check_branch_name() { # $1=이름
 }
 
 # ---- git 도우미 -------------------------------------------------------------
-branch_of() { git -C "$1" rev-parse --abbrev-ref HEAD 2>/dev/null; }
+# 디렉터리를 모르면("") 브랜치도 모른다 — git -C "" 는 훅 프로세스의 디렉터리를 본다
+branch_of() { [ -n "$1" ] || return 0; git -C "$1" rev-parse --abbrev-ref HEAD 2>/dev/null; }
 
 # 기본 브랜치 — origin/HEAD 가 가리키는 브랜치. clone 이 아닌 저장소(init 뒤 remote add)는 origin/HEAD 가 없다
 detect_main() { # $1=디렉터리
@@ -87,6 +88,7 @@ detect_main() { # $1=디렉터리
 # 최신 main 을 포함하는가. $1=디렉터리 $2=대상 ref $3=fetch 여부(1)
 contains_main() {
   local dir="$1" ref="$2" fetch="${3:-0}"
+  [ -n "$dir" ] || return 2
   if [ "$fetch" = 1 ]; then
     git -C "$dir" fetch -q origin "$MAIN" >/dev/null 2>&1 || return 2
   fi
@@ -105,12 +107,12 @@ has_prefix_tok() { # $1=접두사(예: --label=) 나머지=토큰들
   return 1
 }
 unquote() { local s="$1"; s="${s%\"}"; s="${s#\"}"; s="${s%\'}"; s="${s#\'}"; printf '%s' "$s"; }
-# 경로 인자 → 절대 디렉터리. 없는 곳이면 $1 그대로. $1=기준 디렉터리 $2=경로
+# 경로 인자 → 절대 디렉터리. 지금 없는 곳 · 변수 · 모르는 기준에서의 상대 경로는 "" (모름). $1=기준 디렉터리 $2=경로
 resolve_dir() {
   local to="$2"
   case "$to" in "~") to="$HOME" ;; "~/"*) to="$HOME/${to#"~/"}" ;; esac
-  case "$to" in /*) ;; *) to="$1/$to" ;; esac
-  if [ -d "$to" ]; then (cd "$to" && pwd); else printf '%s' "$1"; fi
+  case "$to" in /*) ;; *) [ -n "$1" ] || return 0; to="$1/$to" ;; esac
+  if [ -d "$to" ]; then (cd "$to" && pwd); fi
 }
 
 # ---- 명령 한 조각 검사 ------------------------------------------------------
@@ -221,7 +223,7 @@ check_git() { # $1=dir, 나머지=git 뒤 토큰
           *) create=1 ;;
         esac
       done
-      if [ "$create" = 1 ] && [ "$br" != "$MAIN" ]; then
+      if [ "$create" = 1 ] && [ -n "$dir" ] && [ "$br" != "$MAIN" ]; then
         err "태그는 $MAIN 에서만 답니다 (지금 '$br') — 리베이스가 SHA 를 바꿔 브랜치의 태그는 머지 뒤 어디에도 없는 커밋을 가리킵니다 (W-10)"
       fi ;;
   esac
@@ -279,7 +281,7 @@ check_gh() { # $1=dir, 나머지=gh 뒤 토큰
         esac
       done
       [ "$method" = merge ] || err "머지 방식을 --merge 로 명시합니다 (W-07)"
-      head="$(cd "$dir" 2>/dev/null && gh pr view ${arg:+"$arg"} ${repo:+-R "$repo"} --json headRefName -q .headRefName 2>/dev/null)"
+      head="$([ -n "$dir" ] && cd "$dir" 2>/dev/null && gh pr view ${arg:+"$arg"} ${repo:+-R "$repo"} --json headRefName -q .headRefName 2>/dev/null)"
       if [ -z "$head" ]; then
         err "머지할 PR 의 브랜치를 알 수 없습니다 (gh pr view 실패) — 확인 전에는 머지하지 않습니다 (W-06)"
         return 0
@@ -386,7 +388,7 @@ function lex(stop,   c, c2) {
 END { SEP = "\037"; N = length(S); P = 1; CMD = ""; TOK = ""; INTOK = 0; HD = 0; lex("") }
 AWK
 
-# 명령을 차례로 본다. cd 는 이후 명령의 디렉터리를 바꾼다. bash -c · eval 의 문자열은 다시 자른다.
+# 명령을 차례로 본다. cd 는 이후 명령의 디렉터리를 바꾸고, 대상을 풀 수 없으면 디렉터리를 모름("")으로 둔다. bash -c · eval 의 문자열은 다시 자른다.
 check_command() { # $1=명령 $2=시작 디렉터리
   local cmd="$1" dir="$2" line base i wrap s
   local -a toks
@@ -406,7 +408,9 @@ check_command() { # $1=명령 $2=시작 디렉터리
     [ "${#toks[@]}" -gt 0 ] || continue
     base="${toks[0]##*/}"
     case "$base" in
-      cd|pushd) dir="$(resolve_dir "$dir" "${toks[1]:-$HOME}")" ;;
+      cd|pushd)
+        i=1; while [ "$i" -lt "${#toks[@]}" ] && [[ "${toks[$i]}" == -?* ]]; do [ "${toks[$i]}" = -- ] && { i=$((i+1)); break; }; i=$((i+1)); done
+        dir="$(resolve_dir "$dir" "${toks[$i]:-$HOME}")" ;;
       git)    check_git "$dir" "${toks[@]:1}" ;;
       gh)     check_gh "$dir" "${toks[@]:1}" ;;
       claude) check_claude "$dir" "${toks[@]:1}" ;;

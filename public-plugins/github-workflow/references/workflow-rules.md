@@ -39,7 +39,7 @@ GitHub 저장소의 변경이 **이슈에서 머지까지 어떤 경로로 가�
 | `W-01` | `.github/ISSUE_TEMPLATE/` 에 `feature.yml` · `bugfix.yml` 이 있고 라벨이 각각 `feature` · `bugfix` 다. `config.yml` 이 빈 이슈를 막는다 | 차단 (`--templates`) |
 | `W-02` | `.github/PULL_REQUEST_TEMPLATE/` 에 `feature.md` · `bugfix.md` 가 있고 각각 `Closes #` · `Fixes #` 를 담는다. 단일 기본 파일(`pull_request_template.md`)은 두지 않는다 — 폴더 템플릿보다 우선해서 타입 구분이 무너진다 | 차단 (`--templates`) |
 | `W-03` | 새 브랜치 이름은 `{feature\|bugfix}/{이슈 번호}-{slug}`. slug 는 영문 kebab-case 1 ~ 5 단어. `develop` 같은 장기 브랜치를 만들지 않는다 | 차단 (훅) |
-| `W-04` | 워크트리는 `.claude/worktrees/{이슈}-{slug}` 에 만든다 — Claude Code 가 관리하는 위치 | 알림 (훅) |
+| `W-04` | 워크트리는 메인 체크아웃의 `.claude/worktrees/{이슈}-{slug}` 에 만든다 — Claude Code 가 관리하는 위치. 워크트리 안에 중첩하지 않는다 — 무시되는 경로라 바깥 워크트리를 지우면 안쪽이 커밋 안 된 변경째 지워진다 | 알림 (훅) |
 | `W-05` | PR 은 템플릿(`--template` / `--body-file`)과 라벨(`feature` / `bugfix`)을 붙여 연다. `--fill` 은 쓰지 않는다 | 차단 (훅) |
 | `W-06` | PR 을 열거나 머지하기 전에 브랜치가 `origin/main` 을 포함한다 (리베이스됨) | 차단 (훅) |
 | `W-07` | 머지는 머지 커밋(`--merge`)으로만. `--squash` · `--rebase` 를 쓰지 않는다 | 차단 (훅) |
@@ -57,6 +57,11 @@ GitHub 브랜치 보호는 비공개 저장소의 무료 플랜에서 켤 수 �
 - `gh pr create` — 현재 `HEAD` 가 `origin/main` 을 포함하는지 본다
 - `gh pr merge [번호]` — 그 PR 의 head 브랜치(`gh pr view --json headRefName`)가 `origin/main` 을 포함하는지 본다
 - 둘 다 먼저 `git fetch origin main` 을 한다. 확인할 수 없으면(네트워크 · 인증) **막는다** — 어차피 그 상태로는 PR 도 머지도 안 된다
+
+### 명령의 디렉터리
+
+- 훅은 `cd` · `pushd` · `git -C` 의 대상을 따라가 그 디렉터리의 브랜치로 판정한다
+- 대상을 풀 수 없으면(지금 없는 디렉터리 · 변수 경로) 시작 디렉터리로 바꾸지 않고 **모름**으로 둔다 — 브랜치에 기대는 판정(`W-09` 의 커밋 · 머지 · 대상 없는 푸시, `W-10`)은 하지 않는다. `git push origin main` 처럼 대상을 적은 푸시는 그대로 막고, `W-06` 은 확인할 수 없어 막는다
 
 ## 4. 기계가 판정할 것 / AI 가 판단할 것
 
