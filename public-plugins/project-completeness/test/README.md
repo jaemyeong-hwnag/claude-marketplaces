@@ -42,6 +42,18 @@ test/project-completeness.test.sh TC-D     # ID 접두사로 필터
 | TC-D18 | 상속해도 strict: false 로 끄면 미통과 |
 | TC-D19 | IaC 가 없으면 security.iac-scan 은 판정 보류 |
 | TC-D20 | Dockerfile 이 있는데 스캔이 없으면 미통과 |
+| TC-D30 | package.json 에 lint 스크립트가 있어도 CI 가 yarn build 만 돌리면 code.lint-ci 미통과 |
+| TC-D31 | CI 가 린터를 부르는 스크립트(yarn lint)를 실행하면 통과 |
+| TC-D32 | pre-commit 에만 린터가 있고 CI 가 pre-commit 을 돌리지 않으면 code.lint-ci 미통과 |
+| TC-D33 | CI 가 pre-commit 을 돌리면 pre-commit 의 린터로 통과 |
+| TC-D34 | PR 트리거 워크플로가 labeler 뿐이면 code.quality-gate 미통과 (name 의 단어는 세지 않는다) |
+| TC-D35 | PR 트리거 워크플로가 test 를 돌리면 통과 |
+| TC-D36 | husky 훅에 시크릿 스캐너가 없으면 security.secret-scan 미통과 |
+| TC-D37 | CI + .husky/pre-commit 의 gitleaks 면 통과 |
+| TC-D38 | CI + lefthook.yml 의 gitleaks 면 통과 |
+| TC-D39 | 경로에 perf 가 든 일반 소스(src/utils/performance.ts)는 perf.load-test 미통과 |
+| TC-D40 | k6 를 import 하는 스크립트가 있으면 통과 |
+| TC-D41 | 부하 테스트 디렉터리(perf/)의 스크립트면 통과 |
 
 ## detect: 흔적
 
@@ -70,6 +82,7 @@ test/project-completeness.test.sh TC-D     # ID 접두사로 필터
 | TC-S02 | 모르는 타입 → 종료 2 |
 | TC-S03 | 레시피가 있는 항목에 표시 |
 | TC-S04 | --na 로 선언한 항목은 빠진다 |
+| TC-S05 | 값 없이 끝난 --type · --na 는 멈추지 않고 종료 2 |
 
 ## score
 
@@ -83,6 +96,8 @@ test/project-completeness.test.sh TC-D     # ID 접두사로 필터
 | TC-C06 | 타입 N/A 와 겹치는 선언은 사용자 선언으로 세지 않는다 |
 | TC-C07 | N/A 인 핵심 항목은 위험도에 넣지 않는다 (library) |
 | TC-C08 | 공백 쉼표 · 앞뒤 공백을 견딘다 |
+| TC-C09 | 값 없이 끝난 --pass · --type 은 멈추지 않고 종료 2 |
+| TC-C10 | 빈 값 --pass "" (통과 0개)는 그대로 채점한다 |
 
 ## health
 
