@@ -12,7 +12,7 @@ test/workflow-scripts.test.sh TC-W12    # ID 접두사로 필터
 
 **실제 git 저장소**로 돈다 — 임시 bare 저장소를 `origin` 으로 두고 클론해서 머지 커밋 · 태그 상태를 만든다. `gh` · `claude` 는 PATH 스텁이라 GitHub 과 설치 상태를 건드리지 않는다.
 
-## 자동 TC (29건)
+## 자동 TC (35건)
 
 ### G. release · verify-all
 
@@ -23,7 +23,7 @@ test/workflow-scripts.test.sh TC-W12    # ID 접두사로 필터
 | TC-W114 | release: 플러그인 디렉터리의 미추적 파일은 거부한다 |
 | TC-W115 | release: 플러그인 밖 미추적 파일(.idea/ 같은)은 막지 않는다 |
 | TC-W105 | release: HEAD 가 origin/main 과 다르면 거부한다 |
-| TC-W106 | release: 버전이 바뀐 플러그인이 없으면 할 것이 없다 |
+| TC-W106 | release: --since 이후 버전이 바뀐 플러그인이 없으면 할 것이 없다 |
 | TC-W107 | release --dry-run: 대상을 보여주고 아무것도 하지 않는다 |
 | TC-W108 | release: 태그를 달고 CHANGELOG 절을 노트로 릴리즈한다 |
 | TC-W116 | release: 직전 태그가 있으면 그 뒤의 절만 노트에 담는다 |
@@ -31,8 +31,14 @@ test/workflow-scripts.test.sh TC-W12    # ID 접두사로 필터
 | TC-W118 | release: 날짜가 붙은 제목도 경계로 읽는다 |
 | TC-W109 | release: 설치본에 로드 에러가 있으면 거부한다 (--json 의 errors) |
 | TC-W113 | release: --json 을 못 받으면 텍스트의 Error 줄로 대신한다 |
-| TC-W110 | release: 태그가 이미 있으면 거부한다 |
+| TC-W110 | release: 현재 버전 태그가 이미 있는 플러그인은 고르지 않는다 |
 | TC-W111 | release: CHANGELOG 에 그 버전 절이 없으면 거부한다 |
+| TC-W119 | release: 마지막 머지가 문서뿐이어도 앞 머지의 태그 없는 플러그인을 고른다 |
+| TC-W133 | release: PR 여럿을 머지한 뒤 한 번 돌려도 모두 고른다 |
+| TC-W134 | release: 이 저장소의 설치본 버전이 이번 버전과 다르면 거부한다 |
+| TC-W135 | release: 이 저장소에 설치가 없으면 거부한다 — 다른 프로젝트의 설치본은 세지 않는다 |
+| TC-W136 | release: user 범위 설치본이 이번 버전이면 통과한다 |
+| TC-W137 | release: --json 을 못 받으면 설치본 버전을 확인할 수 없어 거부한다 |
 | TC-W112 | verify-all: 전부 통과하면 0, 실패가 있으면 1 과 ❌ 줄 |
 
 ### H. eval 러너
@@ -72,7 +78,6 @@ test/workflow-scripts.test.sh TC-W12    # ID 접두사로 필터
 | 변이 | 검출된 실패 |
 |---|---|
 | M16 release 깨끗한 트리 검사 제거 | 1 |
-| M17 release 태그 중복 검사 제거 | 1 |
 | M18 release 노트 절 끊기 제거 | 1 |
 | M19 release 대상 고르기(버전 변경) 제거 | 1 |
 | M21 eval: Bash 를 git 으로 좁히지 않음 | 1 (TC-W130 — 처음엔 살아남아 TC 를 보강했다) |

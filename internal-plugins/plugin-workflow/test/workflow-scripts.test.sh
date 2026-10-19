@@ -9,7 +9,7 @@ PLUGIN_ROOT="$(cd "$TEST_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$PLUGIN_ROOT/../.." && pwd)"
 RP="$PLUGIN_ROOT/scripts/release-plugins.sh"
 VA="$PLUGIN_ROOT/scripts/verify-all.sh"
-TMP="$(mktemp -d "${TMPDIR:-/tmp}/workflow-tc.XXXXXX")"
+TMP="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/workflow-tc.XXXXXX")" && pwd)"   # 설치 목록의 projectPath 와 맞도록 // 를 없앤다
 trap 'rm -rf "$TMP"' EXIT
 
 FILTER="${1:-}"
@@ -95,6 +95,26 @@ mkrel() { # $1=이름
   printf '# CHANGELOG\n\n## 0.2.0\n\n### Added\n- 새 검사\n\n## 0.1.0\n\n- 첫\n' > "$W/internal-plugins/order-sync/CHANGELOG.md"
   gitq "$W" add -A; gitq "$W" commit -qm bump
   gitq "$W" checkout -q main; gitq "$W" merge -q --no-ff -m "Merge pull request #3" feature/7-order-sync; gitq "$W" push -q origin main
+  installed "order-sync|0.2.0|local|$W"
+}
+# 설치 목록 스텁 — 인자마다 "이름|버전|범위|projectPath" (user 범위는 projectPath 없음)
+installed() {
+  local e n v sc pp; printf '[' > "$TMP/installed.json"; local sep=""
+  for e in "$@"; do
+    IFS='|' read -r n v sc pp <<< "$e"
+    jq -nc --arg id "$n@x-marketplace" --arg v "$v" --arg s "$sc" --arg p "$pp" \
+      '{id: $id, version: $v, scope: $s, errors: null} + (if $p == "" then {} else {projectPath: $p} end)' | sed "s/^/$sep/" >> "$TMP/installed.json"
+    sep=","
+  done
+  printf ']' >> "$TMP/installed.json"; export STUB_LIST_JSON="$TMP/installed.json"
+}
+merge_bump() { # $1=브랜치 $2=플러그인 $3=버전 — 플러그인을 만들거나 버전을 올려 --no-ff 머지 · 푸시
+  local p="$W/internal-plugins/$2"
+  gitq "$W" checkout -q -b "$1"; mkdir -p "$p/.claude-plugin"
+  printf '{ "name": "%s", "version": "%s" }' "$2" "$3" > "$p/.claude-plugin/plugin.json"
+  printf '# CHANGELOG\n\n## %s\n\n- 변경\n' "$3" > "$p/CHANGELOG.md"
+  gitq "$W" add -A; gitq "$W" commit -qm "$2 $3"; gitq "$W" checkout -q main
+  gitq "$W" merge -q --no-ff -m "Merge $1" "$1"; gitq "$W" push -q origin main
 }
 
 tc TC-W103 "release: main 이 아니면 거부한다"
@@ -117,7 +137,7 @@ tc TC-W105 "release: HEAD 가 origin/main 과 다르면 거부한다"
 mkrel rl3; commit_file local.txt l
 run "$RP" --dry-run "$W"; expect_code 2; expect_out "git pull --ff-only"
 
-tc TC-W106 "release: 버전이 바뀐 플러그인이 없으면 할 것이 없다"
+tc TC-W106 "release: --since 이후 버전이 바뀐 플러그인이 없으면 할 것이 없다"
 mkrel rl4; run "$RP" --dry-run --since HEAD "$W"; expect_code 0; expect_out "릴리즈할 플러그인이 없다"
 
 tc TC-W107 "release --dry-run: 대상을 보여주고 아무것도 하지 않는다"
@@ -148,7 +168,7 @@ mkrel rl15; gitq "$W" checkout -q -b feature/9-dated
 printf '# CHANGELOG\n\n## 0.3.0 - 2026-09-21\n\n- 셋째\n\n## 0.2.0 - 2026-09-18\n\n- 둘째\n\n## 0.1.0\n\n- 첫\n' > "$W/internal-plugins/order-sync/CHANGELOG.md"
 printf '{ "name": "order-sync", "version": "0.3.0" }' > "$W/internal-plugins/order-sync/.claude-plugin/plugin.json"
 gitq "$W" commit -qam dated; gitq "$W" checkout -q main; gitq "$W" merge -q --no-ff -m m feature/9-dated; gitq "$W" push -q origin main
-gitq "$W" tag order-sync--v0.2.0 main~1; rm -f "$STUB_NOTES_COPY"
+gitq "$W" tag order-sync--v0.2.0 main~1; rm -f "$STUB_NOTES_COPY"; installed "order-sync|0.3.0|local|$W"
 run "$RP" "$W"; expect_code 0
 [ "$TC_ON" = 1 ] && { grep -qF "셋째" "$STUB_NOTES_COPY" || fail_tc "0.3.0 절이 없다"; grep -qF "둘째" "$STUB_NOTES_COPY" && fail_tc "날짜 붙은 0.2.0 경계를 못 읽었다"; }; true
 
@@ -160,15 +180,45 @@ tc TC-W113 "release: --json 을 못 받으면 텍스트의 Error 줄로 대신�
 mkrel rl10; printf 'not json' > "$TMP/bad.json"; printf '  ❯ order-sync@x-marketplace\n    Error: Hook load failed\n' > "$TMP/list.txt"
 STUB_LIST_JSON="$TMP/bad.json" STUB_LIST="$TMP/list.txt" run "$RP" --dry-run "$W"; expect_code 2; expect_out "로드 실패가 있다"
 
-tc TC-W110 "release: 태그가 이미 있으면 거부한다"
+tc TC-W110 "release: 현재 버전 태그가 이미 있는 플러그인은 고르지 않는다"
 mkrel rl8; gitq "$W" tag order-sync--v0.2.0
-run "$RP" --dry-run "$W"; expect_code 2; expect_out "이미 있다"
+run "$RP" --dry-run "$W"; expect_code 0; expect_out "릴리즈할 플러그인이 없다"; expect_not "order-sync--v0.2.0"
 
 tc TC-W111 "release: CHANGELOG 에 그 버전 절이 없으면 거부한다"
 mkrel rl9; gitq "$W" checkout -q -b feature/8-x
 printf '{ "name": "order-sync", "version": "0.3.0" }' > "$W/internal-plugins/order-sync/.claude-plugin/plugin.json"
 gitq "$W" commit -qam "bump without changelog"; gitq "$W" checkout -q main; gitq "$W" merge -q --no-ff -m m feature/8-x; gitq "$W" push -q origin main
+installed "order-sync|0.3.0|local|$W"
 run "$RP" --dry-run "$W"; expect_code 2; expect_out "'## 0.3.0' 절이 없거나"
+
+tc TC-W119 "release: 마지막 머지가 문서뿐이어도 앞 머지의 태그 없는 플러그인을 고른다"
+mkrel rl16; gitq "$W" checkout -q -b feature/10-docs; echo d > "$W/README.md"; gitq "$W" add -A; gitq "$W" commit -qm docs
+gitq "$W" checkout -q main; gitq "$W" merge -q --no-ff -m "Merge docs" feature/10-docs; gitq "$W" push -q origin main
+run "$RP" --dry-run "$W"; expect_code 0; expect_out "order-sync--v0.2.0"; expect_not "릴리즈할 플러그인이 없다"
+
+tc TC-W133 "release: PR 여럿을 머지한 뒤 한 번 돌려도 모두 고른다"
+mkrel rl17; merge_bump feature/11-item item-sync 0.1.1
+installed "order-sync|0.2.0|local|$W" "item-sync|0.1.1|project|$W"
+run "$RP" --dry-run "$W"; expect_code 0; expect_out "order-sync--v0.2.0"; expect_out "item-sync--v0.1.1"
+
+tc TC-W134 "release: 이 저장소의 설치본 버전이 이번 버전과 다르면 거부한다"
+mkrel rl18; installed "order-sync|0.1.0|project|$W"
+run "$RP" --dry-run "$W"; expect_code 2; expect_out "이번 버전 0.2.0 이 아니다"; expect_out "claude plugin update"
+installed "order-sync|0.2.0|local|$W" "order-sync|0.1.0|user|"
+run "$RP" --dry-run "$W"; expect_code 2; expect_out "user=0.1.0"
+
+tc TC-W135 "release: 이 저장소에 설치가 없으면 거부한다 — 다른 프로젝트의 설치본은 세지 않는다"
+mkrel rl19; installed "order-sync|0.2.0|project|$TMP/elsewhere"
+run "$RP" --dry-run "$W"; expect_code 2; expect_out "설치돼 있지 않다"
+installed; run "$RP" --dry-run "$W"; expect_code 2; expect_out "설치돼 있지 않다"
+
+tc TC-W136 "release: user 범위 설치본이 이번 버전이면 통과한다"
+mkrel rl20; installed "order-sync|0.2.0|user|"
+run "$RP" --dry-run "$W"; expect_code 0; expect_out "order-sync--v0.2.0"
+
+tc TC-W137 "release: --json 을 못 받으면 설치본 버전을 확인할 수 없어 거부한다"
+mkrel rl21; printf 'not json' > "$TMP/bad.json"; printf '  ❯ order-sync@x-marketplace\n    Version: 0.2.0\n' > "$TMP/list-ok.txt"
+STUB_LIST_JSON="$TMP/bad.json" STUB_LIST="$TMP/list-ok.txt" run "$RP" --dry-run "$W"; expect_code 2; expect_out "설치본 버전을 확인할 수 없다"
 
 tc TC-W112 "verify-all: 전부 통과하면 0, 실패가 있으면 1 과 ❌ 줄"
 R="$TMP/va"; rm -rf "$R"; mkdir -p "$R/internal-plugins/ok-sync/scripts" "$R/internal-plugins/ok-sync/test" "$R/.claude/hooks"

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.3.2
+
+### Fixed
+- `release-plugins.sh` — 대상을 현재 `version` 의 `{name}--v{version}` 태그가 없는 플러그인으로 고른다 (#85). `HEAD^1` 과만 비교해 PR 여럿을 머지한 뒤 돌리면 앞 머지의 플러그인이 빠지고, 마지막 머지가 문서뿐이면 "릴리즈할 플러그인이 없다" 로 끝났다. `--since` 는 대상을 좁히는 데만 쓴다
+- `release-plugins.sh` — 이 저장소에 적용되는 설치본(`claude plugin list --json` 의 user 범위 · 이 저장소 `projectPath`)이 없거나 이번 `version` 이 아니면 멈춘다 (#85). 로드 에러만 봐서 sync 훅이 갱신하지 않는 public 플러그인의 옛 설치본으로 통과했다. `release-create` 스킬에 public 플러그인 `claude plugin update` 단계를 넣었다
+
 ## 0.3.1
 
 ### Changed
