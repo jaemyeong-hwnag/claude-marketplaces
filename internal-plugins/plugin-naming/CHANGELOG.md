@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.11.1
+
+### Fixed
+- 메인 체크아웃에서 로드된 훅 · CLI 가 워크트리에서 고친 사전을 보지 않던 것 (#86). `NAMING_GLOSSARY` 다음으로 기준 경로(훅은 편집 경로, `--all` 은 루트, 그 밖의 CLI 는 현재 디렉터리)의 git 최상위 `internal-plugins/plugin-naming/references/glossary.json` 을 쓴다
+- 여러 단어 deny(`name-rule` · `continuous-integration` …)를 이름 전체하고만 비교해 이름 일부면 통과하던 것 (#86). 연속한 단어 조합을 모두 대조한다
+- 훅의 줄임말 경고가 stderr + exit 0 으로 나가 Claude 에게 닿지 않던 것 (#86). 새 이름의 경고를 `additionalContext` 로 넘긴다 — 판단 요청처럼 기존 이름에는 붙이지 않는다
+- `--all` 이 루트 전체에서 `skills/` 등을 찾아 `.agent-tasks/` 초안까지 검사하던 것 (#86). `<루트>/*plugins/*/` 아래만 본다
+
 ## 0.11.0
 
 ### Added

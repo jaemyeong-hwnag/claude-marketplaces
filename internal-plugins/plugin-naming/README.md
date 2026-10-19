@@ -62,8 +62,9 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 �
 사전은 아래 순서로 해석된다.
 
 1. `$NAMING_GLOSSARY`
-2. `$CLAUDE_PROJECT_DIR/references/glossary.json` ← 프로젝트 전용
-3. `${CLAUDE_PLUGIN_ROOT}/references/glossary.json` ← 플러그인 기본
+2. 편집 경로(CLI 는 현재 디렉터리, `--all` 은 루트)의 git 최상위 `internal-plugins/plugin-naming/references/glossary.json` ← 워크트리에서 고친 사전
+3. `$CLAUDE_PROJECT_DIR/references/glossary.json` ← 프로젝트 전용
+4. `${CLAUDE_PLUGIN_ROOT}/references/glossary.json` ← 플러그인 기본
 
 프로젝트 사전을 두면 플러그인 사전을 **대체한다.** 병합이 아니므로 기본 사전을 복사한 뒤 도메인 단어를 더한다.
 

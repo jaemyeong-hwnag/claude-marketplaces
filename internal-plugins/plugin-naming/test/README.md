@@ -60,6 +60,8 @@ VERBOSE=1 test/validate-naming.test.sh  # 통과 케이스의 출력까지 표�
 | TC-031 | 다른 카테고리의 deny 도 막는다 | 차단 (2) | 메시지: `'repository' 를 쓰세요` |
 | TC-032 | action 카테고리 deny 를 막는다 | 차단 (2) | 메시지: `'validate' 를 쓰세요` |
 | TC-033 | 여러 단어로 된 deny 는 이름 전체와 대조해 막는다 | 차단 (2) | 메시지: `'ci' 를 쓰세요` |
+| TC-036 | 여러 단어 deny 가 이름 일부여도 막는다 (#86) | 차단 (2) | `plugin-name-rule-validate` → `'name-rule' 은 glossary 의 deny 단어입니다`, `plugin-continuous-integration-validate` → `'ci' 를 쓰세요` |
+| TC-037 | 여러 단어 deny 의 단어가 떨어져 있거나 순서가 다르면 통과한다 (#86) | 통과 (0) | `continuous-order-integration-validate`, `plugin-rule-name-validate` |
 | TC-034 | use 단어로 바꾸면 통과한다 | 통과 (0) | - |
 | TC-035 | 위반이 여러 개면 모두 보고한다 | 차단 (2) | 메시지: `'document' 를 쓰세요`, `'repository' 를 쓰세요` |
 
@@ -71,6 +73,8 @@ VERBOSE=1 test/validate-naming.test.sh  # 통과 케이스의 출력까지 표�
 | TC-041 | glossary 에 등록된 공식 약어는 경고하지 않는다 | 통과 (0) | 경고 없음: `줄임말이면 사용 금지` |
 | TC-042 | use 로 등록된 짧은 단어는 경고하지 않는다 (`git-branch-naming`) | 통과 (0) | 경고 없음: `줄임말이면 사용 금지` |
 | TC-043 | 네 글자 이상은 경고 대상이 아니다 | 통과 (0) | 경고 없음: `줄임말이면 사용 금지` |
+| TC-044 | 훅 모드는 새 이름의 줄임말 경고를 `additionalContext` 로 넘긴다 (#86) | 통과 (0) | `additionalContext` 에 `줄임말이면 사용 금지` |
+| TC-045 | 훅 모드는 이미 있는 이름의 줄임말 경고를 다시 넘기지 않는다 (#86) | 통과 (0) | 출력 없음 |
 
 ### F. 경로 분류
 
@@ -100,6 +104,10 @@ VERBOSE=1 test/validate-naming.test.sh  # 통과 케이스의 출력까지 표�
 | TC-134 | 저장소를 둔 상위 폴더가 `my-plugins` 여도 프로젝트 기준으로 판정한다 | 통과 (0) | 출력 없음 |
 | TC-135 | 저장소를 둔 상위 폴더가 `skills` 여도 스킬 이름으로 읽지 않는다 | 통과 (0) | 출력 없음 |
 | TC-136 | 상위 경로에 `skills/` 가 있어도 가장 오른쪽 스킬 디렉터리를 본다 | 통과 (0) | `Bad_Dir` 를 보지 않음 |
+| TC-068 | 편집 경로의 git 최상위 사전을 쓴다 — 워크트리에서 등록한 단어 (#86) | 통과 (0) | 사본 사전에 `zap` 을 더한 git 저장소의 `public-plugins/order-zap/README.md` |
+| TC-068b | 그 사전이 없는 경로는 기본 사전으로 막는다 (#86) | 차단 (2) | `끝 단어 'zap' 이 사전에 없습니다` |
+| TC-068c | `NAMING_GLOSSARY` 가 git 최상위 사전보다 앞선다 (#86) | 차단 (2) | `끝 단어 'zap' 이 사전에 없습니다` |
+| TC-069 | `--all` 은 루트의 git 최상위 사전을 쓴다 (#86) | 통과 (0) | `'zap'` 없음 |
 | TC-063 | PostToolUse 정상 glossary 는 통과시킨다 | 통과 (0) | - |
 | TC-064 | PostToolUse 깨진 glossary 는 잡는다 | 차단 (2) | 메시지: `glossary:` |
 | TC-065 | PostToolUse 무관 파일은 검사하지 않는다 | 통과 (0) | 출력 없음 |
@@ -133,6 +141,8 @@ VERBOSE=1 test/validate-naming.test.sh  # 통과 케이스의 출력까지 표�
 | TC-085 | 전체 검사는 `.claude/worktrees/` 안을 보지 않는다 | 통과 (0) | 워크트리의 위반이 메인 검사를 깨지 않는다 |
 | TC-086 | 워크트리 밖의 같은 위반은 여전히 잡는다 | 차단 (2) | 메시지: `skill 'utils'` |
 | TC-087 | 루트 자체가 워크트리 안(절대 경로)이어도 검사한다 | 차단 (2) | #3 — 제외가 루트 기준인지 |
+| TC-088 | 전체 검사는 플러그인 디렉터리 밖(`.agent-tasks/` 초안)을 보지 않는다 (#86) | 통과 (0) | `Bad_Name` 없음 |
+| TC-089 | 플러그인 디렉터리 안의 같은 위반은 여전히 잡는다 (#86) | 차단 (2) | 메시지: `skill 'Bad_Name'` |
 
 ### J. 슬롯 `{대상}-{범위}-{관심사}-{목적}`
 
