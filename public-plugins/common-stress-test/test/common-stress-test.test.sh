@@ -116,6 +116,44 @@ expect_code 0; expect_no_out
 run_stdin stress-target-validate.sh '{"hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":"x"}}'
 expect_code 0; expect_no_out
 
+tc TC-S13 "래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 본다"
+target_codes 2 'uv run locust -H https://prod.example.com' 'poetry run locust --host https://prod.example.com' \
+  'python -m locust -H https://prod.example.com' 'timeout 60 k6 run -e BASE_URL=http://prod.example.com s.js' \
+  'timeout -s KILL 60 k6 run -e BASE_URL=http://prod.example.com s.js' "sh -c 'k6 run -e BASE_URL=https://prod.example.com s.js'" \
+  'bash -lc "uv run locust -H https://prod.example.com"' 'for r in 50 100; do k6 run -e BASE_URL=https://prod.example.com s.js; done' \
+  'if true; then k6 run -e BASE_URL=https://prod.example.com s.js; fi'
+target_codes 0 'uv run locust -H http://localhost:8000' 'timeout 60 k6 run -e BASE_URL=http://app:8080 s.js' \
+  'for r in 50 100; do k6 run -e BASE_URL=http://localhost:8080 s.js; done' \
+  'uv run pytest https://api.example.com' 'python -m http.server https://api.example.com' 'sh run.sh https://api.example.com' 'timeout 5 curl https://api.example.com'
+
+tc TC-S14 "<파일 로 넘긴 스크립트 안의 URL 을 보고, > 출력 파일은 보지 않는다"
+F1="$(put s/remote.js "import http from 'k6/http';\nexport default function () { http.get('https://prod.example.com/'); }\n")"
+F2="$(put s/local.js "import http from 'k6/http';\nexport default function () { http.get('http://app:8080/'); }\n")"
+F3="$(put s/out.json '{"url":"https://prod.example.com/"}\n')"
+target_codes 2 "docker run --rm -i grafana/k6 run - <$F1" "k6 run - < $F1"
+target_codes 0 "docker run --rm -i grafana/k6 run - <$F2" "k6 run $F2 >$F3" "k6 run $F2 > $F3"
+
+tc TC-S15 "-H 는 locust 에서만 호스트다 (hey · wrk · ab · oha 는 헤더)"
+target_codes 2 'locust -H prod.example.com' 'uv run locust -H prod.example.com:443'
+target_codes 0 'hey -H "Authorization: Bearer x" http://localhost:8080/' 'wrk -H "Host: api.example.com" http://localhost:8080/' \
+  'ab -H "X-Api-Key: k" -n 10 http://localhost:8080/' 'oha -H "Authorization: Bearer x" http://localhost:8080/'
+
+tc TC-S16 "출력 대상 · 여러 줄 import 의 from URL · 다른 명령의 URL 은 보지 않는다"
+F4="$(put s/ml.js "import {\n  x,\n} from 'https://jslib.k6.io/x.js';\nexport default function () { http.get('http://app:8080/'); }\n")"
+F5="$(put s/ml-bad.js "import {\n  x,\n} from 'https://jslib.k6.io/x.js';\nexport default function () { http.get('https://api.example.com/'); }\n")"
+target_codes 0 "k6 run $F4" 'k6 run --out influxdb=http://influx.example.com:8086/k6 -e BASE_URL=http://app:8080 s.js' \
+  'k6 run -o influxdb=http://influx.example.com:8086/k6 s.js' \
+  'K6_PROMETHEUS_RW_SERVER_URL=https://prom.example.com/api/v1/write k6 run -o experimental-prometheus-rw s.js' \
+  'curl -sf https://api.example.com/health && k6 run -e BASE_URL=http://localhost:8080 s.js'
+target_codes 2 "k6 run $F5" 'k6 run -e K6_BASE_URL=https://api.example.com s.js' \
+  'curl -sf http://localhost:8080/health && k6 run -e BASE_URL=https://api.example.com s.js'
+
+tc TC-S17 "heredoc 본문은 보지 않고, 셸에 먹이는 heredoc 은 본다"
+target_codes 0 "$(printf 'cat > note.md <<EOF\nhey -n 10 https://api.example.com/\nEOF\nk6 run -e BASE_URL=http://localhost:8080 s.js')" \
+  "$(printf "git commit -F - <<'EOF'\nk6 run -e BASE_URL=https://api.example.com s.js\nEOF")"
+target_codes 2 "$(printf 'bash <<EOF\nk6 run -e BASE_URL=https://api.example.com s.js\nEOF')" \
+  "$(printf 'cat > note.md <<EOF\nhello\nEOF\nk6 run -e BASE_URL=https://api.example.com s.js')"
+
 echo "B. ST-02 ~ ST-06 부하 스크립트"
 tc TC-S20 "규칙을 지킨 k6 스크립트는 경고가 없다"
 F="$(put k/open.js "$K6_OPEN")"; run stress-script-validate.sh "$F"

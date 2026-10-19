@@ -28,20 +28,60 @@ fi
 [ -n "$CMD" ] || exit 0
 BASE="${CWD:-${CLAUDE_PROJECT_DIR:-$(pwd)}}"
 
-# 부하 도구를 실행하는 구간인가 — 구간의 첫 단어(환경 변수 대입 · 래퍼 제외)나 docker 이미지로 판단한다
+# heredoc 본문은 명령이 아니라 데이터다. 셸에 먹이는 heredoc(sh <<EOF)만 명령으로 남긴다
+strip_heredoc() {
+  awk -v q="'" '
+    d != "" { t = $0; if (dash) sub(/^\t+/, "", t); if (t == d) d = ""; else if (keep) print; next }
+    { print; s = $0; gsub(/<<</, "\001", s)
+      if (match(s, "<<-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*")) {
+        d = substr(s, RSTART, RLENGTH); dash = (d ~ /^<<-/)
+        sub(/^<<-?[ \t]*/, "", d); gsub("[\"" q "]", "", d)
+        keep = (s ~ /(^|[;&|(][ \t]*)(sudo[ \t]+)?(ba|z|da|k)?sh([ \t]+-[A-Za-z]+)*[ \t]*<</)
+      } }'
+}
+
+# 부하 도구를 실행하는 구간인가 — 구간의 첫 단어(환경 변수 대입 · 래퍼 제외)나 docker 이미지로 판단한다. 도구 이름은 TOOL 에 남긴다
 is_load_segment() {
   local seg="$1" w first="" rest
+  TOOL=""
   # shellcheck disable=SC2086
   set -f; set -- $seg; set +f
   while [ "$#" -gt 0 ]; do
-    w="$1"
+    w="${1#[\"\'(\{]}"
     case "$w" in
-      *=*|sudo|time|nohup|exec|command|env|npx|bunx|pnpx|-*) shift ;;
+      *=*|sudo|time|nohup|exec|command|env|npx|bunx|pnpx|uvx|do|then|else|elif|if|while|until|!|-*|'') shift ;;
+      uv|poetry|pipenv|pdm|hatch)
+        [ "${2:-}" = run ] || { first="$w"; shift; break; }
+        shift 2 ;;
+      python|python3|python3.*)
+        [ "${2:-}" = -m ] || { first="$w"; shift; break; }
+        shift 2 ;;
+      timeout)
+        shift
+        while [ "$#" -gt 0 ]; do
+          case "$1" in
+            -s|-k|--signal|--kill-after) shift 2 ;;
+            -*) shift ;;
+            *) break ;;
+          esac
+        done
+        [ "$#" -gt 0 ] && shift ;;
+      sh|bash|zsh|dash|ksh)
+        shift
+        while [ "$#" -gt 0 ]; do
+          case "$1" in
+            -*c) shift; break ;;
+            -*) shift ;;
+            *) set -- ; break ;;
+          esac
+        done
+        [ "$#" -gt 0 ] || { first="$w"; break; } ;;
       *) first="$w"; shift; break ;;
     esac
   done
   rest="$*"
   first="${first##*/}"
+  TOOL="$first"
   case "$first" in
     k6) case "$rest" in run*|cloud*) return 0 ;; esac ;;
     locust|jmeter|jmeter.sh|gatling|gatling.sh|wrk|wrk2|hey|oha|ab|autocannon) return 0 ;;
@@ -56,36 +96,68 @@ is_load_segment() {
   return 1
 }
 
-LOAD=0
-while IFS= read -r seg; do
-  [ -n "${seg// /}" ] || continue
-  is_load_segment "$seg" && { LOAD=1; break; }
-done < <(printf '%s\n' "$CMD" | sed -E 's/(\|\||&&|[;|&]|\$\(|`)/\n/g')
-[ "$LOAD" = 1 ] || exit 0
+# 부하 구간만 모은다 — 파이프로 이어진 명령은 한 덩어리(vegeta 는 앞 단계가 대상을 준다), && · ; 로 나뉜 다른 명령은 뺀다
+CMD="$(printf '%s\n' "$CMD" | strip_heredoc)"
+LOAD_TXT=""; LOCUST_TXT=""
+while IFS= read -r line; do
+  [ -n "${line// /}" ] || continue
+  hit=0
+  while IFS= read -r stage; do
+    [ -n "${stage// /}" ] || continue
+    is_load_segment "$stage" || continue
+    hit=1
+    [ "$TOOL" = locust ] && LOCUST_TXT="$LOCUST_TXT
+$stage"
+  done < <(printf '%s\n' "$line" | tr '|' '\n')
+  [ "$hit" = 1 ] && LOAD_TXT="$LOAD_TXT
+$line"
+done < <(printf '%s\n' "$CMD" | sed -E 's/(\|\||&&|[;&]|\$\(|`)/\n/g')
+[ -n "$LOAD_TXT" ] || exit 0
 
-# 대상 호스트를 모은다 — 명령 안의 URL · --host · 참조한 스크립트 파일 안의 URL · JMX 도메인
+# 대상이 아닌 값을 뺀다 — 출력 대상(--out · -o · > 파일)과 k6 자체 설정(K6_* 대입, -e 로 넘기는 것은 스크립트 변수라 남긴다)
+drop_outputs() {
+  sed -E 's/[<>]+/ & /g' | awk '
+    { out = ""; skip = 0; prev = ""; n = split($0, w, /[ \t]+/)
+      for (i = 1; i <= n; i++) {
+        t = w[i]; if (t == "") continue
+        if (skip) { skip = 0 }
+        else if (t ~ /^>+$/ || t == "--out" || t == "-o") skip = 1
+        else if (t ~ /^</ || t ~ /^--out=/) ;
+        else if (t ~ /^K6_[A-Z0-9_]*=/ && prev != "-e" && prev != "--env") ;
+        else out = out " " t
+        prev = t
+      }
+      print out }'
+}
+LOAD_TXT="$(printf '%s\n' "$LOAD_TXT" | drop_outputs)"
+LOCUST_TXT="$(printf '%s\n' "$LOCUST_TXT" | drop_outputs)"
+
+# 대상 호스트를 모은다 — 부하 구간의 URL · --host · locust -H · 참조한 스크립트 파일 안의 URL · JMX 도메인
 hosts_from_text() {
   grep -vE '^[[:space:]]*(import|from|require|//|#)|require\(' \
+    | sed -E "s/(^|[^[:alnum:]_])from[[:space:]]*['\"][^'\"]*['\"]//g" \
     | grep -oE '[a-zA-Z][a-zA-Z0-9+.-]*://[^][ "'"'"'`<>(){}]+' \
     | sed -E 's#^[^:]+://##; s#^[^@/]*@##; s#[/?\#].*$##; s#:[0-9]+$##' \
     | grep -vE '^$|\$|^__ENV' || true
 }
 # 스킴 없는 값 → 호스트 (host:port/path · user@host)
 bare_host() { sed -E 's/^["'"'"']//; s/["'"'"']$//; s#^[a-zA-Z][a-zA-Z0-9+.-]*://##; s#^[^@/]*@##; s#[/?\#].*$##; s#:[0-9]+$##' | grep -vE '^$|\$' || true; }
-HOSTS="$(printf '%s\n' "$CMD" | hosts_from_text)"
+HOSTS="$(printf '%s\n' "$LOAD_TXT" | hosts_from_text)"
+# -H 는 locust 에서만 호스트다 (hey · wrk · ab · oha · autocannon 은 헤더)
 HOSTS="$HOSTS
-$(printf '%s\n' "$CMD" | grep -oE '(--host[= ]|-H )[^ ]+' | sed -E 's/^(--host[= ]|-H )//' | bare_host)
-$(printf '%s\n' "$CMD" | grep -oE '[A-Za-z0-9_]*(URL|HOST|url|host)[A-Za-z0-9_]*=[^ ]+' | sed -E 's/^[^=]+=//' | bare_host)"
+$(printf '%s\n' "$LOAD_TXT" | grep -oE '\-\-host[= ][^ ]+' | sed -E 's/^--host[= ]//' | bare_host)
+$(printf '%s\n' "$LOCUST_TXT" | grep -oE '(^| )-H [^ ]+' | sed -E 's/^ ?-H //' | bare_host)
+$(printf '%s\n' "$LOAD_TXT" | grep -oE '[A-Za-z0-9_]*(URL|HOST|url|host)[A-Za-z0-9_]*=[^ ]+' | sed -E 's/^[^=]+=//' | bare_host)"
 
 FILES=""
-for tok in $(printf '%s' "$CMD" | tr -s ' \t"'"'"'=' '\n\n\n\n'); do
+for tok in $(printf '%s' "$LOAD_TXT" | tr -s ' \t"'"'"'=<>' '\n\n\n\n\n\n\n'); do
   case "$tok" in *.js|*.ts|*.mjs|*.py|*.jmx|*.yml|*.yaml|*.scala|*.java|*.kt|*.json)
     for p in "$tok" "$BASE/$tok"; do [ -f "$p" ] && { FILES="$FILES
 $p"; break; }; done ;;
   esac
 done
-case "$CMD" in *locust*) printf '%s' "$CMD" | grep -qE '(-f|--locustfile)[ =]' || { [ -f "$BASE/locustfile.py" ] && FILES="$FILES
-$BASE/locustfile.py"; } ;; esac
+[ -n "${LOCUST_TXT// /}" ] && { printf '%s' "$LOCUST_TXT" | grep -qE '(-f|--locustfile)[ =]' || { [ -f "$BASE/locustfile.py" ] && FILES="$FILES
+$BASE/locustfile.py"; }; }
 while IFS= read -r f; do
   [ -n "$f" ] || continue
   HOSTS="$HOSTS

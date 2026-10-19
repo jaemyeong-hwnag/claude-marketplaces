@@ -39,8 +39,8 @@
   - `*.local` · `*.test` · `*.internal`
 - 전용 테스트 도메인은 `.claude/settings.json` 의 `env.STRESS_TEST_ALLOWED_HOSTS` 에 넣는다 (쉼표 구분, `*.perf.example.com` 형태 허용)
 - 대상 호스트는 다음 위치에서 찾는다.
-  - 명령 안의 URL
-  - `--host` · `-H`
+  - 부하 명령 안의 URL
+  - `--host` · locust 의 `-H`
   - 이름에 `URL` · `HOST` 가 든 변수 대입
   - 명령이 가리키는 스크립트 파일 안의 URL
 - 스크립트가 실행 중에 다른 곳에서 대상을 읽으면(설정 서버 등) 보지 못한다
