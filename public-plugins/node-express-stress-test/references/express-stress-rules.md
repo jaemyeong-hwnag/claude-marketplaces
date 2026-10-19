@@ -4,6 +4,7 @@ Node.js · Express 앱을 부하 측정할 때 **그 프레임워크에만 해�
 부하 모델 · 지표 정의 · 통계 판정 · 대상 호스트 안전은 `common-stress-test` 가 맡는다.
 
 기계 검증: [`scripts/express-stress-config-validate.sh`](../scripts/express-stress-config-validate.sh) — `NEX-01` ~ `NEX-09`.
+훅이 보는 부하 명령은 `common-stress-test` 의 `ST-01` 과 같은 규칙으로 판별한다 — `uv run` · `poetry run` · `python -m` · `timeout` · `sh -c` 같은 래퍼와 한 줄 `for … do` · `if … then` 안도 보고, heredoc 본문은 보지 않는다.
 계측 코드: [`express-instrumentation.md`](express-instrumentation.md) · 마이크로벤치마크: [`node-microbenchmark.md`](node-microbenchmark.md).
 
 확인 버전: Node.js 22.23 · Express 5.2.1 (4.x 소스도 대조) · prom-client 15.1.3 · tinybench 4.1.0 · mitata 1.0.34.

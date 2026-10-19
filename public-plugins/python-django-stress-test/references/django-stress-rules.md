@@ -10,6 +10,7 @@ Django 서버를 부하 측정할 때 **측정을 무효로 만드는 설정**�
 ## 1. 조항
 
 판정 — **차단**: CLI 종료 코드 `2`. 훅은 부하 명령을 막지 않고 `additionalContext` 로 알린다. **경고**: CLI `0` + 알림. **AI 판단**: 스크립트가 보지 않고 `django-stress-test-apply` 스킬이 본다.
+훅이 보는 부하 명령은 `common-stress-test` 의 `ST-01` 과 같은 규칙으로 판별한다 — `uv run` · `poetry run` · `python -m` · `timeout` · `sh -c` 같은 래퍼와 한 줄 `for … do` · `if … then` 안도 보고, heredoc 본문은 보지 않는다.
 
 | 조항 | 내용 | 판정 | 근거 |
 |---|---|---|---|
@@ -35,7 +36,8 @@ Django 서버를 부하 측정할 때 **측정을 무효로 만드는 설정**�
 | 경우 | 이유 |
 |---|---|
 | `#` 주석 줄 | 실행되지 않는다 |
-| 파일 이름에 `dev` · `develop` · `development` · `local` · `test` · `tests` · `testing` 이 단어로 들어간 파일 (`settings/dev.py` · `local_settings.py` · `docker-compose.dev.yml` · `Dockerfile.local`) — `DJ-01` ~ `DJ-05` · `DJ-11` · `DJ-12` | 측정 대상이 아니라 개발 설정이다 |
+| 파일 이름에 `dev` · `develop` · `development` · `local` · `test` · `tests` · `testing` 이 단어로 들어간 파일 (`settings/dev.py` · `local_settings.py` · `docker-compose.dev.yml` · `Dockerfile.local`) — `DJ-01` ~ `DJ-06` · `DJ-11` · `DJ-12` | 측정 대상이 아니라 개발 설정이다 |
+| CI 파일 (`.github/` · `.gitlab-ci.yml`) — 위와 같은 조항 | 테스트 · 빌드 환경이다 |
 | `test_*.py` · `*_test.py` · `conftest.py` · `tests/` | 테스트 코드다 |
 | `Makefile` · `*.md` | 개발 편의 명령 · 문서다 |
 | `DEBUG = env(...)` · `DEBUG = os.environ.get(...)` | 리터럴 `True` 만 본다. 기본값이 `True` 인지는 AI 가 본다 |

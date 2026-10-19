@@ -211,6 +211,20 @@ run "$p"; expect_code 2; expect_out "DJ-02"
 tc TC-D26 "디렉터리가 아니면 오류 1"
 run "$TMP/none"; expect_code 1
 
+tc TC-D27 "CI 파일(.github/ · .gitlab-ci.yml)의 runserver 는 막지 않고, 운영 Procfile 은 막는다 (DJ-01)"
+p="$(mkproj)"; put "$p" .github/workflows/e2e.yml 'jobs:\n  e2e:\n    steps:\n      - run: python manage.py runserver &\n'
+put "$p" .gitlab-ci.yml 'e2e:\n  script:\n    - python manage.py runserver &\n'
+run "$p"; expect_code 0; expect_no_out
+put "$p" Procfile 'web: python manage.py runserver 0.0.0.0:8000\n'; run "$p"; expect_code 2; expect_out "DJ-01 Procfile:1"; expect_not ".github"
+
+tc TC-D28 "dev 이름 파일 · CI 파일의 --workers 는 DJ-06 으로 보지 않고, 운영 compose 는 막는다 (DJ-06)"
+p="$(mkproj)"; rm "$p/gunicorn.conf.py"; put "$p" start.sh 'exec gunicorn --workers 1 myproject.wsgi:application\n'
+put "$p" docker-compose.dev.yml 'services:\n  web:\n    command: gunicorn myproject.wsgi --workers 4\n'
+put "$p" .github/workflows/e2e.yml 'jobs:\n  e2e:\n    steps:\n      - run: gunicorn myproject.wsgi --workers 4 &\n'
+run "$p"; expect_code 0; expect_not "DJ-06"
+put "$p" docker-compose.yml 'services:\n  web:\n    command: gunicorn myproject.wsgi --workers 4\n'
+run "$p"; expect_code 2; expect_out "DJ-06 docker-compose.yml:3"; expect_not "docker-compose.dev.yml"
+
 # --- B. 훅 -------------------------------------------------------------------
 BAD="$(mkproj)"; sed -i.bak 's/^DEBUG = False/DEBUG = True/' "$BAD/myproject/settings.py"; rm -f "$BAD/myproject/settings.py.bak"
 CLEAN="$(mkproj)"
@@ -244,6 +258,17 @@ if [ "$TC_ON" = 1 ]; then
   OUT="$(jq -n --arg d "$BAD" '{hook_event_name: "PreToolUse", tool_name: "Bash", cwd: $d, tool_input: {command: "k6 run a.js"}}' | env -u CLAUDE_PROJECT_DIR "$SCRIPT" 2>&1)"; CODE=$?
 fi
 expect_code 0; expect_out "DJ-02"
+
+tc TC-D37 "래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 알린다"
+for c in 'uv run locust -f locustfile.py --headless' 'poetry run locust --headless' 'python -m locust --headless' \
+         'timeout 60 k6 run s.js' "sh -c 'k6 run s.js'" 'for r in 50 100; do k6 run s.js; done' 'if true; then k6 run s.js; fi'; do
+  run_hook "$BAD" "$(payload_bash "$c")"; expect_code 0; expect_out "DJ-02"
+done
+
+tc TC-D38 "래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 명령은 조용히 통과한다"
+for c in 'uv run pytest' 'poetry run python manage.py migrate' 'python -m http.server' 'timeout 5 curl http://x' "sh -c 'echo k6 run'" "$(printf 'cat > note.md <<EOF\nk6 run s.js\nEOF')"; do
+  run_hook "$BAD" "$(payload_bash "$c")"; expect_code 0; expect_no_out
+done
 
 flush_tc
 echo ""

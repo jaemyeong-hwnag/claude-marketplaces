@@ -30,7 +30,7 @@ Java · Spring Boot 3.x 서버를 부하 측정할 때 프레임워크 몫을 �
 ## 주의
 
 - 설정은 `application*.properties|yml|yaml` 만 본다. 환경 변수 · 명령행 인자 · Config Server 값은 보지 않는다
-- `dev` · `local` · `test` 가 이름에 든 프로필 파일과 `src/test/` 는 보지 않는다
+- `dev` · `local` · `test` 가 이름에 든 프로필 파일, 한 파일 안 `---` · `#---` 문서 중 그 프로필에서만 켜지는 문서, `src/test/` 는 보지 않는다
 - 실행 방식(`bootRun` · IDE)과 워밍업은 스크립트가 판정하지 않는다 — 스킬이 본다
 - Spring MVC · 내장 Tomcat 기준이다. WebFlux · Jetty · Undertow 는 Tomcat 조항(`SPR-07`)을 건너뛴다
 - `jq` 가 필요하다 (훅 모드)

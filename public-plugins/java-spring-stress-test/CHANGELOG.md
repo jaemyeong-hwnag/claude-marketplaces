@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.1.2
+
+### Fixed
+- `SPR-02` 가 `application.yml` 안 `---` + `on-profile: local` 문서의 `root: DEBUG` 를 막던 것 — dev · local · test 프로필 문서(`---` · `#---`)는 건너뛴다 (#91)
+- 훅이 `uv run` · `poetry run` · `python -m` · `timeout N` · `sh -c` 로 감싸거나 한 줄 `for … do` · `if … then` 안의 부하 명령을 알아보지 못하던 것 — `common-stress-test` 의 `ST-01` 과 같은 규칙으로 판별한다 (#91)
+
 ## 0.1.1
 
 ### Changed

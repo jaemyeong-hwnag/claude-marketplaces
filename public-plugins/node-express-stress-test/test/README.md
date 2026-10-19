@@ -11,7 +11,7 @@ test/express-stress-config-validate.test.sh TC-E1    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. macOS 기본 bash 3.2 에서도 돈다.
 
-## 자동 TC (29건)
+## 자동 TC (31건)
 
 픽스처는 **규칙을 지키는 Express 프로젝트**(`start` 는 `node`, Dockerfile `ENV NODE_ENV=production`, prom-client Histogram)이고, TC 마다 한 곳만 깨뜨린다. 조항마다 과잉 탐지를 막는 TC 를 둔다.
 
@@ -53,3 +53,5 @@ test/express-stress-config-validate.test.sh TC-E1    # ID 접두사로 필터
 | TC-E33 | 부하 명령이어도 프로젝트가 규칙을 지키면 조용하다 |
 | TC-E34 | 빈 입력 · Bash 가 아닌 도구 · PostToolUse · 잘못된 JSON 은 통과한다 |
 | TC-E35 | 경고만 있는 프로젝트도 알린다 |
+| TC-E36 | 래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 알린다 |
+| TC-E37 | 래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 명령은 조용히 통과한다 |

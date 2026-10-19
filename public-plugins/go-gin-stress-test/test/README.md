@@ -11,7 +11,7 @@ test/gin-stress-config-validate.test.sh TC-S1     # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. macOS 기본 bash 3.2 에서도 돈다.
 
-## 자동 TC (38건)
+## 자동 TC (42건)
 
 픽스처는 **규칙을 지키는 Gin 앱**(`main.go` · `go.mod` go 1.25 · `Dockerfile`)이고, TC 마다 새 디렉터리에 복사해 한 곳만 깨뜨린다. 과잉 탐지(잡으면 안 되는 것)를 막는 TC 를 조항마다 둔다.
 
@@ -27,6 +27,7 @@ test/gin-stress-config-validate.test.sh TC-S1     # ID 접두사로 필터
 | TC-S12 | release · 주석 처리한 debug · 다른 키 이름은 막지 않는다 (GIN-01 과잉 차단 방지) |
 | TC-S13 | release 지정이 어디에도 없으면 경고한다 (GIN-02) |
 | TC-S14 | 배포 파일에 GIN_MODE=release 가 있으면 코드에 없어도 경고하지 않는다 (GIN-02 과잉 경고 방지) |
+| TC-S15 | 이름에 dev · local · test 가 든 배포 파일의 GIN_MODE=debug 는 막지 않고, 운영 파일은 막는다 (GIN-01) |
 | TC-S20 | gin.Default() · gin.Logger() 를 경고한다 (GIN-03) |
 | TC-S21 | gin.New() + gin.Recovery() 는 경고하지 않는다 (GIN-03 과잉 경고 방지) |
 | TC-S30 | _ net/http/pprof + 공개 주소 DefaultServeMux 를 막는다 (GIN-04) |
@@ -35,6 +36,7 @@ test/gin-stress-config-validate.test.sh TC-S1     # ID 접두사로 필터
 | TC-S40 | Dockerfile 의 go build -race 를 막고 Makefile 은 경고한다 (GIN-05) |
 | TC-S41 | compose 의 GOFLAGS=-race 를 막는다 (GIN-05) |
 | TC-S42 | go test -race · -racex 같은 다른 플래그는 보지 않는다 (GIN-05 과잉 차단 방지) |
+| TC-S43 | CI 파일(.github/ · .gitlab-ci.yml) · dev 이름 파일의 go build -race 는 막지 않고, 운영 compose 는 막는다 (GIN-05) |
 | TC-S50 | GOMAXPROCS 환경 변수 · runtime.GOMAXPROCS(n) 고정을 경고한다 (GIN-06) |
 | TC-S51 | runtime.GOMAXPROCS(0) 조회는 경고하지 않는다 (GIN-06 과잉 경고 방지) |
 | TC-S52 | 컨테이너 배포 + go.mod 의 go 가 1.25 미만이면 경고한다 (GIN-07) |
@@ -62,3 +64,5 @@ test/gin-stress-config-validate.test.sh TC-S1     # ID 접두사로 필터
 | TC-S102 | 부하 도구가 아닌 명령은 조용히 통과한다 |
 | TC-S103 | 위반 없는 프로젝트면 부하 명령이어도 조용하다 |
 | TC-S104 | 빈 입력 · PostToolUse · Bash 가 아닌 도구는 통과한다 |
+| TC-S105 | 래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 알린다 |
+| TC-S106 | 래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 명령은 조용히 통과한다 |

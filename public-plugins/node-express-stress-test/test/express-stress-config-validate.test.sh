@@ -196,6 +196,17 @@ tc TC-E35 "경고만 있는 프로젝트도 알린다"
 W="$(proj)"; set_json "$W" '.scripts.start = "node --inspect src/server.js"'
 run_hook "$W" "$(bash_payload 'k6 run load.js')"; expect_code 0; expect_out "경고 NEX-05"
 
+tc TC-E36 "래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 알린다"
+for c in 'uv run locust -f locustfile.py --headless' 'poetry run locust --headless' 'python -m locust --headless' \
+         'timeout 60 k6 run s.js' "sh -c 'k6 run s.js'" 'for r in 50 100; do k6 run s.js; done' 'if true; then k6 run s.js; fi'; do
+  run_hook "$BAD" "$(bash_payload "$c")"; expect_code 0; expect_out "NEX-03"
+done
+
+tc TC-E37 "래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 명령은 조용히 통과한다"
+for c in 'uv run pytest' 'poetry run python manage.py migrate' 'python -m http.server' 'timeout 5 curl http://x' "sh -c 'echo k6 run'" "$(printf 'cat > note.md <<EOF\nk6 run s.js\nEOF')"; do
+  run_hook "$BAD" "$(bash_payload "$c")"; expect_code 0; expect_no_out
+done
+
 flush_tc
 echo
 echo "결과: PASS $PASS · FAIL $FAIL · SKIP $SKIP"

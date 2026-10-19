@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.2
+
+### Fixed
+- 훅이 `uv run` · `poetry run` · `python -m` · `timeout N` · `sh -c` 로 감싸거나 한 줄 `for … do` · `if … then` 안의 부하 명령을 알아보지 못하던 것 — `common-stress-test` 의 `ST-01` 과 같은 규칙으로 판별한다 (#91)
+
 ## 0.1.1
 
 ### Changed

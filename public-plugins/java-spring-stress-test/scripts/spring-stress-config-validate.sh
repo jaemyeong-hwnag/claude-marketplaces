@@ -23,22 +23,32 @@ find_files() { # $1=루트 $2...=find 이름 조건
 }
 
 # --- 설정 평탄화: key=value 줄로 (키는 소문자 · '-' '_' 제거 — Spring relaxed binding) ----------
+# 한 파일 안의 문서(--- · #---) 중 dev · local · test 프로필에서만 켜지는 문서는 뺀다
+DOC_AWK='
+  function doc_key(k, v,   n) { n = tolower(k); gsub(/[-_]/, "", n); if (n == "spring.config.activate.onprofile" || n == "spring.profiles") prof = prof " " tolower(v) }
+  function doc_flush(   i) {
+    if (!(prof !~ /!/ && prof ~ /(^|[^a-z])(dev|develop|development|local|test|tests|testing)([^a-z]|$)/)) for (i = 1; i <= nb; i++) print buf[i]
+    nb = 0; prof = "" }
+  function emit(k, v) { doc_key(k, v); buf[++nb] = k "=" v }
+  END { doc_flush() }'
+
 flatten_props() {
-  awk '
+  awk "$DOC_AWK"'
+    /^[#!]---[ \t]*$/ { doc_flush(); next }
     /^[ \t]*[#!]/ || /^[ \t]*$/ { next }
     { line=$0; sub(/^[ \t]+/, "", line)
       p=index(line, "="); q=index(line, ":"); if (p==0 || (q>0 && q<p)) p=q
       if (p==0) next
       k=substr(line,1,p-1); v=substr(line,p+1)
       gsub(/[ \t]+$/, "", k); gsub(/^[ \t]+|[ \t]+$/, "", v)
-      print k "=" v }' "$1"
+      emit(k, v) }' "$1"
 }
 
 flatten_yaml() {
-  awk -v q="'" '
+  awk -v q="'" "$DOC_AWK"'
     function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
     function unquote(s) { if (length(s)>=2 && (substr(s,1,1)=="\"" || substr(s,1,1)==q) && substr(s,length(s))==substr(s,1,1)) return substr(s,2,length(s)-2); return s }
-    /^---/ { n=0; next }
+    /^---/ { n=0; doc_flush(); next }
     { raw=$0; sub(/\r$/, "", raw) }
     raw ~ /^[ \t]*#/ || raw ~ /^[ \t]*$/ { next }
     { match(raw, /^ */); ind=RLENGTH; line=substr(raw, ind+1) }
@@ -48,7 +58,7 @@ flatten_yaml() {
       k=unquote(k); sub(/[ \t]+#.*$/, "", v); v=unquote(v)
       while (n>0 && ind<=si[n]) n--
       path=""; for (i=1;i<=n;i++) path=path sk[i] "."
-      if (v=="" || v=="|" || v==">") { n++; si[n]=ind; sk[n]=k } else print path k "=" v }' "$1"
+      if (v=="" || v=="|" || v==">") { n++; si[n]=ind; sk[n]=k } else emit(path k, v) }' "$1"
 }
 
 normalize() { # key=value → 정규화 키=값 (map 키의 [ ] 표기도 벗긴다)
@@ -188,22 +198,83 @@ $(find_files "$ROOT" -name 'build.gradle' -o -name 'build.gradle.kts')
 EOF
 }
 
-# --- 부하 도구 명령 판별 (훅) -------------------------------------------------------
-is_load_command() { # $1=명령 문자열
-  printf '%s\n' "$1" | tr ';&|()' '\n\n\n\n\n' | awk '
-    { line=$0; sub(/^[ \t]+/, "", line)
-      n=split(line, w, /[ \t]+/); i=1
-      while (i<=n && (w[i] ~ /^[A-Za-z_][A-Za-z0-9_]*=/ || w[i]=="sudo" || w[i]=="time" || w[i]=="exec" || w[i]=="npx" || w[i]=="nohup" || w[i]=="command")) i++
-      if (i>n) next
-      c=w[i]; sub(/^.*\//, "", c); a=(i<n) ? w[i+1] : ""
-      if (c=="k6" && a=="run") { print "y"; exit }
-      if (c=="vegeta" && a=="attack") { print "y"; exit }
-      if (c=="artillery" && (a=="run" || a=="quick")) { print "y"; exit }
-      if (c ~ /^(locust|jmeter|jmeter\.sh|gatling|gatling\.sh|wrk|wrk2|hey|ab|oha|autocannon)$/) { print "y"; exit }
-      if (c ~ /^(gradle|gradlew)$/ && line ~ /gatlingRun/) { print "y"; exit }
-      if (c ~ /^(mvn|mvnw)$/ && line ~ /gatling:test/) { print "y"; exit }
-      if (c=="docker" && line ~ /[ \t]run[ \t]/ && line ~ /grafana\/k6/) { print "y"; exit }
-    }' | grep -q y
+# --- 부하 도구 명령 판별 (훅) — common-stress-test 의 stress-target-validate.sh 와 같은 규칙 ---------------
+# heredoc 본문은 명령이 아니라 데이터다. 셸에 먹이는 heredoc(sh <<EOF)만 명령으로 남긴다
+strip_heredoc() {
+  awk -v q="'" '
+    d != "" { t = $0; if (dash) sub(/^\t+/, "", t); if (t == d) d = ""; else if (keep) print; next }
+    { print; s = $0; gsub(/<<</, "\001", s)
+      if (match(s, "<<-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*")) {
+        d = substr(s, RSTART, RLENGTH); dash = (d ~ /^<<-/)
+        sub(/^<<-?[ \t]*/, "", d); gsub("[\"" q "]", "", d)
+        keep = (s ~ /(^|[;&|(][ \t]*)(sudo[ \t]+)?(ba|z|da|k)?sh([ \t]+-[A-Za-z]+)*[ \t]*<</)
+      } }'
+}
+
+# 부하 도구를 실행하는 구간인가 — 구간의 첫 단어(환경 변수 대입 · 래퍼 제외)나 docker 이미지로 판단한다. 도구 이름은 TOOL 에 남긴다
+is_load_segment() {
+  local seg="$1" w first="" rest
+  TOOL=""
+  # shellcheck disable=SC2086
+  set -f; set -- $seg; set +f
+  while [ "$#" -gt 0 ]; do
+    w="${1#[\"\'(\{]}"
+    case "$w" in
+      *=*|sudo|time|nohup|exec|command|env|npx|bunx|pnpx|uvx|do|then|else|elif|if|while|until|!|-*|'') shift ;;
+      uv|poetry|pipenv|pdm|hatch)
+        [ "${2:-}" = run ] || { first="$w"; shift; break; }
+        shift 2 ;;
+      python|python3|python3.*)
+        [ "${2:-}" = -m ] || { first="$w"; shift; break; }
+        shift 2 ;;
+      timeout)
+        shift
+        while [ "$#" -gt 0 ]; do
+          case "$1" in
+            -s|-k|--signal|--kill-after) shift 2 ;;
+            -*) shift ;;
+            *) break ;;
+          esac
+        done
+        [ "$#" -gt 0 ] && shift ;;
+      sh|bash|zsh|dash|ksh)
+        shift
+        while [ "$#" -gt 0 ]; do
+          case "$1" in
+            -*c) shift; break ;;
+            -*) shift ;;
+            *) set -- ; break ;;
+          esac
+        done
+        [ "$#" -gt 0 ] || { first="$w"; break; } ;;
+      *) first="$w"; shift; break ;;
+    esac
+  done
+  rest="$*"
+  first="${first##*/}"
+  TOOL="$first"
+  case "$first" in
+    k6) case "$rest" in run*|cloud*) return 0 ;; esac ;;
+    locust|jmeter|jmeter.sh|gatling|gatling.sh|wrk|wrk2|hey|oha|ab|autocannon) return 0 ;;
+    vegeta) case "$rest" in attack*) return 0 ;; esac ;;
+    artillery) case "$rest" in run*|quick*) return 0 ;; esac ;;
+    docker|podman|docker-compose)
+      printf '%s' "$rest" | grep -qE '(^|[ /])(grafana/k6|locustio/locust|[a-z0-9_.-]*/?jmeter|[a-z0-9_.-]*/?gatling)(:[^ ]*)?( |$)' && return 0
+      # compose 서비스 이름으로 부하기를 띄우는 경우
+      printf '%s' "$first $rest" | grep -qE '(compose|docker-compose).*( run| up).* (k6|locust|jmeter|gatling)( |$)' && return 0 ;;
+    mvn|mvnw|gradle|gradlew) printf '%s' "$rest" | grep -qiE 'gatling' && return 0 ;;
+  esac
+  return 1
+}
+
+# 명령을 && · || · ; · & · | · $( · ` 로 나눈 구간 중 하나라도 부하 도구 실행이면 참
+is_load_command() { # $1=명령
+  local seg
+  while IFS= read -r seg; do
+    [ -n "${seg// /}" ] || continue
+    is_load_segment "$seg" && return 0
+  done < <(printf '%s\n' "$1" | strip_heredoc | sed -E 's/(\|\||&&|[;&|]|\$\(|`)/\n/g')
+  return 1
 }
 
 TMPD="$(mktemp -d "${TMPDIR:-/tmp}/spring-stress.XXXXXX")"

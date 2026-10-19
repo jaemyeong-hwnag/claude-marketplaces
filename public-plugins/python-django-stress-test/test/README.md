@@ -11,7 +11,7 @@ test/django-stress-config-validate.test.sh TC-D3    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. `jq` 가 필요하다.
 
-## 자동 TC (33건)
+## 자동 TC (37건)
 
 픽스처는 **규칙을 모두 지킨 Django 프로젝트**(`mkproj` — Gunicorn conf · 멀티프로세스 모드 · django-prometheus · in-flight 게이지)이고, TC 마다 한 곳만 깨뜨린다. 조항마다 과잉 탐지를 막는 TC 를 둔다.
 
@@ -45,6 +45,8 @@ test/django-stress-config-validate.test.sh TC-D3    # ID 접두사로 필터
 | TC-D24 | .venv · site-packages · tests · 테스트 파일은 보지 않는다 |
 | TC-D25 | 루트가 .claude/worktrees 안이어도 검사한다 (제외는 루트 기준) |
 | TC-D26 | 디렉터리가 아니면 오류 1 |
+| TC-D27 | CI 파일(.github/ · .gitlab-ci.yml)의 runserver 는 막지 않고, 운영 Procfile 은 막는다 (DJ-01) |
+| TC-D28 | dev 이름 파일 · CI 파일의 --workers 는 DJ-06 으로 보지 않고, 운영 compose 는 막는다 (DJ-06) |
 
 ### B. 훅
 
@@ -57,3 +59,5 @@ test/django-stress-config-validate.test.sh TC-D3    # ID 접두사로 필터
 | TC-D34 | 빈 입력은 통과한다 |
 | TC-D35 | PostToolUse · Bash 가 아닌 도구는 보지 않는다 |
 | TC-D36 | CLAUDE_PROJECT_DIR 가 없으면 입력의 cwd 를 본다 |
+| TC-D37 | 래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 알린다 |
+| TC-D38 | 래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 명령은 조용히 통과한다 |
