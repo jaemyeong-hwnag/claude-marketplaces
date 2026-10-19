@@ -209,6 +209,29 @@ if [ "$TC_ON" = 1 ]; then mv "$REPO/.claude/code-edit-guardrail.json" "$REPO/gua
 edit src/main/kotlin/order/Order.kt; hook stop "$S"
 expect_code 2; expect_out "G-01"
 unset CODE_EDIT_GUARDRAIL_CONFIG
+WT=.claude/worktrees/2-w
+worktree() { [ "$TC_ON" = 1 ] || return 0; { git add -A && git commit -qm init && git worktree add -q "$WT"; } >/dev/null 2>&1 || fail_tc "워크트리를 만들지 못했다"; }
+tc TC-D08 "프로젝트 아래 워크트리의 파일은 그 워크트리를 루트로 G-01 · G-02 를 본다"
+worktree; [ "$TC_ON" = 1 ] && touch "$REPO/$WT/api.fail"
+edit "$WT/src/main/kotlin/order/Order.kt"; hook stop "$S"
+expect_code 2; expect_out "G-01"; expect_out "$WT/src/main/kotlin/order/Order.kt"; expect_out "'api' ($WT/)"; expect_out "api-lint-broken"
+tc TC-D09 "워크트리에서 코드와 테스트를 같이 고치면 통과한다 — lane 은 워크트리에서 돈다"
+worktree; [ "$TC_ON" = 1 ] && touch "$REPO/api.fail"
+edit "$WT/src/main/kotlin/order/Order.kt"; edit "$WT/src/test/kotlin/OrderTest.kt"; hook stop "$S"
+expect_code 0; expect_no_out
+tc TC-D10 "워크트리 파일은 워크트리의 설정을 따르고 G-03 도 본다"
+worktree
+pre "$WT/db/migration/V1.sql" "alter"; expect_out '"permissionDecision": "ask"'; expect_out "경로 db/migration/V1.sql"
+[ "$TC_ON" = 1 ] && printf '%s\n' '{"test":{"code":["zzz/"],"tests":["yyy/"]}}' > "$REPO/$WT/.claude/code-edit-guardrail.json"
+edit "$WT/src/main/kotlin/order/Order.kt"; hook stop "$S"
+expect_code 0; expect_no_out
+tc TC-D11 "프로젝트 루트가 저장소의 하위 디렉터리면 프로젝트 루트를 기준으로 본다"
+if [ "$TC_ON" = 1 ]; then
+  mkdir -p "$REPO/svc/.claude" "$REPO/svc/src/main"; echo 'class A' > "$REPO/svc/src/main/A.kt"; PROJECT="$REPO/svc"
+  printf '%s\n' '{"test":{"code":["src/main/**"],"tests":["src/test/"]}}' > "$REPO/svc/.claude/code-edit-guardrail.json"
+fi
+hook track "{\"session_id\":\"tc\",\"tool_input\":{\"file_path\":\"$REPO/svc/src/main/A.kt\"}}"
+hook stop "$S"; expect_code 2; expect_out "G-01 코드를 고쳤는데 테스트를 고치지 않았다: src/main/A.kt"
 
 section "E. 설정 검증 (validate)"
 tc TC-E01 "모든 절을 지킨 설정은 통과한다 — 경고 없음"

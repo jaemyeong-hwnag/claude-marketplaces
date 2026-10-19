@@ -6,7 +6,7 @@ Claude 가 코드를 고칠 때 넘지 말아야 할 선을 정한다. 기계 �
 
 ## 1. 설정
 
-프로젝트의 `.claude/code-edit-guardrail.json` 하나. 커밋한다. 경로는 환경 변수 `CODE_EDIT_GUARDRAIL_CONFIG` 로 바꿀 수 있다 (상대 경로면 프로젝트 루트 기준).
+프로젝트의 `.claude/code-edit-guardrail.json` 하나. 커밋한다. 경로는 환경 변수 `CODE_EDIT_GUARDRAIL_CONFIG` 로 바꿀 수 있다 (상대 경로면 고친 파일의 루트 기준 — 2절).
 
 ```json
 {
@@ -50,10 +50,12 @@ Claude 가 코드를 고칠 때 넘지 말아야 할 선을 정한다. 기계 �
 
 편집 기록은 PostToolUse 가 프로젝트의 `.claude/code-edit-guardrail/<세션>.edits` 에 쌓고, UserPromptSubmit 가 비운다. 그래서 판정 단위는 **한 요청**이고 git 과 무관하다. Bash 로 바꾼 파일(코드 생성기 · `sed`)은 기록되지 않는다.
 
+파일의 루트는 프로젝트 루트다. 단 프로젝트 아래의 다른 git 작업 트리(`.claude/worktrees/<id>` 같은 워크트리 · 중첩 저장소)에 있는 파일은 그 작업 트리(`git rev-parse --show-toplevel`)가 루트다. 설정 · 글롭의 상대 경로 · lane 실행 위치는 그 루트 기준이고, `G-01` 은 루트마다 따로 판정한다.
+
 | 조항 | 시점 | 내용 | 판정 |
 |---|---|---|---|
 | `G-01` | Stop | 이번 요청에서 `test.code` 파일을 고쳤는데 `test.tests` 파일을 하나도 안 고쳤다 | 차단 |
-| `G-02` | Stop | 이번 요청에서 고친 파일이 lane 의 `paths` 에 걸리면 그 lane 의 `command` 를 루트에서 stdin 없이 돌린다. 0 이 아니면 출력 끝 20줄과 함께 | 차단 |
+| `G-02` | Stop | 이번 요청에서 고친 파일이 lane 의 `paths` 에 걸리면 그 lane 의 `command` 를 그 파일의 루트에서 stdin 없이 돌린다. 0 이 아니면 출력 끝 20줄과 함께 | 차단 |
 | `G-03` | PreToolUse (`Edit` · `Write` · `MultiEdit`) | 고칠 파일이 `shared.paths` 에 걸리거나 새 내용이 `shared.content` 에 걸린다 | 사용자 확인 (`ask`) |
 
 - `G-01` · `G-02` 가 한 번 막은 뒤 다시 멈출 때(`stop_hook_active`)는 사용자에게 경고(`systemMessage`)만 하고 완료를 허용한다 — 무한 반복을 막는다
