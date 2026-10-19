@@ -112,6 +112,8 @@ test/plugin-search-install.test.sh TC-Q     # ID 접두사로 필터
 | TC-P07 | 신호로 추천 (java-spring-test) |
 | TC-P08 | 감지 안 된 언어 대상은 깎는다 (kotlin) |
 | TC-P09 | --only missing |
+| TC-P15 | --only missing 은 선언 · 의존의 missing 만 — 설치 안 된 추천(java-spring-test)은 뺀다 |
+| TC-P16 | --only missing 목록을 --all 로 설치하면 선언 · 의존만 계획된다 |
 | TC-P10 | --only recommended 는 선언을 뺀다 |
 | TC-P13 | 깨진 설정 파일은 건너뛰고 알린다 — 다른 파일의 선언은 남는다 (공백 경로) |
 | TC-P14 | 빈 설정 파일도 깨진 것으로 알린다 (jq 1.6 의 -e 는 빈 입력을 성공으로 본다) |
@@ -191,6 +193,7 @@ test/plugin-search-install.test.sh TC-Q     # ID 접두사로 필터
 | TC-M25 | search_plugins — technology · installed 필터 |
 | TC-M26 | list_related_plugins |
 | TC-M27 | list_project_plugins — 기본은 CLAUDE_PROJECT_DIR |
+| TC-M35 | list_project_plugins only=missing — 선언 · 의존의 missing 만, 설치 안 된 추천은 뺀다 (`only` 없이는 추천이 missing 으로 나온다) |
 | TC-M28 | get_plugin |
 | TC-M29 | list_plugin_facets technology |
 | TC-M30 | install_plugins 는 기본 dry-run — 설치하지 않는다 |

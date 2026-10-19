@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.2.2
+
+### Fixed
+- `project --only missing` · MCP `list_project_plugins(only: "missing")` 에 설치 안 된 recommended 가 섞이던 것 — `declared` · `dependency` 그룹만 낸다 (#97). 상태만 보고 그룹을 보지 않아 "필수만 설치"(`--only missing` → `install --all`)가 선택 플러그인까지 project 범위로 설치했다
+
 ## 0.2.1
 
 ### Changed

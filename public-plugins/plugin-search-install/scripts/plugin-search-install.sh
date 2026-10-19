@@ -633,7 +633,7 @@ def project($cat; $sig; $o):
   | ($D | map(. + {reasons: ["프로젝트 설정에 선언 (" + .status + ")"]}))
     + ($DEP | map(. + {reasons: [.requiredBy + " 가 의존"]})) + $R
   | map(select(if $o.only == "declared" then .group == "declared" or .group == "dependency"
-               elif $o.only == "missing" then (.status == "missing" or .status == "marketplace-missing" or .status == "unknown-plugin")
+               elif $o.only == "missing" then (.group == "declared" or .group == "dependency") and (.status == "missing" or .status == "marketplace-missing" or .status == "unknown-plugin")
                elif $o.only == "recommended" then .group == "recommended" else true end))
   | map(. + {why: .reasons})
   | {command: "project", root: $sig.root, signals: $S, settings: ($sig.declared.files // []), settingsErrors: ($sig.declared.broken // []),
