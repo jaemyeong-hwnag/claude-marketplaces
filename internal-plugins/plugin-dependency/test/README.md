@@ -11,7 +11,7 @@ test/validate-dependency.test.sh          # 전체
 test/validate-dependency.test.sh TC-P4    # ID 접두사로 필터
 ```
 
-## 자동 TC (55건)
+## 자동 TC (61건)
 
 ### A. 그래프 (D-01 · D-02 · D-03 · D-11)
 
@@ -105,6 +105,9 @@ test/validate-dependency.test.sh TC-P4    # ID 접두사로 필터
 | TC-P81 | 플러그인 디렉터리가 아니면 오류를 낸다 |
 | TC-P82 | 위반 출력이 규칙 원본 경로를 알려준다 |
 | TC-P83 | 경고만 있으면 종료 코드 0 이다 |
+| TC-P84 | --all 이 플러그인을 하나도 못 찾으면 실행 오류다 (#88) |
+| TC-P85 | --all 에 없는 루트를 주면 실행 오류다 (#88) |
+| TC-P86 | --all 이 플러그인을 찾으면 검사한다 (#88) |
 
 ## 수동 TC (새 세션 필요)
 
