@@ -130,6 +130,22 @@ run --all "$TMP/r/.claude/worktrees/w"; expect_code 2; expect_out "bad_three"
 tc TC-J24 "--all 은 루트의 .claude/worktrees 를 건너뛴다"
 run --all "$TMP/r"; expect_code 0
 
+tc TC-J25 "변수 record 뒤의 instanceof 는 record 선언으로 읽지 않는다 (JN-02 과잉 차단 방지, #89)"
+f="$(java K.java 'package a;\npublic class K {\n    public boolean f(Object record) {\n        if (record instanceof String s) { return true; }\n        return record instanceof Integer;\n    }\n}\n')"; run "$f"; expect_code 0; expect_no_out
+
+tc TC-J26 "record 이름( · record 이름< 은 선언으로 본다 (JN-02, #89)"
+f="$(java L.java 'package a;\nrecord point(int x) {}\nrecord pair<A, B>(A a, B b) {}\n')"; run "$f"; expect_code 2; expect_out "'point'"; expect_out "'pair'"
+
+tc TC-J27 "main 코드의 밑줄 메서드를 막는다 (JN-05, #89)"
+mkdir -p "$SRC/main/java/a"; f="$(java main/java/a/OrderService2.java 'package a;\npublic class OrderService2 {\n    public void cancel_order() {}\n}\n')"; run "$f"; expect_code 2; expect_out "JN-05"; expect_out "'cancelOrder'"
+
+tc TC-J28 "테스트 경로(test/ · …Test/ 소스셋 · *Test.java · *Tests.java)의 밑줄 메서드는 허용한다 (JN-05 과잉 차단 방지, #89)"
+rm -rf "$TMP/t"; mkdir -p "$TMP/t/src/test/java/a" "$TMP/t/src/integrationTest/java/a" "$TMP/t/src/main/java/a"
+printf 'package a;\npublic class Order {\n    public void cancel_whenPaid_throws() {}\n}\n' > "$TMP/t/src/test/java/a/Order.java"
+printf 'package a;\npublic class Flow {\n    public void cancel_whenPaid_throws() {}\n}\n' > "$TMP/t/src/integrationTest/java/a/Flow.java"
+printf 'package a;\npublic class OrderTests {\n    public void cancel_whenPaid_throws() {}\n}\n' > "$TMP/t/src/main/java/a/OrderTests.java"
+run --all "$TMP/t"; expect_code 0; expect_no_out
+
 # --- B. 훅 -------------------------------------------------------------------
 tc TC-J30 "Write 로 위반 파일을 새로 만들면 막는다"
 rm -rf "$SRC"; mkdir -p "$SRC"
@@ -184,6 +200,11 @@ mkdir -p "$TMP/build/proj"
 run_stdin_in "$TMP/build/proj" "$(jq -n --arg p "$TMP/build/proj/src/a/bad_x.java" --arg c "$(printf '%b' 'package a;\npublic class bad_x {}\n')" \
   '{hook_event_name: "PreToolUse", tool_name: "Write", tool_input: {file_path: $p, content: $c}}')"
 expect_code 2; expect_out "JN-02"
+
+tc TC-J44 "훅: main 코드에 밑줄 메서드를 새로 쓰면 막고 테스트 경로는 통과한다 (JN-05, #89)"
+mkdir -p "$TMP/proj"
+run_stdin_in "$TMP/proj" "$(payload_write "$TMP/proj/src/main/java/a/Pay.java" 'package a;\npublic class Pay {\n    public void cancel_order() {}\n}\n')"; expect_code 2; expect_out "'cancelOrder'"
+run_stdin_in "$TMP/proj" "$(payload_write "$TMP/proj/src/test/java/a/Pay.java" 'package a;\npublic class Pay {\n    public void cancel_whenPaid_throws() {}\n}\n')"; expect_code 0; expect_no_out
 
 flush_tc
 echo

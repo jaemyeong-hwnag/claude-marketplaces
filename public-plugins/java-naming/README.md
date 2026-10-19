@@ -44,7 +44,7 @@ Java 코드의 이름을 Java 컨벤션으로 강제한다 — 패키지 소문�
 | `JN-02` | 클래스 · 인터페이스 · enum · record · 어노테이션 | UpperCamelCase | 차단 |
 | `JN-03` | public 최상위 타입 | 파일 이름과 같다 | 차단 |
 | `JN-04` | `static final` 원시 타입 · `String` | UPPER_SNAKE_CASE | 차단 |
-| `JN-05` | 메서드 · 필드 | lowerCamelCase (테스트 메서드 밑줄 허용) | 차단 |
+| `JN-05` | 메서드 · 필드 | lowerCamelCase (테스트 경로의 메서드 밑줄 허용) | 차단 |
 | `JN-06` | 타입 이름의 약어 | `HttpClient` (`HTTPClient` X) | 경고 |
 
 원본: [`references/java-naming-rules.md`](references/java-naming-rules.md)

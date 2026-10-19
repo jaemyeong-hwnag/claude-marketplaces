@@ -11,7 +11,7 @@ test/validate-java-naming.test.sh TC-J3    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다.
 
-## 자동 TC (38건)
+## 자동 TC (43건)
 
 픽스처는 **규칙을 지키는 파일**(`OrderService.java`)이고, TC 마다 한 곳만 깨뜨린다. 과잉 차단(막으면 안 되는 것)을 막는 TC 를 조항마다 둔다.
 
@@ -43,6 +43,10 @@ test/validate-java-naming.test.sh TC-J3    # ID 접두사로 필터
 | TC-J22 | package-info.java 는 보지 않는다 |
 | TC-J23 | 루트가 .claude/worktrees 안이어도 검사한다 (제외는 루트 기준) |
 | TC-J24 | --all 은 루트의 .claude/worktrees 를 건너뛴다 |
+| TC-J25 | 변수 record 뒤의 instanceof 는 record 선언으로 읽지 않는다 (JN-02 과잉 차단 방지, #89) |
+| TC-J26 | record 이름( · record 이름< 은 선언으로 본다 (JN-02, #89) |
+| TC-J27 | main 코드의 밑줄 메서드를 막는다 (JN-05, #89) |
+| TC-J28 | 테스트 경로(test/ · …Test/ 소스셋 · *Test.java · *Tests.java)의 밑줄 메서드는 허용한다 (JN-05 과잉 차단 방지, #89) |
 
 ### B. 훅
 
@@ -62,3 +66,4 @@ test/validate-java-naming.test.sh TC-J3    # ID 접두사로 필터
 | TC-J41 | PostToolUse 는 보지 않는다 |
 | TC-J42 | 빈 입력 · 경로 없는 입력은 통과한다 |
 | TC-J43 | 프로젝트가 build/ 폴더 아래 있어도 훅이 검사한다 (제외는 프로젝트 기준 상대 경로) |
+| TC-J44 | 훅: main 코드에 밑줄 메서드를 새로 쓰면 막고 테스트 경로는 통과한다 (JN-05, #89) |

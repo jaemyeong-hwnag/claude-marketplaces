@@ -59,7 +59,7 @@ export class OrderService<TOrder extends Order> {   // TS-01 · TS-05
 | `*.d.ts` · `*.d.mts` · `*.d.cts` | 외부 선언을 그대로 옮긴다 |
 | `node_modules/` · `dist/` · `build/` · `out/` · `coverage/` · `.next/` · `generated/` · `.git/` | 생성물 · 의존성이다 |
 
-주석 · 문자열 · 템플릿 리터럴 안의 단어는 코드로 읽지 않는다. JSX 본문의 글(`This class is …`)은 선언 모양(`class Name {`)이 아니면 읽지 않는다.
+주석 · 문자열 · 템플릿 · 정규식 리터럴 안의 단어는 코드로 읽지 않는다. 정규식의 `/*` 를 블록 주석으로 읽지 않는다. JSX 본문의 글(`This class is …`)은 선언 모양(`class Name {`)이 아니면 읽지 않는다.
 
 ## 2. 새로 생긴 위반만 막는다
 
