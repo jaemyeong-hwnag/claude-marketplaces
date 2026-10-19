@@ -31,23 +31,34 @@ ACK="${TMPDIR:-/tmp}/claude-aitest-${SAFE}.ack"
 
 cd "${CLAUDE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || exit 0
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+PROJECT="$(pwd)"
 cd "$(git rev-parse --show-toplevel)" || exit 0
 
 PATHSPEC=(':(glob)**/src/main/java/**' ':(glob)**/src/main/resources/**' ':(glob)**/src/test/java/**')
 
 # 이번 요청의 비교 기준 — 요청 시작 때의 HEAD. 요청 안에서 한 커밋도 이번 변경이다.
-# 원격 기본 브랜치에서 받아온 커밋은 빼고, HEAD 가 기준에서 이어지지 않으면(리베이스 · 브랜치 전환) HEAD 다
-turn_ref() { # $1=기준 파일
+# 요청 시작 때 원격 기본 브랜치에 있던 커밋은 뺀다. 지금의 원격은 push 로 HEAD 가 되므로 보지 않는다
+turn_ref() { # $1=기준 파일 (1행 요청 시작 HEAD · 2행 그때의 원격 기본 브랜치)
   local base remote mb
-  base="$(cat "$1" 2>/dev/null)"
-  if [ -z "$base" ] || ! git merge-base --is-ancestor "$base" HEAD 2>/dev/null; then echo HEAD; return; fi
-  remote="$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)"
-  [ -n "$remote" ] || for remote in origin/main origin/master ""; do git rev-parse -q --verify "$remote" >/dev/null 2>&1 && break; done
+  base="$(sed -n 1p "$1" 2>/dev/null)"
+  remote="$(sed -n 2p "$1" 2>/dev/null)"
+  [ -n "$base" ] || { echo HEAD; return; }
+  # amend · squash · 리베이스 · 브랜치 전환으로 이어지지 않으면 공통 조상까지 넓힌다
+  git merge-base --is-ancestor "$base" HEAD 2>/dev/null || base="$(git merge-base "$base" HEAD 2>/dev/null)"
+  [ -n "$base" ] || { echo HEAD; return; }
   if [ -n "$remote" ]; then
     mb="$(git merge-base HEAD "$remote" 2>/dev/null)"
     [ -n "$mb" ] && [ "$mb" != "$base" ] && git merge-base --is-ancestor "$base" "$mb" 2>/dev/null && base="$mb"
   fi
   echo "$base"
+}
+
+# 원격 기본 브랜치의 지금 커밋 (없으면 빈 값)
+remote_head() {
+  local r
+  r="$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)"
+  [ -n "$r" ] || for r in origin/main origin/master ""; do git rev-parse -q --verify "$r" >/dev/null 2>&1 && break; done
+  [ -z "$r" ] || git rev-parse -q --verify "$r^{commit}" 2>/dev/null
 }
 
 # 대상 경로의 tracked diff + untracked 파일 내용 해시 → 지문. $1=비교 기준
@@ -63,7 +74,8 @@ fingerprint() {
 }
 
 if [ "$MODE" = "snapshot" ]; then
-  git rev-parse -q --verify HEAD > "${STATE}.base" 2>/dev/null || rm -f "${STATE}.base"
+  head="$(git rev-parse -q --verify HEAD 2>/dev/null)"
+  if [ -n "$head" ]; then printf '%s\n%s\n' "$head" "$(remote_head)" > "${STATE}.base"; else rm -f "${STATE}.base"; fi
   fingerprint HEAD > "${STATE}.turn" 2>/dev/null || true
   exit 0
 fi
@@ -79,7 +91,7 @@ CHANGED="$({ git diff "$REF" --name-only 2>/dev/null; git ls-files --others --ex
 MAIN="$(printf '%s\n' "$CHANGED" | grep -E '(^|/)src/main/java/.*\.java$|(^|/)src/main/resources/.*[Mm]apper.*\.xml$' || true)"
 [ -z "$MAIN" ] && exit 0
 
-if [ ! -f gradle/ai-test.gradle ] && ! git grep -qE '@interface[[:space:]]+AiTest' -- '*.java' 2>/dev/null; then
+if [ ! -f gradle/ai-test.gradle ] && [ ! -f "$PROJECT/gradle/ai-test.gradle" ] && ! git grep -qE '@interface[[:space:]]+AiTest' -- '*.java' 2>/dev/null; then
   # 환경이 없는 저장소는 막지 않는다 — 설치만 한 저장소의 완료를 깨지 않게. 세션당 한 번만 알린다.
   if [ ! -f "${STATE}.noenv" ]; then
     : > "${STATE}.noenv" 2>/dev/null || true

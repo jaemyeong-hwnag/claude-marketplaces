@@ -56,7 +56,8 @@ entries_file="$tmp/entries"
 modules_file="$tmp/modules"
 
 {
-  git diff "$BASE" --name-only 2>/dev/null || { echo "$NAME: git diff $BASE 실패" >&2; exit 2; }
+  # 경로를 Gradle 루트 기준으로 맞춘다 (untracked 와 같게). 지운 파일은 판정할 코드가 없다
+  git diff "$BASE" --name-only --relative --diff-filter=d 2>/dev/null || { echo "$NAME: git diff $BASE 실패" >&2; exit 2; }
   git ls-files --others --exclude-standard 2>/dev/null
 } | awk 'NF && !seen[$0]++' > "$changed_file"
 

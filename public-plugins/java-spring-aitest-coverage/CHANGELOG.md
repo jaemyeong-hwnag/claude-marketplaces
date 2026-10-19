@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.1.3
+
+### Fixed
+- 요청 안에서 커밋한 뒤 기본 브랜치로 push 하거나 시작 HEAD 를 amend · squash 하면 Stop 게이트가 꺼지던 것 — 요청 시작 때의 원격 sha 를 저장해 그때 있던 커밋만 빼고, 이어지지 않으면 공통 조상부터 본다 (#92, `C-05`)
+- git 루트 위에 Gradle 루트가 있는 모노레포에서 경로가 어긋나 `C-02` 를 건너뛰고, Gradle 루트의 `gradle/ai-test.gradle` 을 못 봐 게이트가 꺼지던 것 (#92)
+- 지운 Controller 를 `C-01` 대상으로 봐 엔드포인트 삭제를 막던 것 (#92)
+- 스킬 · README 가 `diff-coverage-validate.sh HEAD` 를 안내해 요청 안에서 커밋한 뒤 aiTest 없이 통과하던 것 — 차단 메시지의 ref 를 쓴다 (#92)
+
 ## 0.1.2
 
 ### Fixed
