@@ -367,6 +367,14 @@ if on; then
   CLAUDE_PROJECT_DIR="$R" run "$D" --check-only HEAD; expect_code 1; expect_out "BarController"; expect_not "FooController"
 fi
 
+tc TC-D27 "모듈 디렉터리에서 연 세션도 Gradle 루트 기준으로 보고 100% 미만을 막는다 (C-02)"
+if on; then
+  R="$(repo d27)"; change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  aitest_for "$R/app/src/test/java/com/ex/app/FooControllerAiTest.java" x
+  fresh_report "$R/app/$REPORT" com/ex/app FooController 10 0
+  CLAUDE_PROJECT_DIR="$R/app" run "$D" --report-only HEAD; expect_code 1; expect_out "FAIL app com.ex.app.FooController#bar(I)I"
+fi
+
 flush_tc; echo "== aitest-coverage-validate.sh (훅)"
 
 tc TC-H01 "git 저장소가 아니면 조용히 통과한다"
@@ -513,6 +521,13 @@ if on; then
   CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h19)" "$H" snapshot
   git -C "$R" rm -q app/src/main/java/com/ex/app/FooController.java app/src/test/java/com/ex/app/FooControllerAiTest.java
   CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h19)" "$H"; expect_code 0; expect_empty
+fi
+
+tc TC-H20 "모듈 디렉터리에서 연 세션이 그 밖의 모듈을 고쳐도 본다 (C-04)"
+if on; then
+  R="$(repo h20)"; CLAUDE_PROJECT_DIR="$R/app" run_in "$(hook_in h20)" "$H" snapshot
+  change_bar "$R/core/src/main/java/com/ex/core/PriceCalculator.java" com.ex.core PriceCalculator
+  CLAUDE_PROJECT_DIR="$R/app" run_in "$(hook_in h20)" "$H"; expect_code 2; expect_out "core/src/main/java/com/ex/core/PriceCalculator.java"
 fi
 
 flush_tc

@@ -15,7 +15,21 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+# Gradle 루트 — 시작 디렉터리에서 git 루트까지 올라가며 settings.gradle · gradlew 가 있는 가장 가까운 곳 (없으면 시작 디렉터리)
+# 모듈 디렉터리에서 연 세션도 모듈 경로 · 설정 · 리포트를 같은 루트 기준으로 본다. method-coverage-get.sh 도 이 값을 쓴다
+gradle_root() {
+  local d top f
+  d="$(cd "$1" 2>/dev/null && pwd -P)" || { echo "$1"; return; }
+  top="$(git -C "$d" rev-parse --show-toplevel 2>/dev/null)" || { echo "$1"; return; }
+  while :; do
+    for f in settings.gradle settings.gradle.kts gradlew; do [ -e "$d/$f" ] && { echo "$d"; return; }; done
+    { [ "$d" = "$top" ] || [ "$d" = / ]; } && break
+    d="$(dirname "$d")"
+  done
+  echo "$1"
+}
+ROOT="$(gradle_root "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}")"
+export CLAUDE_PROJECT_DIR="$ROOT"
 cd "$ROOT"
 
 CHECK_ONLY=false

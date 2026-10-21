@@ -31,8 +31,16 @@ ACK="${TMPDIR:-/tmp}/claude-aitest-${SAFE}.ack"
 
 cd "${CLAUDE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || exit 0
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0
-PROJECT="$(pwd)"
-cd "$(git rev-parse --show-toplevel)" || exit 0
+# Gradle 루트 — diff-coverage-validate.sh 와 같은 규칙 (settings.gradle · gradlew 가 있는 가장 가까운 상위, git 루트까지)
+GRADLE_ROOT="$(pwd -P)"
+TOP="$(git rev-parse --show-toplevel)" || exit 0
+d="$GRADLE_ROOT"
+while :; do
+  if [ -e "$d/settings.gradle" ] || [ -e "$d/settings.gradle.kts" ] || [ -e "$d/gradlew" ]; then GRADLE_ROOT="$d"; break; fi
+  { [ "$d" = "$TOP" ] || [ "$d" = / ]; } && break
+  d="$(dirname "$d")"
+done
+cd "$TOP" || exit 0
 
 PATHSPEC=(':(glob)**/src/main/java/**' ':(glob)**/src/main/resources/**' ':(glob)**/src/test/java/**')
 
@@ -91,7 +99,7 @@ CHANGED="$({ git diff "$REF" --name-only 2>/dev/null; git ls-files --others --ex
 MAIN="$(printf '%s\n' "$CHANGED" | grep -E '(^|/)src/main/java/.*\.java$|(^|/)src/main/resources/.*[Mm]apper.*\.xml$' || true)"
 [ -z "$MAIN" ] && exit 0
 
-if [ ! -f gradle/ai-test.gradle ] && [ ! -f "$PROJECT/gradle/ai-test.gradle" ] && ! git grep -qE '@interface[[:space:]]+AiTest' -- '*.java' 2>/dev/null; then
+if [ ! -f gradle/ai-test.gradle ] && [ ! -f "$GRADLE_ROOT/gradle/ai-test.gradle" ] && ! git grep -qE '@interface[[:space:]]+AiTest' -- '*.java' 2>/dev/null; then
   # 환경이 없는 저장소는 막지 않는다 — 설치만 한 저장소의 완료를 깨지 않게. 세션당 한 번만 알린다.
   if [ ! -f "${STATE}.noenv" ]; then
     : > "${STATE}.noenv" 2>/dev/null || true
