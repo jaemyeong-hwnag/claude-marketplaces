@@ -28,10 +28,10 @@ fi
 [ -n "$CMD" ] || exit 0
 BASE="${CWD:-${CLAUDE_PROJECT_DIR:-$(pwd)}}"
 
-# heredoc 본문은 명령이 아니라 데이터다. 셸에 먹이는 heredoc(sh <<EOF)만 명령으로 남긴다
+# heredoc 본문은 명령이 아니라 데이터라 \002 를 붙여 낸다 (부하 도구에 먹이는 인라인 스크립트면 아래에서 대상으로 본다). 셸에 먹이는 heredoc(sh <<EOF)은 명령으로 남긴다
 strip_heredoc() {
   awk -v q="'" '
-    d != "" { t = $0; if (dash) sub(/^\t+/, "", t); if (t == d) d = ""; else if (keep) print; next }
+    d != "" { t = $0; if (dash) sub(/^\t+/, "", t); if (t == d) d = ""; else if (keep) print; else print "\002" $0; next }
     { print; s = $0; gsub(/<<</, "\001", s)
       if (match(s, "<<-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*")) {
         d = substr(s, RSTART, RLENGTH); dash = (d ~ /^<<-/)
@@ -96,23 +96,51 @@ is_load_segment() {
   return 1
 }
 
+# 다른 구간의 변수 대입(export BASE_URL=… && k6 run …)은 부하 명령이 읽을 수 있어 남긴다
+assignments_of() {
+  # shellcheck disable=SC2086
+  set -f; set -- $1; set +f
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      export|declare|local|readonly|typeset|-*) shift ;;
+      [A-Za-z_]*=*) printf '%s\n' "$1"; shift ;;
+      *) break ;;
+    esac
+  done
+}
+
 # 부하 구간만 모은다 — 파이프로 이어진 명령은 한 덩어리(vegeta 는 앞 단계가 대상을 준다), && · ; 로 나뉜 다른 명령은 뺀다
 CMD="$(printf '%s\n' "$CMD" | strip_heredoc)"
-LOAD_TXT=""; LOCUST_TXT=""
-while IFS= read -r line; do
-  [ -n "${line// /}" ] || continue
-  hit=0
-  while IFS= read -r stage; do
-    [ -n "${stage// /}" ] || continue
-    is_load_segment "$stage" || continue
-    hit=1
-    [ "$TOOL" = locust ] && LOCUST_TXT="$LOCUST_TXT
+LOAD_TXT=""; LOCUST_TXT=""; ASSIGN_TXT=""; BODY_TXT=""; raw_hit=0
+while IFS= read -r raw; do
+  case "$raw" in
+    $'\002'*) [ "$raw_hit" = 1 ] && BODY_TXT="$BODY_TXT
+${raw#?}"; continue ;;
+  esac
+  raw_hit=0
+  while IFS= read -r line; do
+    [ -n "${line// /}" ] || continue
+    hit=0
+    while IFS= read -r stage; do
+      [ -n "${stage// /}" ] || continue
+      is_load_segment "$stage" || continue
+      hit=1
+      [ "$TOOL" = locust ] && LOCUST_TXT="$LOCUST_TXT
 $stage"
-  done < <(printf '%s\n' "$line" | tr '|' '\n')
-  [ "$hit" = 1 ] && LOAD_TXT="$LOAD_TXT
+    done < <(printf '%s\n' "$line" | tr '|' '\n')
+    if [ "$hit" = 1 ]; then
+      raw_hit=1
+      LOAD_TXT="$LOAD_TXT
 $line"
-done < <(printf '%s\n' "$CMD" | sed -E 's/(\|\||&&|[;&]|\$\(|`)/\n/g')
+    else
+      ASSIGN_TXT="$ASSIGN_TXT
+$(assignments_of "$line")"
+    fi
+  done < <(printf '%s\n' "$raw" | sed -E 's/(\|\||&&|[;&]|\$\(|`)/\n/g')
+done < <(printf '%s\n' "$CMD")
 [ -n "$LOAD_TXT" ] || exit 0
+LOAD_TXT="$LOAD_TXT
+$ASSIGN_TXT"
 
 # 대상이 아닌 값을 뺀다 — 출력 대상(--out · -o · > 파일)과 k6 자체 설정(K6_* 대입, -e 로 넘기는 것은 스크립트 변수라 남긴다)
 drop_outputs() {
@@ -142,7 +170,7 @@ hosts_from_text() {
 }
 # 스킴 없는 값 → 호스트 (host:port/path · user@host)
 bare_host() { sed -E 's/^["'"'"']//; s/["'"'"']$//; s#^[a-zA-Z][a-zA-Z0-9+.-]*://##; s#^[^@/]*@##; s#[/?\#].*$##; s#:[0-9]+$##' | grep -vE '^$|\$' || true; }
-HOSTS="$(printf '%s\n' "$LOAD_TXT" | hosts_from_text)"
+HOSTS="$(printf '%s\n' "$LOAD_TXT" "$BODY_TXT" | hosts_from_text)"
 # -H 는 locust 에서만 호스트다 (hey · wrk · ab · oha · autocannon 은 헤더)
 HOSTS="$HOSTS
 $(printf '%s\n' "$LOAD_TXT" | grep -oE '\-\-host[= ][^ ]+' | sed -E 's/^--host[= ]//' | bare_host)

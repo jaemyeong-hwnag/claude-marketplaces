@@ -11,7 +11,7 @@ test/common-stress-test.test.sh TC-S5    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. 부하 도구 · Docker 없이 돈다 (bash · awk · jq).
 
-## 자동 TC (47건)
+## 자동 TC (48건)
 
 차단(위반을 잡는다) TC 와 허용(잡으면 안 되는 것) TC 를 조항마다 둔다. 단계 판정 · 회귀 판정 픽스처는 실측 데이터와 scipy 로 검산한 값이다.
 
@@ -36,6 +36,7 @@ test/common-stress-test.test.sh TC-S5    # ID 접두사로 필터
 | TC-S15 | `-H` 는 locust 에서만 호스트다 (hey · wrk · ab · oha 는 헤더) |
 | TC-S16 | 출력 대상(`--out` · `-o` · `K6_*`) · 여러 줄 import 의 from URL · 다른 명령의 URL 은 보지 않는다 (`-e K6_…` · 부하 구간의 URL 은 막는다) |
 | TC-S17 | heredoc 본문은 보지 않고, 셸에 먹이는 heredoc 은 본다 |
+| TC-S18 | 다른 구간의 변수 대입(`export BASE_URL=… &&`)과 부하 도구에 먹이는 heredoc 스크립트는 본다 (`K6_*` · 로컬 대상은 통과) |
 
 ### B. ST-02 ~ ST-06 부하 스크립트 (`stress-script-validate.sh`)
 

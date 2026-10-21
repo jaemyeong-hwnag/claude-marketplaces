@@ -154,6 +154,13 @@ target_codes 0 "$(printf 'cat > note.md <<EOF\nhey -n 10 https://api.example.com
 target_codes 2 "$(printf 'bash <<EOF\nk6 run -e BASE_URL=https://api.example.com s.js\nEOF')" \
   "$(printf 'cat > note.md <<EOF\nhello\nEOF\nk6 run -e BASE_URL=https://api.example.com s.js')"
 
+tc TC-S18 "다른 구간의 변수 대입과 부하 도구에 먹이는 heredoc 스크립트는 본다"
+target_codes 2 'export BASE_URL=https://api.example.com && k6 run s.js' 'TARGET=https://api.example.com; hey $TARGET' \
+  "$(printf "k6 run - <<'EOF'\nimport http from 'k6/http';\nexport default function () { http.get('https://api.example.com/'); }\nEOF")" \
+  "$(printf "docker run --rm -i grafana/k6 run - <<EOF\nexport default function () { http.get('https://api.example.com/'); }\nEOF")"
+target_codes 0 'export K6_INFLUXDB_ADDR=http://influx.example.com:8086 && k6 run s.js' 'export BASE_URL=http://localhost:8080 && k6 run s.js' \
+  "$(printf "k6 run - <<'EOF'\nimport { x } from 'https://jslib.k6.io/x.js';\nexport default function () { http.get('http://app:8080/'); }\nEOF")"
+
 echo "B. ST-02 ~ ST-06 부하 스크립트"
 tc TC-S20 "규칙을 지킨 k6 스크립트는 경고가 없다"
 F="$(put k/open.js "$K6_OPEN")"; run stress-script-validate.sh "$F"
