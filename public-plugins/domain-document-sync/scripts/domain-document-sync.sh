@@ -35,7 +35,15 @@ meta_patterns() {
     fm && /^---[[:space:]]*$/ { exit }
     fm && /^code:/ {
       inb = 1; v = $0; sub(/^code:[[:space:]]*/, "", v)
-      if (v ~ /^\[/) { gsub(/[][]/, "", v); n = split(v, a, ","); for (i = 1; i <= n; i++) emit(a[i]) }
+      if (v ~ /^\[/) {
+        gsub(/[][]/, "", v); cur = ""; depth = 0   # {a,b} 안의 쉼표로는 나누지 않는다
+        for (i = 1; i <= length(v); i++) {
+          c = substr(v, i, 1)
+          if (c == "{") depth++; else if (c == "}" && depth > 0) depth--
+          if (c == "," && depth == 0) { emit(cur); cur = "" } else cur = cur c
+        }
+        emit(cur)
+      }
       else if (v != "") emit(v)
       next
     }
@@ -47,19 +55,35 @@ meta_patterns() {
 # ERE 메타 문자를 이스케이프한다 (BSD sed 는 [][…] 괄호식을 못 읽는다)
 re_escape() { sed -e 's/[.+(){}|^$]/\\&/g' -e 's/\[/\\[/g' -e 's/\]/\\]/g'; }
 
-# 글롭 → ERE. `**/` 는 0개 이상 디렉터리, `**` 는 아무거나, `*` · `?` 는 `/` 를 넘지 않는다.
+# 짝이 맞는 {a,b} 를 표지로 바꾼다 — 이스케이프 뒤에 (a|b) 로 되돌린다. 짝이 안 맞으면 그대로 둔다
+brace_mark() {
+  awk '{
+    out = ""; d = 0
+    for (i = 1; i <= length($0); i++) {
+      c = substr($0, i, 1)
+      if (c == "{") { d++; out = out "@BO@" }
+      else if (c == "}" && d > 0) { d--; out = out "@BC@" }
+      else if (c == "," && d > 0) out = out "@BA@"
+      else out = out c
+    }
+    print (d == 0 ? out : $0)
+  }'
+}
+
+# 글롭 → ERE. `**/` 는 0개 이상 디렉터리, `**` 는 아무거나, `*` · `?` 는 `/` 를 넘지 않는다. `{a,b}` 는 둘 중 하나.
 # 글롭 문자가 없으면 파일 또는 디렉터리 접두사로 본다. 끝이 `/` 면 그 아래 전부.
 glob_to_regex() {
   local g="$1" e
   case "$g" in */) g="${g}**" ;; esac
-  e="$(printf '%s' "$g" | re_escape)"
+  e="$(printf '%s' "$g" | brace_mark | re_escape)"
   case "$g" in
     *'*'*|*'?'*)
       e="$(printf '%s' "$e" | sed -e 's#\*\*/#@DS@#g' -e 's#\*\*#@DD@#g' -e 's#\*#[^/]*#g' \
         -e 's#?#[^/]#g' -e 's#@DS@#(.*/)?#g' -e 's#@DD@#.*#g')"
-      printf '^%s$' "$e" ;;
-    *) printf '^%s(/.*)?$' "$e" ;;
+      e="^$e\$" ;;
+    *) e="^$e(/.*)?\$" ;;
   esac
+  printf '%s' "$e" | sed -e 's#@BO@#(#g' -e 's#@BC@#)#g' -e 's#@BA@#|#g'
 }
 
 # 도메인 slug 목록 — _meta.md 가 있는 <루트>/<slug>/ 만
@@ -87,25 +111,33 @@ EOF
     if [ -n "$exc" ]; then grep -Ev "$exc"; else cat; fi
 }
 
-# 이번 요청의 비교 기준 — 요청 시작 때의 HEAD. 요청 안에서 한 커밋도 이번 변경이다.
-# 원격 기본 브랜치에서 받아온 커밋은 빼고, HEAD 가 기준에서 이어지지 않으면(리베이스 · 브랜치 전환) HEAD 다
-turn_ref() { # $1=기준 파일
-  local base remote mb
-  base="$(cat "$1" 2>/dev/null)"
-  if [ -z "$base" ] || ! git merge-base --is-ancestor "$base" HEAD 2>/dev/null; then echo HEAD; return; fi
-  remote="$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)"
-  [ -n "$remote" ] || for remote in origin/main origin/master ""; do git rev-parse -q --verify "$remote" >/dev/null 2>&1 && break; done
-  if [ -n "$remote" ]; then
-    mb="$(git merge-base HEAD "$remote" 2>/dev/null)"
-    [ -n "$mb" ] && [ "$mb" != "$base" ] && git merge-base --is-ancestor "$base" "$mb" 2>/dev/null && base="$mb"
+# 이번 요청에서 바뀐 파일 — 요청 시작 HEAD 와 지금 작업 트리가 다른 파일. 커밋 · push · amend · squash 해도 남는다.
+# 요청 시작 때의 원격이 지금 HEAD 에 합쳐져 있으면 그 원격과도 달라야 한다 — 합치거나 리베이스로 들어온 원격 변경은 뺀다
+turn_changed_files() { # $1=기준 파일 (1행 요청 시작 HEAD · 2행 그때의 원격 기본 브랜치)
+  local base remote
+  base="$(sed -n 1p "$1" 2>/dev/null)"
+  remote="$(sed -n 2p "$1" 2>/dev/null)"
+  git cat-file -e "${base:-none}^{commit}" 2>/dev/null || base=HEAD
+  if [ -n "$remote" ] && [ "$remote" != "$base" ] && git merge-base --is-ancestor "$remote" HEAD 2>/dev/null; then
+    { changed_files "$base"; changed_files "$remote"; } | sort | uniq -d
+  else
+    changed_files "$base"
   fi
-  echo "$base"
 }
 
-# 작업 트리에서 $1(기본 HEAD)과 다른 파일 (tracked 변경 + untracked). 경로는 현재 디렉터리 기준
+# 원격 기본 브랜치의 지금 커밋 (없으면 빈 값)
+remote_head() {
+  local r
+  r="$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)"
+  [ -n "$r" ] || for r in origin/main origin/master ""; do git rev-parse -q --verify "$r" >/dev/null 2>&1 && break; done
+  [ -z "$r" ] || git rev-parse -q --verify "$r^{commit}" 2>/dev/null
+}
+
+# 작업 트리에서 $1(기본 HEAD)과 다른 파일 (tracked 변경 + untracked). 경로는 현재 디렉터리 기준.
+# 이동은 옛 경로 · 새 경로 둘 다 낸다 — 다른 도메인으로 옮긴 코드의 원래 도메인도 바뀐 것이다
 changed_files() {
   {
-    git diff "${1:-HEAD}" --name-only --relative 2>/dev/null || git diff --cached --name-only --relative 2>/dev/null
+    git diff "${1:-HEAD}" --name-only --relative --no-renames 2>/dev/null || git diff --cached --name-only --relative --no-renames 2>/dev/null
     git ls-files --others --exclude-standard 2>/dev/null
   } | awk 'NF && !seen[$0]++'
 }
@@ -173,8 +205,9 @@ mode_snapshot() {
   rm -f "$ACK" 2>/dev/null
   [ -d "$ROOT" ] || exit 0
   git rev-parse --git-dir >/dev/null 2>&1 || exit 0
-  local changed slug
-  git rev-parse -q --verify HEAD > "$BASE_FILE" 2>/dev/null || rm -f "$BASE_FILE"
+  local changed slug head
+  head="$(git rev-parse -q --verify HEAD 2>/dev/null)"
+  if [ -n "$head" ]; then printf '%s\n%s\n' "$head" "$(remote_head)" > "$BASE_FILE"; else rm -f "$BASE_FILE"; fi
   changed="$(changed_files)"
   domain_slugs | while IFS= read -r slug; do
     printf '%s %s\n' "$slug" "$(printf '%s\n' "$changed" | domain_code_files "$slug" | fingerprint)"
@@ -192,7 +225,7 @@ mode_stop() {
   git rev-parse --git-dir >/dev/null 2>&1 || exit 0
   local active changed slug code now prev acks viol=""
   active="$(printf '%s' "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null || echo false)"
-  changed="$(changed_files "$(turn_ref "$BASE_FILE")")"
+  changed="$(turn_changed_files "$BASE_FILE")"
   [ -z "$changed" ] && exit 0
   acks="$(cat "$ACK" 2>/dev/null || true)"
 
