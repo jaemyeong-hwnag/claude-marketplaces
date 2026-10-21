@@ -13,7 +13,7 @@ test/diff-coverage-validate.test.sh TC-H     # ID 접두사로 필터
 
 Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아래 "수동 확인" 을 본다.
 
-## 자동 TC (54건)
+## 자동 TC (59건)
 
 ### A. 메서드 커버리지 (method-coverage-get.sh)
 
@@ -58,6 +58,7 @@ Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아�
 | TC-D25 | 지운 Controller 는 C-01 대상이 아니다 |
 | TC-D26 | Controller 를 지우며 다른 Controller 를 바꾸면 그 Controller 는 막는다 (C-01) |
 | TC-D27 | 모듈 디렉터리에서 연 세션도 Gradle 루트 기준으로 보고 100% 미만을 막는다 (C-02) |
+| TC-D28 | `--also`: 그 ref 와 같은 파일은 보지 않는다 |
 
 ### C. 훅 (aitest-coverage-validate.sh)
 
@@ -83,6 +84,10 @@ Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아�
 | TC-H18 | git 루트 ≠ Gradle 루트 — Gradle 루트의 환경으로 게이트를 켜고 0% 를 막는다 (C-02 · C-06) |
 | TC-H19 | Controller 와 그 AiTest 를 지우면 막지 않는다 (C-01) |
 | TC-H20 | 모듈 디렉터리에서 연 세션이 그 밖의 모듈을 고쳐도 본다 (C-04) |
+| TC-H21 | 요청 전에 커밋한 Controller 를 요청 안에서 메시지만 amend 하면 막지 않는다 (C-05) |
+| TC-H22 | 요청 전 Controller 커밋을 amend 하며 대상 밖 파일만 더하면 막지 않는다 (C-05) |
+| TC-H23 | 요청 전 받아둔 원격 위로 요청 안에서 리베이스하면 원격 변경도 이전 커밋도 막지 않는다 (C-05) |
+| TC-H24 | 요청 전 받아둔 원격을 요청 안에서 merge 커밋으로 합쳐도 원격 변경은 막지 않는다 (C-05) |
 
 ## 수동 확인 — 실제 Gradle · testcontainer
 

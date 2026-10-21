@@ -375,6 +375,15 @@ if on; then
   CLAUDE_PROJECT_DIR="$R/app" run "$D" --report-only HEAD; expect_code 1; expect_out "FAIL app com.ex.app.FooController#bar(I)I"
 fi
 
+tc TC-D28 "--also: 그 ref 와 같은 파일은 보지 않는다"
+if on; then
+  R="$(repo d28)"; git -C "$R" branch other
+  change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  git -C "$R" commit -qam remote; git -C "$R" branch -f other HEAD; git -C "$R" reset -q --hard HEAD~1; git -C "$R" merge -q --no-ff --no-edit other
+  CLAUDE_PROJECT_DIR="$R" run "$D" --check-only --also other HEAD~1; expect_code 0; expect_out "no diff vs HEAD~1"
+  CLAUDE_PROJECT_DIR="$R" run "$D" --check-only HEAD~1; expect_code 1; expect_out "FooController"
+fi
+
 flush_tc; echo "== aitest-coverage-validate.sh (훅)"
 
 tc TC-H01 "git 저장소가 아니면 조용히 통과한다"
@@ -528,6 +537,45 @@ if on; then
   R="$(repo h20)"; CLAUDE_PROJECT_DIR="$R/app" run_in "$(hook_in h20)" "$H" snapshot
   change_bar "$R/core/src/main/java/com/ex/core/PriceCalculator.java" com.ex.core PriceCalculator
   CLAUDE_PROJECT_DIR="$R/app" run_in "$(hook_in h20)" "$H"; expect_code 2; expect_out "core/src/main/java/com/ex/core/PriceCalculator.java"
+fi
+
+tc TC-H21 "요청 전에 커밋한 Controller 를 요청 안에서 메시지만 amend 하면 막지 않는다 (C-05)"
+if on; then
+  R="$(repo h21)"; change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  git -C "$R" commit -qam before; git -C "$R" update-ref refs/remotes/origin/main HEAD~1
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h21)" "$H" snapshot
+  git -C "$R" commit -q --amend -m before2
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h21)" "$H"; expect_code 0; expect_empty
+fi
+
+tc TC-H22 "요청 전 Controller 커밋을 amend 하며 대상 밖 파일만 더하면 막지 않는다 (C-05)"
+if on; then
+  R="$(repo h22)"; change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  git -C "$R" commit -qam before; git -C "$R" update-ref refs/remotes/origin/main HEAD~1
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h22)" "$H" snapshot
+  echo r > "$R/README"; git -C "$R" add README; git -C "$R" commit -q --amend -m before2
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h22)" "$H"; expect_code 0; expect_empty
+fi
+
+tc TC-H23 "요청 전 받아둔 원격 위로 요청 안에서 리베이스하면 원격 변경도 이전 커밋도 막지 않는다 (C-05)"
+if on; then
+  R="$(repo h23)"; git -C "$R" checkout -qb feat
+  change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController; git -C "$R" commit -qam feat
+  git -C "$R" checkout -q main; change_bar "$R/core/src/main/java/com/ex/core/PriceCalculator.java" com.ex.core PriceCalculator
+  git -C "$R" commit -qam remote; git -C "$R" update-ref refs/remotes/origin/main HEAD; git -C "$R" checkout -q feat
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h23)" "$H" snapshot
+  git -C "$R" rebase -q origin/main
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h23)" "$H"; expect_code 0; expect_empty
+fi
+
+tc TC-H24 "요청 전 받아둔 원격을 요청 안에서 merge 커밋으로 합쳐도 원격 변경은 막지 않는다 (C-05)"
+if on; then
+  R="$(repo h24)"; git -C "$R" checkout -qb feat; git -C "$R" commit -q --allow-empty -m e; git -C "$R" checkout -q main
+  change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  git -C "$R" commit -qam remote; git -C "$R" update-ref refs/remotes/origin/main HEAD; git -C "$R" checkout -q feat
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h24)" "$H" snapshot
+  git -C "$R" merge -q --no-edit origin/main
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h24)" "$H"; expect_code 0; expect_empty
 fi
 
 flush_tc

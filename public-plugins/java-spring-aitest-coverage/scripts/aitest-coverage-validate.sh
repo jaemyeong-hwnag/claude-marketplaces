@@ -44,21 +44,15 @@ cd "$TOP" || exit 0
 
 PATHSPEC=(':(glob)**/src/main/java/**' ':(glob)**/src/main/resources/**' ':(glob)**/src/test/java/**')
 
-# 이번 요청의 비교 기준 — 요청 시작 때의 HEAD. 요청 안에서 한 커밋도 이번 변경이다.
-# 요청 시작 때 원격 기본 브랜치에 있던 커밋은 뺀다. 지금의 원격은 push 로 HEAD 가 되므로 보지 않는다
-turn_ref() { # $1=기준 파일 (1행 요청 시작 HEAD · 2행 그때의 원격 기본 브랜치)
-  local base remote mb
-  base="$(sed -n 1p "$1" 2>/dev/null)"
+# 이번 요청의 비교 기준 — 요청 시작 HEAD 와 지금 작업 트리의 차이. 커밋 · push · amend · squash 해도 남는다.
+# 요청 시작 때의 원격이 지금 HEAD 에 합쳐져 있으면 그 원격과도 달라야 한다 — 합치거나 리베이스로 들어온 원격 변경은 뺀다
+turn_refs() { # $1=기준 파일 (1행 요청 시작 HEAD · 2행 그때의 원격 기본 브랜치) → REF · ALSO
+  local remote
+  REF="$(sed -n 1p "$1" 2>/dev/null)"
   remote="$(sed -n 2p "$1" 2>/dev/null)"
-  [ -n "$base" ] || { echo HEAD; return; }
-  # amend · squash · 리베이스 · 브랜치 전환으로 이어지지 않으면 공통 조상까지 넓힌다
-  git merge-base --is-ancestor "$base" HEAD 2>/dev/null || base="$(git merge-base "$base" HEAD 2>/dev/null)"
-  [ -n "$base" ] || { echo HEAD; return; }
-  if [ -n "$remote" ]; then
-    mb="$(git merge-base HEAD "$remote" 2>/dev/null)"
-    [ -n "$mb" ] && [ "$mb" != "$base" ] && git merge-base --is-ancestor "$base" "$mb" 2>/dev/null && base="$mb"
-  fi
-  echo "$base"
+  ALSO=""
+  git cat-file -e "${REF:-none}^{commit}" 2>/dev/null || REF=HEAD
+  if [ -n "$remote" ] && [ "$remote" != "$REF" ] && git merge-base --is-ancestor "$remote" HEAD 2>/dev/null; then ALSO="$remote"; fi
 }
 
 # 원격 기본 브랜치의 지금 커밋 (없으면 빈 값)
@@ -88,14 +82,16 @@ if [ "$MODE" = "snapshot" ]; then
   exit 0
 fi
 
-REF="$(turn_ref "${STATE}.base")"
+turn_refs "${STATE}.base"
 
 # 이번 요청에서 대상 diff 가 그대로면 코드 · 테스트를 건드리지 않은 응답이다
 if [ -f "${STATE}.turn" ] && [ "$(cat "${STATE}.turn" 2>/dev/null)" = "$(fingerprint "$REF")" ]; then
   exit 0
 fi
 
-CHANGED="$({ git diff "$REF" --name-only 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | awk 'NF && !seen[$0]++')"
+tracked() { git diff "$1" --name-only 2>/dev/null | sort -u; }
+CHANGED="$({ if [ -n "$ALSO" ]; then { tracked "$REF"; tracked "$ALSO"; } | sort | uniq -d; else tracked "$REF"; fi
+             git ls-files --others --exclude-standard 2>/dev/null; } | awk 'NF && !seen[$0]++')"
 MAIN="$(printf '%s\n' "$CHANGED" | grep -E '(^|/)src/main/java/.*\.java$|(^|/)src/main/resources/.*[Mm]apper.*\.xml$' || true)"
 [ -z "$MAIN" ] && exit 0
 
@@ -112,7 +108,7 @@ grep -Eiq 'aitest:[[:space:]]*(skip|exempt|면제)' "$ACK" 2>/dev/null && exit 0
 
 viol=""
 VALIDATE="$SCRIPT_DIR/diff-coverage-validate.sh"
-out="$("$VALIDATE" --report-only "$REF" 2>&1)"
+out="$("$VALIDATE" --report-only ${ALSO:+--also "$ALSO"} "$REF" 2>&1)"
 rc=$?
 if [ "$rc" -ne 0 ]; then
   viol="[테스트] 로컬 diff @AiTest 커버리지 미충족 (diff-coverage-validate.sh --report-only rc=$rc):
@@ -136,7 +132,7 @@ fi
   echo "완료 보류(java-spring-aitest-coverage): 이번 요청의 diff(요청 시작 HEAD 대비 tracked+untracked) 기준 @AiTest 커버리지 미충족."
   printf '%s\n' "$viol" | sed 's/^/  - /'
   echo "조치(택1):"
-  echo "  1) 수정 메서드 @AiTest 작성(java-spring-aitest-coverage:aitest-generate) 후 \"$VALIDATE\" $REF 실행(aiTest + JaCoCo 리포트 갱신) → 다시 완료."
+  echo "  1) 수정 메서드 @AiTest 작성(java-spring-aitest-coverage:aitest-generate) 후 \"$VALIDATE\" ${ALSO:+--also $ALSO }$REF 실행(aiTest + JaCoCo 리포트 갱신) → 다시 완료."
   echo "  2) 면제(주석 · 포맷만 등): 사용자에게 알린 뒤 echo 'aitest: skip <사유>' >> \"$ACK\""
 } >&2
 exit 2

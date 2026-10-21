@@ -3,10 +3,11 @@
 #   변경 Controller 의 *AiTest* 존재 → aiTest 실행 → 수정 메서드 JaCoCo 100%.
 # deps: git, awk, jq(설정 파일이 있을 때), bash 3.2+
 #
-# Usage: diff-coverage-validate.sh [--check-only | --report-only] [git-ref]
+# Usage: diff-coverage-validate.sh [--check-only | --report-only] [--also <git-ref>] [git-ref]
 #   --check-only  : 변경 Controller 의 *AiTest* 존재만 본다 (aiTest · JaCoCo 미실행)
 #   --report-only : aiTest 를 돌리지 않고 기존 JaCoCo 리포트로 판정한다.
 #                   리포트가 없거나 로컬 diff 파일보다 오래되면 FAIL (Stop 게이트용)
+#   --also <ref>  : 이 ref 와도 다른 파일만 본다 (요청 안에서 합친 원격 변경을 빼는 Stop 게이트용)
 #
 # 대상 모듈 = 설정 .modules → 루트 build.gradle 의 aiTestModules → 단일 모듈(".") 순.
 # 라이브러리 모듈 → 소비 모듈 = 설정 .libraryModules. 설정: .claude/java-spring-aitest-coverage.json
@@ -35,10 +36,12 @@ cd "$ROOT"
 CHECK_ONLY=false
 REPORT_ONLY=false
 BASE="HEAD"
+ALSO=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --check-only) CHECK_ONLY=true; shift ;;
     --report-only) REPORT_ONLY=true; shift ;;
+    --also) ALSO="${2:?--also 에 ref 가 필요합니다}"; shift 2 ;;
     -*) echo "Unknown option: $1" >&2; exit 2 ;;
     *) BASE="$1"; shift ;;
   esac
@@ -69,9 +72,15 @@ changed_file="$tmp/changed"
 entries_file="$tmp/entries"
 modules_file="$tmp/modules"
 
+# 경로를 Gradle 루트 기준으로 맞춘다 (untracked 와 같게). 지운 파일은 판정할 코드가 없다
+git diff "$BASE" --name-only --relative --diff-filter=d > "$tmp/tracked" 2>/dev/null || { echo "$NAME: git diff $BASE 실패" >&2; exit 2; }
+if [ -n "$ALSO" ]; then
+  git diff "$ALSO" --name-only --relative --diff-filter=d > "$tmp/also" 2>/dev/null || { echo "$NAME: git diff $ALSO 실패" >&2; exit 2; }
+  { sort -u "$tmp/tracked"; sort -u "$tmp/also"; } | sort | uniq -d > "$tmp/both"
+  mv "$tmp/both" "$tmp/tracked"
+fi
 {
-  # 경로를 Gradle 루트 기준으로 맞춘다 (untracked 와 같게). 지운 파일은 판정할 코드가 없다
-  git diff "$BASE" --name-only --relative --diff-filter=d 2>/dev/null || { echo "$NAME: git diff $BASE 실패" >&2; exit 2; }
+  cat "$tmp/tracked"
   git ls-files --others --exclude-standard 2>/dev/null
 } | awk 'NF && !seen[$0]++' > "$changed_file"
 
@@ -175,7 +184,7 @@ fi
 
 if [ "$CHECK_ONLY" = true ]; then
   echo "$NAME: check-only OK — @AiTest 존재만 확인 ($entry_count class(es), $module_count module(s))"
-  echo "$NAME: aiTest · JaCoCo 는 돌지 않았다. 완료 게이트는 $0 $BASE 가 필요하다"
+  echo "$NAME: aiTest · JaCoCo 는 돌지 않았다. 완료 게이트는 $0 ${ALSO:+--also $ALSO }$BASE 가 필요하다"
   exit 0
 fi
 
@@ -212,7 +221,7 @@ if [ "$REPORT_ONLY" = true ]; then
   if [ -n "$stale" ]; then
     echo "$NAME: FAIL — aiTest JaCoCo 리포트가 없거나 로컬 diff 보다 오래됨 (report-only):" >&2
     printf '%s' "$stale" >&2
-    echo "  → $0 $BASE 로 aiTest 를 실행해 리포트를 갱신" >&2
+    echo "  → $0 ${ALSO:+--also $ALSO }$BASE 로 aiTest 를 실행해 리포트를 갱신" >&2
     exit 1
   fi
   if [ "$entry_count" -eq 0 ]; then
