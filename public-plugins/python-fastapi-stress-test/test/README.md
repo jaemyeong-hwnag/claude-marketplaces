@@ -11,7 +11,7 @@ test/fastapi-stress-config-validate.test.sh TC-F0    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. `jq` 가 필요하다.
 
-## 자동 TC (33건)
+## 자동 TC (38건)
 
 픽스처는 **규칙을 지키는 FastAPI 프로젝트**(`fastapi run --workers 1` · instrumentator in-flight 켬 · `def` 엔드포인트의 `time.sleep`)이고, TC 마다 한 곳만 깨뜨린다. 조항마다 과잉 탐지를 막는 TC 를 둔다.
 
@@ -44,6 +44,9 @@ test/fastapi-stress-config-validate.test.sh TC-F0    # ID 접두사로 필터
 | TC-F23 | 루트가 .claude/worktrees 안이어도 검사한다 (제외는 루트 기준) |
 | TC-F24 | 없는 디렉터리는 오류 1 |
 | TC-F25 | 이 저장소 전체가 통과한다 |
+| TC-F26 | Makefile 의 운영 대상 · 이름이 운영인 compose 의 --reload 는 막는다 (FAS-01) |
+| TC-F27 | Makefile 의 dev · local · test 대상, 이름에 dev · local · test 가 든 파일, CI 파일의 --reload 는 막지 않는다 (FAS-01 과잉 차단 방지) |
+| TC-F28 | 이름에 dev · local · test 가 든 파일 · CI 파일의 워커 설정은 보지 않는다 (FAS-02 과잉 차단 방지) |
 
 ### B. 훅
 
@@ -57,3 +60,5 @@ test/fastapi-stress-config-validate.test.sh TC-F0    # ID 접두사로 필터
 | TC-F35 | Bash 가 아닌 도구 · PostToolUse 는 보지 않는다 |
 | TC-F36 | 빈 입력 · 명령 없는 입력은 통과한다 |
 | TC-F37 | CLAUDE_PROJECT_DIR 가 없으면 입력의 cwd 를 검사한다 |
+| TC-F38 | 래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 알린다 |
+| TC-F39 | 래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 명령은 조용히 통과한다 |

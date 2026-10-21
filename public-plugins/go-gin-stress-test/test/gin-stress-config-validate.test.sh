@@ -121,6 +121,12 @@ tc TC-S14 "배포 파일에 GIN_MODE=release 가 있으면 코드에 없어도 �
 p="$(proj)"; patch "$p" 'gin.SetMode(gin.ReleaseMode)' ''; printf 'FROM golang:1.25\nENV GIN_MODE=release\n' > "$p/Dockerfile"
 run "$p"; expect_code 0; expect_no_out
 
+tc TC-S15 "이름에 dev · local · test 가 든 배포 파일의 GIN_MODE=debug 는 막지 않고, 운영 파일은 막는다 (GIN-01)"
+p="$(proj)"; printf 'GIN_MODE=debug\n' > "$p/.env.local"; printf 'GIN_MODE=debug\n' > "$p/.env.test"
+printf 'services:\n  app:\n    environment:\n      GIN_MODE: debug\n' > "$p/docker-compose.dev.yml"
+run "$p"; expect_code 0; expect_no_out
+printf 'GIN_MODE=debug\n' > "$p/.env.production"; run "$p"; expect_code 2; expect_out "GIN-01 .env.production:1"; expect_not ".env.local"
+
 # --- C. 접근 로그 (GIN-03) -------------------------------------------------------
 tc TC-S20 "gin.Default() · gin.Logger() 를 경고한다 (GIN-03)"
 p="$(proj)"; patch "$p" 'r := gin.New()' 'r := gin.Default()'; patch "$p" 'r.Use(gin.Recovery(),' 'r.Use(gin.Logger(),'
@@ -158,6 +164,14 @@ run "$p"; expect_code 2; expect_out "GIN-05 compose.yml:4"
 tc TC-S42 "go test -race · -racex 같은 다른 플래그는 보지 않는다 (GIN-05 과잉 차단 방지)"
 p="$(proj)"; printf 'test:\n\tgo test -race ./...\n' > "$p/Makefile"; printf 'FROM golang:1.25\nRUN go build -racex -o /app .\n# RUN go build -race .\n' > "$p/Dockerfile"
 run "$p"; expect_code 0; expect_no_out
+
+tc TC-S43 "CI 파일(.github/ · .gitlab-ci.yml) · dev 이름 파일의 go build -race 는 막지 않고, 운영 compose 는 막는다 (GIN-05)"
+p="$(proj)"; mkdir -p "$p/.github/workflows"
+printf 'jobs:\n  t:\n    steps:\n      - run: go build -race ./...\n' > "$p/.github/workflows/ci.yml"
+printf 'build:\n  script:\n    - go build -race ./...\n' > "$p/.gitlab-ci.yml"
+printf 'FROM golang:1.25\nRUN go build -race -o /app .\n' > "$p/Dockerfile.dev"
+run "$p"; expect_code 0; expect_no_out
+printf 'services:\n  app:\n    environment:\n      - GOFLAGS=-race\n' > "$p/compose.yml"; run "$p"; expect_code 2; expect_out "GIN-05 compose.yml:4"; expect_not ".github"
 
 # --- F. GOMAXPROCS (GIN-06 · GIN-07) ------------------------------------------------
 tc TC-S50 "GOMAXPROCS 환경 변수 · runtime.GOMAXPROCS(n) 고정을 경고한다 (GIN-06)"
@@ -282,6 +296,17 @@ tc TC-S104 "빈 입력 · PostToolUse · Bash 가 아닌 도구는 통과한다"
 run_stdin_in "$BAD" ''; expect_code 0; expect_no_out
 run_stdin_in "$BAD" '{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"k6 run a.js"}}'; expect_code 0; expect_no_out
 run_stdin_in "$BAD" '{"hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":"a","content":"k6 run"}}'; expect_code 0; expect_no_out
+
+tc TC-S105 "래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 알린다"
+for c in 'uv run locust -f locustfile.py --headless' 'poetry run locust --headless' 'python -m locust --headless' \
+         'timeout 60 k6 run s.js' "sh -c 'k6 run s.js'" 'for r in 50 100; do k6 run s.js; done' 'if true; then k6 run s.js; fi'; do
+  run_stdin_in "$BAD" "$(payload_bash "$c")"; expect_code 0; expect_out "GIN-01"
+done
+
+tc TC-S106 "래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 명령은 조용히 통과한다"
+for c in 'uv run pytest' 'poetry run python manage.py migrate' 'python -m http.server' 'timeout 5 curl http://x' "sh -c 'echo k6 run'" "$(printf 'cat > note.md <<EOF\nk6 run s.js\nEOF')"; do
+  run_stdin_in "$BAD" "$(payload_bash "$c")"; expect_code 0; expect_no_out
+done
 
 flush_tc
 echo

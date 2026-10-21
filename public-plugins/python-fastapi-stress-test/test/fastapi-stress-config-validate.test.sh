@@ -106,6 +106,31 @@ put "$d/README.md" 'uvicorn app.main:app --reload\n'
 put "$d/start.sh" 'fastapi-devtools check\n'
 run "$d"; expect_code 0; expect_no_out
 
+tc TC-F26 "Makefile 의 운영 대상 · 이름이 운영인 compose 의 --reload 는 막는다 (FAS-01)"
+d="$(proj)"
+put "$d/Makefile" '.PHONY: dev serve\ndev:\n\tfastapi run app/main.py\nserve:\n\tuvicorn app.main:app --reload\n'
+put "$d/docker-compose.prod.yml" 'services:\n  api:\n    command: uvicorn app.main:app --reload\n'
+run "$d"; expect_code 2; expect_out "FAS-01 Makefile:5"; expect_out "FAS-01 docker-compose.prod.yml:3"
+
+tc TC-F27 "Makefile 의 dev · local · test 대상, 이름에 dev · local · test 가 든 파일, CI 파일의 --reload 는 막지 않는다 (FAS-01 과잉 차단 방지)"
+d="$(proj)"
+put "$d/Makefile" 'run:\n\tfastapi run app/main.py\ndev:\n\tuvicorn app.main:app --reload\nrun-local: deps\n\tuvicorn app.main:app --reload\ntest:\n\tfastapi dev app/main.py\n'
+put "$d/docker-compose.dev.yml" 'services:\n  api:\n    command: uvicorn app.main:app --reload\n'
+put "$d/app/serve_local.py" 'import uvicorn\nuvicorn.run("app.main:app", reload=True)\n'
+put "$d/.github/workflows/e2e.yml" 'jobs:\n  e2e:\n    steps:\n      - run: uvicorn app.main:app --reload &\n'
+put "$d/.gitlab-ci.yml" 'e2e:\n  script:\n    - fastapi dev app/main.py &\n'
+run "$d"; expect_code 0; expect_no_out
+
+tc TC-F28 "이름에 dev · local · test 가 든 파일 · CI 파일의 워커 설정은 보지 않는다 (FAS-02 과잉 차단 방지)"
+d="$(proj)"
+put "$d/app/metrics.py" 'from prometheus_client import Counter\n'
+put "$d/docker-compose.dev.yml" 'services:\n  api:\n    command: uvicorn app.main:app --workers 4\n'
+put "$d/.github/workflows/e2e.yml" 'jobs:\n  e2e:\n    steps:\n      - run: gunicorn app.main:app -w 4 &\n'
+put "$d/gunicorn_local.py" 'workers = 4\n'
+run "$d"; expect_not "FAS-02"
+put "$d/docker-compose.yml" 'services:\n  api:\n    command: uvicorn app.main:app --workers 4\n'
+run "$d"; expect_code 2; expect_out "FAS-02 docker-compose.yml:3"; expect_not "FAS-02 docker-compose.dev.yml"
+
 tc TC-F06 "워커가 여럿이고 prometheus 를 쓰는데 PROMETHEUS_MULTIPROC_DIR 가 없으면 막는다 (FAS-02)"
 d="$(proj)"
 put "$d/Dockerfile" 'CMD ["fastapi", "run", "app/main.py", "--workers", "4"]\n'
@@ -254,6 +279,17 @@ if [ "$TC_ON" = 1 ]; then
     | env -u CLAUDE_PROJECT_DIR "$SCRIPT" 2>&1)"; CODE=$?
 fi
 expect_code 0; expect_out "FAS-01"
+
+tc TC-F38 "래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 알린다"
+for c in 'uv run locust -f locustfile.py --headless' 'poetry run locust --headless' 'python -m locust --headless' \
+         'timeout 60 k6 run s.js' "sh -c 'k6 run s.js'" 'for r in 50 100; do k6 run s.js; done' 'if true; then k6 run s.js; fi'; do
+  run_hook "$BAD" "$(bash_payload "$c")"; expect_code 0; expect_out "FAS-01"
+done
+
+tc TC-F39 "래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 명령은 조용히 통과한다"
+for c in 'uv run pytest' 'poetry run python manage.py migrate' 'python -m http.server' 'timeout 5 curl http://x' "sh -c 'echo k6 run'" "$(printf 'cat > note.md <<EOF\nk6 run s.js\nEOF')"; do
+  run_hook "$BAD" "$(bash_payload "$c")"; expect_code 0; expect_no_out
+done
 
 flush_tc
 echo

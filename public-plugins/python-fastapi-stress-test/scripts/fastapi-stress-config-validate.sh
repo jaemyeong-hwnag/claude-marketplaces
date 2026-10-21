@@ -21,13 +21,35 @@ add() { # $1=error|warn $2=조항 $3=위치 $4=메시지
   else printf '⚠️ %s %s — %s\n' "$2" "$3" "$4" >> "$FINDINGS"; fi
 }
 
-# 파일 목록 → $TMP/py · $TMP/cfg · $TMP/dep (NUL 구분)
+# 개발 · 로컬 · 테스트용 파일 (settings/dev.py · local_settings.py · docker-compose.dev.yml · Dockerfile.local …)과 CI 파일
+is_dev() {
+  local b
+  case "${1#"$ROOT"/}" in .github/*|*/.github/*|.gitlab-ci.yml|.gitlab-ci.yaml|*/.gitlab-ci.yml|*/.gitlab-ci.yaml) return 0 ;; esac
+  b="$(printf '%s' "${1##*/}" | tr 'A-Z' 'a-z')"
+  printf '%s' "$b" | grep -qE '(^|[._-])(dev|develop|development|local|test|tests|testing)([._-]|$)'
+}
+
+# Makefile 의 dev · local · test 대상 안 줄을 뺀다 — 입력 "경로:줄:내용"
+drop_dev_targets() {
+  local line f n tgt
+  while IFS= read -r line; do
+    f="${line%%:*}"; n="${line#*:}"; n="${n%%:*}"
+    case "${f##*/}" in
+      Makefile|makefile|GNUmakefile|*.mk)
+        tgt="$(awk -v n="$n" '/^[^\t#][^:=]*:([^=]|$)/ { t = $0; sub(/:.*/, "", t) } NR == n { print t; exit }' "$f" | tr 'A-Z' 'a-z')"
+        printf '%s' "$tgt" | grep -qE '(^|[[:space:]._-])(dev|develop|development|local|test|tests|testing)([[:space:]._-]|$)' && continue ;;
+    esac
+    printf '%s\n' "$line"
+  done
+}
+
+# 파일 목록 → $TMP/py · $TMP/pyprod · $TMP/cfg · $TMP/cfgprod · $TMP/dep (NUL 구분)
 collect() {
   local root="$1"
   find "$root" \( -path "$root/.claude" -o -name .git -o -name node_modules -o -name .venv -o -name venv \
       -o -name .tox -o -name __pycache__ -o -name site-packages -o -name build -o -name dist \) -prune -o -type f -print0 \
     > "$TMP/all"
-  : > "$TMP/py"; : > "$TMP/cfg"; : > "$TMP/dep"
+  : > "$TMP/py"; : > "$TMP/pyprod"; : > "$TMP/cfg"; : > "$TMP/cfgprod"; : > "$TMP/dep"
   local f b
   while IFS= read -r -d '' f; do
     b="${f##*/}"
@@ -35,9 +57,12 @@ collect() {
       requirements*.txt|Pipfile|setup.cfg) printf '%s\0' "$f" >> "$TMP/dep" ;;
       pyproject.toml) printf '%s\0' "$f" >> "$TMP/dep"; printf '%s\0' "$f" >> "$TMP/cfg" ;;
       test_*.py|*_test.py|conftest.py) ;;
-      *.py) printf '%s\0' "$f" >> "$TMP/py" ;;
+      *.py)
+        printf '%s\0' "$f" >> "$TMP/py"
+        is_dev "$f" || printf '%s\0' "$f" >> "$TMP/pyprod" ;;
       Dockerfile*|*.dockerfile|Procfile|Makefile|*.sh|*.yml|*.yaml|*.toml|*.ini|*.cfg|*.conf|*.service|*.env|.env*)
-        printf '%s\0' "$f" >> "$TMP/cfg" ;;
+        printf '%s\0' "$f" >> "$TMP/cfg"
+        is_dev "$f" || printf '%s\0' "$f" >> "$TMP/cfgprod" ;;
     esac
   done < "$TMP/all"
 }
@@ -61,15 +86,16 @@ check() {
 
   local line
   # FAS-01 개발 서버 · 자동 리로드
-  scan "cfg py" '(^|[^[:alnum:]_.-])fastapi["'\'']?[[:space:],]+["'\'']?dev(["'\''[:space:],]|$)|uvicorn.*--reload|gunicorn.*--reload' > "$TMP/f01"
-  scan py 'uvicorn\.run\(.*reload[[:space:]]*=[[:space:]]*True|^reload[[:space:]]*=[[:space:]]*True' >> "$TMP/f01"
+  { scan "cfgprod pyprod" '(^|[^[:alnum:]_.-])fastapi["'\'']?[[:space:],]+["'\'']?dev(["'\''[:space:],]|$)|uvicorn.*--reload|gunicorn.*--reload'
+    scan pyprod 'uvicorn\.run\(.*reload[[:space:]]*=[[:space:]]*True|^reload[[:space:]]*=[[:space:]]*True'
+  } | drop_dev_targets > "$TMP/f01"
   while IFS= read -r line; do
     add error FAS-01 "$(loc "$line")" "개발 서버 · 자동 리로드로 띄운다. 워커가 1개로 고정되고 감시 프로세스가 붙는다 → fastapi run · uvicorn(리로드 없이)"
   done < "$TMP/f01"
 
   # FAS-02 · FAS-03 멀티 워커 + prometheus
-  scan "cfg py" "--workers[\"']?[[:space:],=]+[\"']?($N)([^0-9]|\$)|gunicorn.*[[:space:]]-w[[:space:]]*[\"']?($N)([^0-9]|\$)|WEB_CONCURRENCY[\"']?[[:space:]]*[:=][[:space:]]*[\"']?($N)([^0-9]|\$)" > "$TMP/workers"
-  scan py "(^|[^[:alnum:]_])workers[[:space:]]*=[[:space:]]*(($N)([^0-9]|\$)|.*cpu_count)" >> "$TMP/workers"
+  scan "cfgprod pyprod" "--workers[\"']?[[:space:],=]+[\"']?($N)([^0-9]|\$)|gunicorn.*[[:space:]]-w[[:space:]]*[\"']?($N)([^0-9]|\$)|WEB_CONCURRENCY[\"']?[[:space:]]*[:=][[:space:]]*[\"']?($N)([^0-9]|\$)" > "$TMP/workers"
+  scan pyprod "(^|[^[:alnum:]_])workers[[:space:]]*=[[:space:]]*(($N)([^0-9]|\$)|.*cpu_count)" >> "$TMP/workers"
   if [ -s "$TMP/workers" ] && has "py dep" 'prometheus[-_]'; then
     if ! has "cfg py dep" 'PROMETHEUS_MULTIPROC_DIR|prometheus_multiproc_dir'; then
       while IFS= read -r line; do
@@ -143,7 +169,84 @@ check() {
   return 0
 }
 
-LOAD_RE='(^|[;&|(])[[:space:]]*(((sudo|time|npx|uvx|exec)[[:space:]]+|[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+))*([^[:space:];&|]*/)?(k6[[:space:]]+run|locust|jmeter|gatling(\.sh)?|wrk2?|vegeta[[:space:]]+attack|hey|ab|oha|artillery|autocannon)([[:space:]]|$)|docker[[:space:]]+run[^;&|]*grafana/k6'
+# --- 부하 도구 명령 판별 (훅) — common-stress-test 의 stress-target-validate.sh 와 같은 규칙 ---------------
+# heredoc 본문은 명령이 아니라 데이터다. 셸에 먹이는 heredoc(sh <<EOF)만 명령으로 남긴다
+strip_heredoc() {
+  awk -v q="'" '
+    d != "" { t = $0; if (dash) sub(/^\t+/, "", t); if (t == d) d = ""; else if (keep) print; next }
+    { print; s = $0; gsub(/<<</, "\001", s)
+      if (match(s, "<<-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*")) {
+        d = substr(s, RSTART, RLENGTH); dash = (d ~ /^<<-/)
+        sub(/^<<-?[ \t]*/, "", d); gsub("[\"" q "]", "", d)
+        keep = (s ~ /(^|[;&|(][ \t]*)(sudo[ \t]+)?(ba|z|da|k)?sh([ \t]+-[A-Za-z]+)*[ \t]*<</)
+      } }'
+}
+
+# 부하 도구를 실행하는 구간인가 — 구간의 첫 단어(환경 변수 대입 · 래퍼 제외)나 docker 이미지로 판단한다. 도구 이름은 TOOL 에 남긴다
+is_load_segment() {
+  local seg="$1" w first="" rest
+  TOOL=""
+  # shellcheck disable=SC2086
+  set -f; set -- $seg; set +f
+  while [ "$#" -gt 0 ]; do
+    w="${1#[\"\'(\{]}"
+    case "$w" in
+      *=*|sudo|time|nohup|exec|command|env|npx|bunx|pnpx|uvx|do|then|else|elif|if|while|until|!|-*|'') shift ;;
+      uv|poetry|pipenv|pdm|hatch)
+        [ "${2:-}" = run ] || { first="$w"; shift; break; }
+        shift 2 ;;
+      python|python3|python3.*)
+        [ "${2:-}" = -m ] || { first="$w"; shift; break; }
+        shift 2 ;;
+      timeout)
+        shift
+        while [ "$#" -gt 0 ]; do
+          case "$1" in
+            -s|-k|--signal|--kill-after) shift 2 ;;
+            -*) shift ;;
+            *) break ;;
+          esac
+        done
+        [ "$#" -gt 0 ] && shift ;;
+      sh|bash|zsh|dash|ksh)
+        shift
+        while [ "$#" -gt 0 ]; do
+          case "$1" in
+            -*c) shift; break ;;
+            -*) shift ;;
+            *) set -- ; break ;;
+          esac
+        done
+        [ "$#" -gt 0 ] || { first="$w"; break; } ;;
+      *) first="$w"; shift; break ;;
+    esac
+  done
+  rest="$*"
+  first="${first##*/}"
+  TOOL="$first"
+  case "$first" in
+    k6) case "$rest" in run*|cloud*) return 0 ;; esac ;;
+    locust|jmeter|jmeter.sh|gatling|gatling.sh|wrk|wrk2|hey|oha|ab|autocannon) return 0 ;;
+    vegeta) case "$rest" in attack*) return 0 ;; esac ;;
+    artillery) case "$rest" in run*|quick*) return 0 ;; esac ;;
+    docker|podman|docker-compose)
+      printf '%s' "$rest" | grep -qE '(^|[ /])(grafana/k6|locustio/locust|[a-z0-9_.-]*/?jmeter|[a-z0-9_.-]*/?gatling)(:[^ ]*)?( |$)' && return 0
+      # compose 서비스 이름으로 부하기를 띄우는 경우
+      printf '%s' "$first $rest" | grep -qE '(compose|docker-compose).*( run| up).* (k6|locust|jmeter|gatling)( |$)' && return 0 ;;
+    mvn|mvnw|gradle|gradlew) printf '%s' "$rest" | grep -qiE 'gatling' && return 0 ;;
+  esac
+  return 1
+}
+
+# 명령을 && · || · ; · & · | · $( · ` 로 나눈 구간 중 하나라도 부하 도구 실행이면 참
+is_load_command() { # $1=명령
+  local seg
+  while IFS= read -r seg; do
+    [ -n "${seg// /}" ] || continue
+    is_load_segment "$seg" && return 0
+  done < <(printf '%s\n' "$1" | strip_heredoc | sed -E 's/(\|\||&&|[;&|]|\$\(|`)/\n/g')
+  return 1
+}
 
 hook() {
   local input event tool cmd dir
@@ -154,7 +257,7 @@ hook() {
   tool="$(printf '%s' "$input" | jq -r '.tool_name // ""' 2>/dev/null)"
   [ "$event" = PreToolUse ] && [ "$tool" = Bash ] || exit 0
   cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // ""' 2>/dev/null)"
-  printf '%s\n' "$cmd" | grep -qE -- "$LOAD_RE" || exit 0
+  is_load_command "$cmd" || exit 0
   dir="${CLAUDE_PROJECT_DIR:-$(printf '%s' "$input" | jq -r '.cwd // ""')}"
   [ -n "$dir" ] && [ -d "$dir" ] || exit 0
   check "$dir"

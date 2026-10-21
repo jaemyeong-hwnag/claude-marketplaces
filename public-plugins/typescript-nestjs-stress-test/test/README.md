@@ -11,7 +11,7 @@ test/nestjs-stress-config-validate.test.sh TC-N1    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다.
 
-## 자동 TC (31건)
+## 자동 TC (33건)
 
 픽스처는 **규칙을 지키는 NestJS 프로젝트**(기본 스타터 스크립트 · `node dist/main` Dockerfile · logger 옵션 · 히스토그램 · 게이지)이고, TC 마다 한 곳만 깨뜨린다. 조항마다 과잉 탐지를 막는 TC 를 둔다.
 
@@ -55,3 +55,5 @@ test/nestjs-stress-config-validate.test.sh TC-N1    # ID 접두사로 필터
 | TC-N32 | 부하 명령이 아니면 조용히 통과한다 |
 | TC-N33 | 부하 명령이어도 프로젝트가 깨끗하면 조용하다 |
 | TC-N34 | 빈 입력 · Bash 가 아닌 도구 · PostToolUse 는 통과한다 |
+| TC-N35 | 래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 알린다 |
+| TC-N36 | 래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 명령은 조용히 통과한다 |

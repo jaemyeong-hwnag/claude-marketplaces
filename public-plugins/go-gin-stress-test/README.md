@@ -32,6 +32,7 @@ Go · Gin 서버를 부하 측정할 때 프레임워크 몫을 맡는다 — Pr
 - 줄 단위로 본다. 문법 분석기가 없어 `//` 로 시작하는 줄만 주석으로 빼고, 블록 주석 · 문자열 안의 코드처럼 보이는 글자도 읽는다
 - 환경 변수는 `Dockerfile*` · `Containerfile*` · `*.yml` · `*.yaml` · `.env*` 에서만 읽는다. Helm 템플릿 · 코드에서 조합한 값 · 실행 인자는 보지 않는다 — 떠 있는 프로세스의 `/metrics` 로 확인한다
 - `_test.go` · `vendor/` · `testdata/` 는 보지 않는다. `go test -race` 는 대상이 아니다
+- 이름에 `dev` · `local` · `test` 가 단어로 든 파일(`.env.local` · `docker-compose.dev.yml`)과 CI 파일(`.github/` · `.gitlab-ci.yml`)은 보지 않는다
 - pprof 주소가 변수면 루프백인지 알 수 없어 경고로 낮춘다
 - `jq` 가 필요하다 (훅 모드)
 

@@ -30,7 +30,7 @@ Django 서버 부하 측정을 Django 에 맞게 준비한다 — runserver · D
 ## 주의
 
 - 문법 분석 없이 줄 단위로 본다. `DEBUG = env("DEBUG", default=True)` 처럼 값이 변수면 보지 않는다 — 스킬이 기본값을 본다
-- 파일 이름에 `dev` · `local` · `test` 가 단어로 들어간 설정(`settings/dev.py` · `docker-compose.dev.yml`)과 `Makefile` 은 개발용으로 보고 건너뛴다. 측정 대상이 그 파일로 뜬다면 CLI 결과만으로 안심하지 않는다
+- 파일 이름에 `dev` · `local` · `test` 가 단어로 들어간 설정(`settings/dev.py` · `docker-compose.dev.yml`), CI 파일(`.github/` · `.gitlab-ci.yml`), `Makefile` 은 개발용으로 보고 건너뛴다. 측정 대상이 그 파일로 뜬다면 CLI 결과만으로 안심하지 않는다
 - in-flight 게이지는 django-prometheus 에 없다. 레시피의 미들웨어를 직접 넣는다
 - `jq` 가 필요하다 (훅 모드)
 

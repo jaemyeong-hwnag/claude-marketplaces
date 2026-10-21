@@ -29,10 +29,12 @@ Spring Boot 3.x(Spring MVC · 내장 Tomcat · HikariCP) 서버를 부하 측정
 | `SPR-15` | JVM 을 기록한다 — GC 종류 · 힙 상한 · CPU 제한. 2 CPU 미만이거나 메모리 1792 MB 미만이면 JDK 가 Serial GC 를 고른다 | AI 판단 | JDK `os::is_server_class_machine` · 실측 |
 
 판정의 뜻: **차단**은 CLI 종료 코드 2, 경고는 0 으로 알린다. 훅은 둘 다 차단하지 않고 경고로 알린다.
+훅이 보는 부하 명령은 `common-stress-test` 의 `ST-01` 과 같은 규칙으로 판별한다 — `uv run` · `poetry run` · `python -m` · `timeout` · `sh -c` 같은 래퍼와 한 줄 `for … do` · `if … then` 안도 보고, heredoc 본문은 보지 않는다.
 
 ### 탐지 범위
 
 - 설정은 `application*.properties` · `application*.yml|yaml` 를 본다. `src/test/` 와 프로필 이름에 `dev` · `local` · `test` 가 들어간 파일은 보지 않는다
+- 한 파일을 `---`(yml) · `#---`(properties) 로 나눈 문서 중 `spring.config.activate.on-profile`(또는 `spring.profiles`)이 `dev` · `local` · `test` 인 문서도 보지 않는다. `!local` 처럼 부정이 든 문서, `dev | prod` · `dev,prod` 처럼 다른 프로필로도 켜지는 문서는 본다
 - 키는 relaxed binding 으로 맞춘다 — 소문자로 바꾸고 `-` · `_` 를 뺀다 (`show-sql` = `showSql`)
 - 환경 변수 · 명령행 인자 · Config Server 로 준 값은 보지 않는다. 실행 명령은 AI 가 본다 (`SPR-11`)
 - `SPR-05` 는 빌드 파일에 `micrometer-registry-prometheus` 가 있을 때, `SPR-07` 은 `spring-boot-starter-actuator` 와 `spring-boot-starter-web` 이 있고 Jetty · Undertow 가 없을 때만 본다

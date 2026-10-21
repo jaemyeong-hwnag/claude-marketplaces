@@ -24,6 +24,15 @@ find_files() { # $1=루트 $2...=find 이름 조건
 
 relpath() { printf '%s' "${1#"$ROOT"/}"; }
 
+# 개발 · 로컬 · 테스트용 파일(.env.local · docker-compose.dev.yml …)과 CI 파일은 운영 설정이 아니다
+drop_dev() {
+  awk -v r="$ROOT/" '{ p = $0; if (index(p, r) == 1) p = substr(p, length(r) + 1)
+    b = p; sub(/.*\//, "", b); b = tolower(b)
+    if (b ~ /(^|[._-])(dev|develop|development|local|test|tests|testing)([._-]|$)/) next
+    if (p ~ /(^|\/)\.github\// || p ~ /(^|\/)\.gitlab-ci\.ya?ml$/) next
+    print }'
+}
+
 # 주석 줄을 뺀 "파일:줄:내용" — Go 는 // 줄, 그 밖은 # 줄을 뺀다
 grep_go() { # $1=ERE
   [ -s "$TMPD/go" ] || return 0
@@ -71,9 +80,9 @@ check_project() {
   ROOT="$1"
   find_files "$ROOT" -name '*.go' | grep -v '_test\.go$' > "$TMPD/go"
   find_files "$ROOT" -name 'Dockerfile*' -o -name 'Containerfile*' -o -name '*.yml' -o -name '*.yaml' \
-    -o -name '.env' -o -name '.env.*' -o -name '*.env' > "$TMPD/deploy"
-  find_files "$ROOT" -name 'Dockerfile*' -o -name 'Containerfile*' -o -name '*.yml' -o -name '*.yaml' > "$TMPD/image"
-  find_files "$ROOT" -name 'Makefile' -o -name '*.mk' -o -name '*.sh' > "$TMPD/script"
+    -o -name '.env' -o -name '.env.*' -o -name '*.env' | drop_dev > "$TMPD/deploy"
+  find_files "$ROOT" -name 'Dockerfile*' -o -name 'Containerfile*' -o -name '*.yml' -o -name '*.yaml' | drop_dev > "$TMPD/image"
+  find_files "$ROOT" -name 'Makefile' -o -name '*.mk' -o -name '*.sh' | drop_dev > "$TMPD/script"
   [ -s "$TMPD/go" ] || return 0
 
   local hit l v uses_gin=0 release=0
@@ -218,20 +227,83 @@ EOF
   return 0
 }
 
-# --- 부하 도구 명령 판별 (훅) -------------------------------------------------------
-is_load_command() { # $1=명령 문자열
-  printf '%s\n' "$1" | tr ';&|()' '\n\n\n\n\n' | awk '
-    { line=$0; sub(/^[ \t]+/, "", line)
-      n=split(line, w, /[ \t]+/); i=1
-      while (i<=n && (w[i] ~ /^[A-Za-z_][A-Za-z0-9_]*=/ || w[i]=="sudo" || w[i]=="time" || w[i]=="exec" || w[i]=="npx" || w[i]=="nohup" || w[i]=="command")) i++
-      if (i>n) next
-      c=w[i]; sub(/^.*\//, "", c); a=(i<n) ? w[i+1] : ""
-      if (c=="k6" && a=="run") { print "y"; exit }
-      if (c=="vegeta" && a=="attack") { print "y"; exit }
-      if (c=="artillery" && (a=="run" || a=="quick")) { print "y"; exit }
-      if (c ~ /^(locust|jmeter|jmeter\.sh|gatling|gatling\.sh|wrk|wrk2|hey|ab|oha|autocannon)$/) { print "y"; exit }
-      if (c=="docker" && line ~ /[ \t]run[ \t]/ && line ~ /grafana\/k6/) { print "y"; exit }
-    }' | grep -q y
+# --- 부하 도구 명령 판별 (훅) — common-stress-test 의 stress-target-validate.sh 와 같은 규칙 ---------------
+# heredoc 본문은 명령이 아니라 데이터다. 셸에 먹이는 heredoc(sh <<EOF)만 명령으로 남긴다
+strip_heredoc() {
+  awk -v q="'" '
+    d != "" { t = $0; if (dash) sub(/^\t+/, "", t); if (t == d) d = ""; else if (keep) print; next }
+    { print; s = $0; gsub(/<<</, "\001", s)
+      if (match(s, "<<-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*")) {
+        d = substr(s, RSTART, RLENGTH); dash = (d ~ /^<<-/)
+        sub(/^<<-?[ \t]*/, "", d); gsub("[\"" q "]", "", d)
+        keep = (s ~ /(^|[;&|(][ \t]*)(sudo[ \t]+)?(ba|z|da|k)?sh([ \t]+-[A-Za-z]+)*[ \t]*<</)
+      } }'
+}
+
+# 부하 도구를 실행하는 구간인가 — 구간의 첫 단어(환경 변수 대입 · 래퍼 제외)나 docker 이미지로 판단한다. 도구 이름은 TOOL 에 남긴다
+is_load_segment() {
+  local seg="$1" w first="" rest
+  TOOL=""
+  # shellcheck disable=SC2086
+  set -f; set -- $seg; set +f
+  while [ "$#" -gt 0 ]; do
+    w="${1#[\"\'(\{]}"
+    case "$w" in
+      *=*|sudo|time|nohup|exec|command|env|npx|bunx|pnpx|uvx|do|then|else|elif|if|while|until|!|-*|'') shift ;;
+      uv|poetry|pipenv|pdm|hatch)
+        [ "${2:-}" = run ] || { first="$w"; shift; break; }
+        shift 2 ;;
+      python|python3|python3.*)
+        [ "${2:-}" = -m ] || { first="$w"; shift; break; }
+        shift 2 ;;
+      timeout)
+        shift
+        while [ "$#" -gt 0 ]; do
+          case "$1" in
+            -s|-k|--signal|--kill-after) shift 2 ;;
+            -*) shift ;;
+            *) break ;;
+          esac
+        done
+        [ "$#" -gt 0 ] && shift ;;
+      sh|bash|zsh|dash|ksh)
+        shift
+        while [ "$#" -gt 0 ]; do
+          case "$1" in
+            -*c) shift; break ;;
+            -*) shift ;;
+            *) set -- ; break ;;
+          esac
+        done
+        [ "$#" -gt 0 ] || { first="$w"; break; } ;;
+      *) first="$w"; shift; break ;;
+    esac
+  done
+  rest="$*"
+  first="${first##*/}"
+  TOOL="$first"
+  case "$first" in
+    k6) case "$rest" in run*|cloud*) return 0 ;; esac ;;
+    locust|jmeter|jmeter.sh|gatling|gatling.sh|wrk|wrk2|hey|oha|ab|autocannon) return 0 ;;
+    vegeta) case "$rest" in attack*) return 0 ;; esac ;;
+    artillery) case "$rest" in run*|quick*) return 0 ;; esac ;;
+    docker|podman|docker-compose)
+      printf '%s' "$rest" | grep -qE '(^|[ /])(grafana/k6|locustio/locust|[a-z0-9_.-]*/?jmeter|[a-z0-9_.-]*/?gatling)(:[^ ]*)?( |$)' && return 0
+      # compose 서비스 이름으로 부하기를 띄우는 경우
+      printf '%s' "$first $rest" | grep -qE '(compose|docker-compose).*( run| up).* (k6|locust|jmeter|gatling)( |$)' && return 0 ;;
+    mvn|mvnw|gradle|gradlew) printf '%s' "$rest" | grep -qiE 'gatling' && return 0 ;;
+  esac
+  return 1
+}
+
+# 명령을 && · || · ; · & · | · $( · ` 로 나눈 구간 중 하나라도 부하 도구 실행이면 참
+is_load_command() { # $1=명령
+  local seg
+  while IFS= read -r seg; do
+    [ -n "${seg// /}" ] || continue
+    is_load_segment "$seg" && return 0
+  done < <(printf '%s\n' "$1" | strip_heredoc | sed -E 's/(\|\||&&|[;&|]|\$\(|`)/\n/g')
+  return 1
 }
 
 TMPD="$(mktemp -d "${TMPDIR:-/tmp}/gin-stress.XXXXXX")"

@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.1.2
+
+### Fixed
+- `FAS-01` 이 `Makefile` 의 dev 대상 · `docker-compose.dev.yml` · CI 파일의 `--reload` 를 막던 것 — 이름에 dev · local · test 가 든 파일, Makefile 의 그 이름 대상, CI 파일(`.github/` · `.gitlab-ci.yml`)을 뺀다 (#91)
+- `FAS-02` 가 `docker-compose.dev.yml` · CI 파일의 `--workers` 를 운영 워커 수로 보고 막던 것 — 같은 개발 · CI 파일을 뺀다 (#91)
+- 훅이 `uv run` · `poetry run` · `python -m` · `timeout N` · `sh -c` 로 감싸거나 한 줄 `for … do` · `if … then` 안의 부하 명령을 알아보지 못하던 것 — `common-stress-test` 의 `ST-01` 과 같은 규칙으로 판별한다 (#91)
+
 ## 0.1.1
 
 ### Changed

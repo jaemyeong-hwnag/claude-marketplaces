@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.1.2
+
+### Fixed
+- `DJ-01` 이 CI 워크플로의 `runserver` 를, `DJ-06` 이 `docker-compose.dev.yml` 의 `--workers` 를 막던 것 — CI 파일(`.github/` · `.gitlab-ci.yml`)을 개발용으로 보고, `DJ-06` 도 dev · local · test 파일을 뺀다 (#91)
+- 훅이 `uv run` · `poetry run` · `python -m` · `timeout N` · `sh -c` 로 감싸거나 한 줄 `for … do` · `if … then` 안의 부하 명령을 알아보지 못하던 것 — `common-stress-test` 의 `ST-01` 과 같은 규칙으로 판별한다 (#91)
+
 ## 0.1.1
 
 ### Changed

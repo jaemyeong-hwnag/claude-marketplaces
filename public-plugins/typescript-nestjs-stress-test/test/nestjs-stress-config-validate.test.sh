@@ -219,6 +219,19 @@ run_hook "$P" ""; expect_code 0; expect_no_out
 run_hook "$P" '{"hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":"a","content":"k6 run"}}'; expect_no_out
 run_hook "$P" '{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"k6 run s.js"}}'; expect_no_out
 
+tc TC-N35 "래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 알린다"
+project; put Dockerfile 'CMD ["npm", "run", "start:dev"]\n'
+for c in 'uv run locust -f locustfile.py --headless' 'poetry run locust --headless' 'python -m locust --headless' \
+         'timeout 60 k6 run s.js' "sh -c 'k6 run s.js'" 'for r in 50 100; do k6 run s.js; done' 'if true; then k6 run s.js; fi'; do
+  run_hook "$P" "$(hook_bash "$c")"; expect_code 0; expect_out "NST-01"
+done
+
+tc TC-N36 "래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 명령은 조용히 통과한다"
+project; put Dockerfile 'CMD ["npm", "run", "start:dev"]\n'
+for c in 'uv run pytest' 'poetry run python manage.py migrate' 'python -m http.server' 'timeout 5 curl http://x' "sh -c 'echo k6 run'" "$(printf 'cat > note.md <<EOF\nk6 run s.js\nEOF')"; do
+  run_hook "$P" "$(hook_bash "$c")"; expect_code 0; expect_no_out
+done
+
 flush_tc
 echo
 echo "통과 $PASS · 실패 $FAIL · 건너뜀 $SKIP"

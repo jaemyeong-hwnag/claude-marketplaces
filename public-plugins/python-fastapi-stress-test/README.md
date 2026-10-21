@@ -32,7 +32,7 @@ FastAPI 서버 부하 측정을 준비한다 — 지연 히스토그램 · in-fl
 - 훅은 FastAPI 프로젝트(`fastapi` 가 의존성 파일이나 `*.py` 에 있다)에서만 알린다
 - 스크립트는 줄 단위 리터럴만 본다. `debug=settings.debug` · `--workers "$N"` 처럼 변수로 정한 값은 보지 않는다 — 스킬이 판단한다
 - `#` 주석 줄, 테스트 파일(`test_*.py` · `*_test.py` · `conftest.py`), `.venv/` · `venv/` · `site-packages/` · `node_modules/` · `build/` · `dist/` 는 보지 않는다
-- 개발용 구성(`docker-compose.override.yml` 등)도 함께 보고된다. 어느 구성으로 측정하는지는 사람이 정한다
+- `FAS-01` 은 이름에 `dev` · `local` · `test` 가 단어로 든 파일, Makefile 의 그 이름 대상, CI 파일(`.github/` · `.gitlab-ci.yml`)을 보지 않는다. 그 밖의 개발용 구성(`docker-compose.override.yml` 등)은 함께 보고된다. 어느 구성으로 측정하는지는 사람이 정한다
 - `jq` 가 필요하다
 
 ## 규칙 요약

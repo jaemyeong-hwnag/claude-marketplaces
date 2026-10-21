@@ -212,6 +212,25 @@ run "$TMP/r"; expect_code 0
 tc TC-S24 "디렉터리가 아니면 오류 1"
 run "$TMP/none"; expect_code 1
 
+tc TC-S25 "한 파일 안 dev · local · test 프로필 문서(--- · #---)의 DEBUG 는 막지 않고, 운영 · 부정(!local) 프로필 문서는 막는다 (SPR-02)"
+p="$(proj s25)"
+printf 'logging:\n  level:\n    root: INFO\n---\nspring:\n  config:\n    activate:\n      on-profile: local\nlogging:\n  level:\n    root: DEBUG\n---\nspring:\n  profiles: test\nlogging.level.root: TRACE\n' > "$p/src/main/resources/application.yml"
+printf '#---\nspring.config.activate.on-profile=dev\nlogging.level.root=DEBUG\n' >> "$(props "$p")"
+run "$p"; expect_code 0; expect_no_out
+printf -- '---\nspring.config.activate.on-profile: "!local"\nlogging.level.root: DEBUG\n' >> "$p/src/main/resources/application.yml"
+run "$p"; expect_code 2; expect_out "❌ SPR-02 src/main/resources/application.yml"
+p="$(proj s25p)"; printf '#---\nspring.config.activate.on-profile=prod\nlogging.level.root=DEBUG\n' >> "$(props "$p")"
+run "$p"; expect_code 2; expect_out "❌ SPR-02 src/main/resources/application.properties"
+
+tc TC-S26 "dev · local · test 와 운영 프로필을 함께 켜는 문서(dev | prod · dev,prod)는 막고, 모든 선택지가 dev · local · test 면 막지 않는다 (SPR-02)"
+p="$(proj s26)"
+printf 'logging:\n  level:\n    root: INFO\n---\nspring:\n  config:\n    activate:\n      on-profile: dev & cloud\nlogging.level.root: DEBUG\n---\nspring.profiles: dev,local\nlogging.level.root: DEBUG\n' > "$p/src/main/resources/application.yml"
+run "$p"; expect_code 0; expect_no_out
+printf -- '---\nspring.config.activate.on-profile: dev | prod\nlogging.level.root: DEBUG\n' >> "$p/src/main/resources/application.yml"
+run "$p"; expect_code 2; expect_out "❌ SPR-02 src/main/resources/application.yml"
+p="$(proj s26p)"; printf '#---\nspring.profiles=local,prod\nlogging.level.root=DEBUG\n' >> "$(props "$p")"
+run "$p"; expect_code 2; expect_out "❌ SPR-02 src/main/resources/application.properties"
+
 # --- B. 훅 -------------------------------------------------------------------
 BAD="$(proj hookbad)"; sed -i.bak 's/logging.level.root=INFO/logging.level.root=DEBUG/' "$(props "$BAD")"
 
@@ -248,6 +267,17 @@ run_hook "$BAD" '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input"
 tc TC-S36 "훅은 차단 조항(SPR-10)도 막지 않고 경고로 알린다"
 p="$(proj hookfork)"; printf '@Fork(0)\nclass A {}\n' > "$p/src/jmh/java/demo/A.java"
 run_hook "$p" "$(bash_payload 'k6 run s.js')"; expect_code 0; expect_out "SPR-10"; expect_not '"decision"'; expect_not '"permissionDecision"'
+
+tc TC-S37 "래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 알린다"
+for c in 'uv run locust -f locustfile.py --headless' 'poetry run locust --headless' 'python -m locust --headless' \
+         'timeout 60 k6 run s.js' "sh -c 'k6 run s.js'" 'for r in 50 100; do k6 run s.js; done' 'if true; then k6 run s.js; fi'; do
+  run_hook "$BAD" "$(bash_payload "$c")"; expect_code 0; expect_out "SPR-02"
+done
+
+tc TC-S38 "래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 명령은 조용히 통과한다"
+for c in 'uv run pytest' 'poetry run python manage.py migrate' 'python -m http.server' 'timeout 5 curl http://x' "sh -c 'echo k6 run'" "$(printf 'cat > note.md <<EOF\nk6 run s.js\nEOF')"; do
+  run_hook "$BAD" "$(bash_payload "$c")"; expect_code 0; expect_no_out
+done
 
 flush_tc
 echo
