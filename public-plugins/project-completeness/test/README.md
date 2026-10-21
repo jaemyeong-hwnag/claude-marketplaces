@@ -54,6 +54,11 @@ test/project-completeness.test.sh TC-D     # ID 접두사로 필터
 | TC-D39 | 경로에 perf 가 든 일반 소스(src/utils/performance.ts)는 perf.load-test 미통과 |
 | TC-D40 | k6 를 import 하는 스크립트가 있으면 통과 |
 | TC-D41 | 부하 테스트 디렉터리(perf/)의 스크립트면 통과 |
+| TC-D42 | PR 워크플로가 로컬 재사용 워크플로로 test 를 돌리면 code.quality-gate 통과 |
+| TC-D43 | PR 워크플로가 로컬 복합 액션으로 test 를 돌리면 code.quality-gate 통과 |
+| TC-D44 | 빈 런북 파일은 ops.oncall-runbook 미통과 |
+| TC-D45 | 제목만 있는 런북은 미통과 |
+| TC-D46 | 내용이 있는 런북이면 통과 |
 
 ## detect: 흔적
 

@@ -178,6 +178,40 @@ tc TC-D40 "k6 를 import 하는 스크립트가 있으면 통과" passed "$D" pe
 rm -f "$D/scripts/smoke.js"; echo 'export default function () {}' | put "$D/perf/baseline.js"
 tc TC-D41 "부하 테스트 디렉터리(perf/)의 스크립트면 통과" passed "$D" perf.load-test
 
+D=$(fx reusable); echo x > "$D/README.md"
+put "$D/.github/workflows/pr.yml" <<'EOF'
+on: pull_request
+jobs:
+  ci:
+    uses: ./.github/workflows/reusable-ci.yml
+EOF
+put "$D/.github/workflows/reusable-ci.yml" <<'EOF'
+on: workflow_call
+jobs: { t: { runs-on: ubuntu-latest, steps: [ { run: npm test } ] } }
+EOF
+tc TC-D42 "PR 워크플로가 로컬 재사용 워크플로로 test 를 돌리면 code.quality-gate 통과" passed "$D" code.quality-gate
+D=$(fx composite); echo x > "$D/README.md"
+put "$D/.github/workflows/pr.yml" <<'EOF'
+on: pull_request
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/ci
+EOF
+put "$D/.github/actions/ci/action.yml" <<'EOF'
+runs: { using: composite, steps: [ { run: npm test, shell: bash } ] }
+EOF
+tc TC-D43 "PR 워크플로가 로컬 복합 액션으로 test 를 돌리면 code.quality-gate 통과" passed "$D" code.quality-gate
+
+D=$(fx runbook); echo x > "$D/README.md"
+: | put "$D/docs/runbooks/CheckoutAvailability.md"
+tc TC-D44 "빈 런북 파일은 ops.oncall-runbook 미통과" failed "$D" ops.oncall-runbook
+printf '# CheckoutAvailability\n\n## 영향\n\n' > "$D/docs/runbooks/CheckoutAvailability.md"
+tc TC-D45 "제목만 있는 런북은 미통과" failed "$D" ops.oncall-runbook
+printf '# CheckoutAvailability\n\n## 영향\n결제를 완료하지 못한다.\n' > "$D/docs/runbooks/CheckoutAvailability.md"
+tc TC-D46 "내용이 있는 런북이면 통과" passed "$D" ops.oncall-runbook
+
 echo "== detect: 흔적"
 D=$(fx hintsrc); mkdir -p "$D/src"; src3 "$D"
 echo 'export function refund() {}' > "$D/src/pay.js"

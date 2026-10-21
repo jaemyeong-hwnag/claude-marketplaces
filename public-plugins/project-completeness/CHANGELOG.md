@@ -4,9 +4,10 @@
 
 ### Fixed
 - `code.lint-ci` 가 package.json 에 린터 스크립트만 있고 CI 가 `yarn build` 만 돌려도 통과하던 것 — 린터를 부르는 스크립트를 CI 가 실행해야 통과한다 (#98). pre-commit 의 린터는 CI 가 pre-commit 을 돌릴 때만 센다
-- `code.quality-gate` 가 `pull_request` 트리거 워크플로가 하나라도 있으면(labeler 하나로도) 통과하던 것 — 그 워크플로가 lint · test · build 를 돌려야 통과한다 (#98)
+- `code.quality-gate` 가 `pull_request` 트리거 워크플로가 하나라도 있으면(labeler 하나로도) 통과하던 것 — 그 워크플로(또는 그것이 부르는 로컬 재사용 워크플로 · 복합 액션)가 lint · test · build 를 돌려야 통과한다 (#98)
 - `security.secret-scan` 의 pre-commit 판정이 `.pre-commit-config.yaml` 만 봐 husky · lefthook 훅이면 실패하던 것 — `.husky/pre-commit` · `lefthook.yml` 도 본다 (#98)
 - `perf.load-test` 가 경로에 `perf` 가 든 아무 `.js` · `.ts`(`src/utils/performance.ts`)로 통과하던 것 — 부하 테스트 디렉터리 이름 또는 k6 import 로 본다 (#98)
+- `ops.oncall-runbook` 이 빈 파일 · 제목만 있는 파일도 이름(`runbook` · `alertmanager` · `oncall`)만으로 통과하던 것 — 제목 · 주석 말고 내용이 있는 파일이어야 통과한다 (#98)
 - `scope --type` · `score --pass` 처럼 값 없이 끝난 옵션이 `shift 2` 실패로 끝나지 않던 것 — 값이 없으면 종료 2 로 끝낸다 (#98)
 
 ## 0.1.2

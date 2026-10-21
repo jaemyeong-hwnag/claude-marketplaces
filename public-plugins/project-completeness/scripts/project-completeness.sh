@@ -142,10 +142,21 @@ $(cat "$root/$f")"; done
 
   local gate=false
   local checks="$linters|(npm|pnpm|yarn|bun)( run)?[[:space:]]+(test|build|check|verify|ci)\b|\b(pytest|tox|nox|gradlew?|mvnw?|jest|vitest|tsc|make)\b|go (test|build|vet)|cargo (test|build)|dotnet (test|build)"
+  # 검사를 로컬 재사용 워크플로 · 복합 액션(uses: ./…)에 두는 PR 워크플로도 있다
+  wf_body() {
+    local u a
+    cat "$root/$1"
+    sed -nE "s/^[[:space:]-]*uses:[[:space:]]*[\"']?\.\/([^\"'@[:space:]]+).*/\1/p" "$root/$1" | grep -v '\.\.' |
+      while IFS= read -r u; do
+        if [ -f "$root/$u" ]; then cat "$root/$u"
+        else for a in action.yml action.yaml; do [ -f "$root/$u/$a" ] && cat "$root/$u/$a"; done; fi
+      done
+    return 0
+  }
   while IFS= read -r f; do
     grep -Eq 'pull_request|merge_request' "$root/$f" 2>/dev/null &&
       ! grep -Eq 'continue-on-error:[[:space:]]*true|allow_failure:[[:space:]]*true' "$root/$f" &&
-      grep -Ev '^[[:space:]]*(#|-?[[:space:]]*name:)' "$root/$f" | grep -Eq "$checks" && gate=true
+      wf_body "$f" | grep -Ev '^[[:space:]]*(#|-?[[:space:]]*name:)' | grep -E "$checks" >/dev/null && gate=true
   done < <(list '^\.github/workflows/.*\.ya?ml$|^\.gitlab-ci\.yml$')
   judge code.quality-gate "PR 트리거 · lint · test · build 실행 · 실패 허용 없음 = $gate (CI ${ci_count}개)" test "$gate" = true
   judge code.codeowners "$(list '(^|/)CODEOWNERS$' | head -1)" has '(^|/)CODEOWNERS$'
@@ -205,7 +216,12 @@ $(cat "$root/$f")"; done
   # ops
   judge ops.tracing "OpenTelemetry 의존성" dep 'opentelemetry'
   judge ops.slo "SLO 정의 파일 (openslo · sloth)" has '(openslo|sloth|slo)\.ya?ml$|(^|/)slos?/'
-  judge ops.oncall-runbook "런북 · alertmanager" eval 'grep -Eiq "runbook|alertmanager|oncall|on-call" "$tmp/files"'
+  # 빈 파일 · 제목만 있는 파일은 런북이 아니다
+  local oncall=false
+  while IFS= read -r f; do
+    grep -Ev '^[[:space:]]*(#|$)' "$root/$f" 2>/dev/null | grep '[^[:space:]]' >/dev/null && { oncall=true; break; }
+  done < <(grep -Ei 'runbook|alertmanager|oncall|on-call' "$tmp/files")
+  judge ops.oncall-runbook "런북 · alertmanager (제목 · 주석 말고 내용이 있는 파일)" test "$oncall" = true
   judge ops.synthetic-monitoring "Checkly · 합성 모니터링" eval 'dep checkly || has "(^|/)__checks__/"'
   judge ops.rollback "피처 플래그 SDK 또는 롤백 워크플로" \
     eval 'dep "growthbook|unleash|launchdarkly|flagsmith|statsig|openfeature|togglz|ff4j" || in_ci rollback'
