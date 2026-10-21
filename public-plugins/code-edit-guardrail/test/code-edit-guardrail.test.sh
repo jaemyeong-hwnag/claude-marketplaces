@@ -232,6 +232,11 @@ if [ "$TC_ON" = 1 ]; then
 fi
 hook track "{\"session_id\":\"tc\",\"tool_input\":{\"file_path\":\"$REPO/svc/src/main/A.kt\"}}"
 hook stop "$S"; expect_code 2; expect_out "G-01 코드를 고쳤는데 테스트를 고치지 않았다: src/main/A.kt"
+tc TC-D12 "자기 설정이 없는 중첩 저장소(서브모듈)의 파일은 프로젝트 설정으로 본다"
+config '{"quality":[{"name":"vendor","paths":["vendor/"],"command":"exit 4"}]}'
+[ "$TC_ON" = 1 ] && { mkdir -p "$REPO/vendor/lib" && git -C "$REPO/vendor/lib" init -q && echo x > "$REPO/vendor/lib/X.kt"; }
+edit vendor/lib/X.kt; hook stop "$S"
+expect_code 2; expect_out "G-02 품질 lane 'vendor' 실패 (종료 코드 4)"
 
 section "E. 설정 검증 (validate)"
 tc TC-E01 "모든 절을 지킨 설정은 통과한다 — 경고 없음"

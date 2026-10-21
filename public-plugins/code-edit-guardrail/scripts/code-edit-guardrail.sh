@@ -59,7 +59,7 @@ state_init() { # 스스로 ignore 해서 git status 를 더럽히지 않는다
 config_ok() { [ -f "$1" ] && jq -e 'type == "object"' "$1" >/dev/null 2>&1; } # $1=설정 파일
 
 # $1=경로 → "파일 루트 \037 그 기준 상대 경로". 프로젝트 밖이면 빈 문자열. 아직 없는 디렉터리도 받는다
-# 파일 루트는 프로젝트 아래의 다른 작업 트리(워크트리 · 중첩 저장소)면 그 작업 트리, 아니면 프로젝트 루트다
+# 파일 루트는 프로젝트 아래의 다른 작업 트리(워크트리 · 중첩 저장소)가 자기 설정을 가지면 그 작업 트리, 아니면 프로젝트 루트다 — 설정 없는 서브모듈은 프로젝트 설정이 덮는다
 rel_path() {
   local p="$1" d rest top root="$ROOT"
   [ -n "$p" ] || return 0
@@ -69,7 +69,7 @@ rel_path() {
   d="$(cd "$d" && pwd -P)"
   case "$d/" in "$ROOT"/*) ;; *) return 0 ;; esac
   if top="$(git -C "$d" rev-parse --show-toplevel 2>/dev/null)" && top="$(cd "$top" && pwd -P)"; then
-    case "$top/" in "$ROOT"/?*) root="$top" ;; esac
+    case "$top/" in "$ROOT"/?*) config_ok "$(config_of "$top")" && root="$top" ;; esac
   fi
   printf '%s\037%s' "$root" "$(printf '%s' "${d#"$root"}/$rest" | sed 's#^/##')"
 }

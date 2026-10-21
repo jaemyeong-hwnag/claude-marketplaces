@@ -11,7 +11,7 @@ test/code-edit-guardrail.test.sh TC-B     # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. 필요한 것: `git`, `jq`.
 
-## 자동 TC (53건)
+## 자동 TC (54건)
 
 픽스처는 **모든 절을 갖춘 설정**과 두 스택(루트 Kotlin `src/main` · `src/test` + `web/src` TypeScript), 생성 코드(`generated/`), 공유자원(`db/migration/` · `*.proto`)이 있는 저장소다. 품질 lane 명령은 표식 파일(`api.fail` · `web.fail`)이 있으면 실패하고, `web` lane 은 돌았다는 표식(`web.ran`)을 남긴다. TC 마다 한 곳만 바꾼다 — 절 하나를 빼는 TC(`A12` · `C07`)를 따로 둔다.
 
@@ -73,6 +73,7 @@ test/code-edit-guardrail.test.sh TC-B     # ID 접두사로 필터
 | TC-D09 | 워크트리에서 코드와 테스트를 같이 고치면 통과한다 — lane 은 워크트리에서 돈다 |
 | TC-D10 | 워크트리 파일은 워크트리의 설정을 따르고 G-03 도 본다 |
 | TC-D11 | 프로젝트 루트가 저장소의 하위 디렉터리면 프로젝트 루트를 기준으로 본다 |
+| TC-D12 | 자기 설정이 없는 중첩 저장소(서브모듈)의 파일은 프로젝트 설정으로 본다 |
 
 ### E. 설정 검증 (validate)
 
