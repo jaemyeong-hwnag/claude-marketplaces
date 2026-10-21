@@ -37,6 +37,11 @@ cat > "$WORK/bin/claude" <<'EOF'
 case "$*" in "plugin install "*) echo "$PWD :: $*" >> "$STUB_CALLS"; echo '{"ok":true}' ;; *) exit 1 ;; esac
 EOF
 chmod +x "$WORK/bin/claude"
+{ jq -c '.[]' "$WORK/cat.json"; mk java-spring-test "Java Spring 테스트 생성" false spring; } | jq -s . > "$WORK/cat-rec.json"
+mkdir -p "$WORK/proj-rec/.claude" "$WORK/proj-rec/src/main/java"
+echo "dependencies { implementation 'org.springframework.boot:spring-boot-starter-web' }" > "$WORK/proj-rec/build.gradle"
+echo 'class A {}' > "$WORK/proj-rec/src/main/java/A.java"
+echo '{"enabledPlugins":{"alpha-naming@m":true}}' > "$WORK/proj-rec/.claude/settings.json"
 echo '{"enabledPlugins":{"alpha-naming@m":true}}' > "$WORK/proj/.claude/settings.json"
 export PLUGIN_SEARCH_CATALOG="$WORK/cat.json" PLUGIN_SEARCH_MARKETPLACE=m PLUGIN_SEARCH_CLAUDE="$WORK/bin/claude" \
        PLUGIN_SEARCH_CACHE_DIR="$WORK/cache" STUB_CALLS="$WORK/calls" CLAUDE_PROJECT_DIR="$WORK/proj"
@@ -75,6 +80,7 @@ tc TC-M24 "search_plugins — internal 은 나오지 않는다" okjq 'all(.resul
 tc TC-M25 "search_plugins — technology · installed 필터" okjq '[.results[].id] == ["beta-coverage@m"]' text "$(call 2 search_plugins '{"technology":"spring","installed":true}')"
 tc TC-M26 "list_related_plugins" okjq '.mode == "plugin" and (.results | type) == "array"' text "$(call 2 list_related_plugins '{"target":"alpha-naming"}')"
 tc TC-M27 "list_project_plugins — 기본은 CLAUDE_PROJECT_DIR" okjq 'any(.results[]; .id == "alpha-naming@m" and .group == "declared")' text "$(call 2 list_project_plugins '{}')"
+tc TC-M35 "list_project_plugins only=missing — 선언 · 의존의 missing 만, 설치 안 된 추천은 뺀다" bash -c 'PLUGIN_SEARCH_CATALOG="$4" CLAUDE_PROJECT_DIR="$5" "$0" <<<"$(printf "%s\n" "$1" "$2")" | sed -n 2p | jq -r ".result.content[0].text" | jq -e "[.results[].id] == [\"alpha-naming@m\"]" && PLUGIN_SEARCH_CATALOG="$4" CLAUDE_PROJECT_DIR="$5" "$0" <<<"$(printf "%s\n" "$1" "$3")" | sed -n 2p | jq -r ".result.content[0].text" | jq -e "any(.results[]; .id == \"java-spring-test@m\" and .status == \"missing\")"' "$M" "$INIT" "$(call 2 list_project_plugins '{"only":"missing"}')" "$(call 2 list_project_plugins '{}')" "$WORK/cat-rec.json" "$WORK/proj-rec"
 tc TC-M28 "get_plugin" okjq '.id == "beta-coverage@m"' text "$(call 2 get_plugin '{"name":"beta-coverage"}')"
 tc TC-M29 "list_plugin_facets technology" okjq '.technology[0].value == "spring"' text "$(call 2 list_plugin_facets '{"field":"technology"}')"
 rm -f "$WORK/calls"

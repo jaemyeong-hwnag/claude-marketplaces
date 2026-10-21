@@ -208,6 +208,8 @@ tc TC-P06 "선언의 의존 폐포 → dependency (beta-coverage)" jqe '.results
 tc TC-P07 "신호로 추천 (java-spring-test)" jqe '.results[] | select(.id == "java-spring-test@mk") | .group == "recommended"' pj
 tc TC-P08 "감지 안 된 언어 대상은 깎는다 (kotlin)" jqe '([.results[] | select(.id == "java-spring-test@mk") | .score][0]) > ([.results[] | select(.id == "kotlin-spring-naming@mk") | .score][0] // 0)' pj
 tc TC-P09 "--only missing" jqe '[.results[].status] | unique | all(. == "missing" or . == "marketplace-missing")' run project "$P1" --only missing
+tc TC-P15 "--only missing 은 선언 · 의존의 missing 만 — 설치 안 된 추천(java-spring-test)은 뺀다" jqe '([.results[].id] | sort) == ["beta-coverage@mk", "gamma-workflow@mk"] and all(.results[]; .group != "recommended")' run project "$P1" --only missing
+tc TC-P16 "--only missing 목록을 --all 로 설치하면 선언 · 의존만 계획된다" bash -c '"$0" project "$1" --only missing > "$2/only-missing.json" && "$0" install --from "$2/only-missing.json" --all --dry-run | jq -e "([.results[].id] | sort) == [\"beta-coverage@mk\", \"gamma-workflow@mk\"]"' "$S" "$P1" "$WORK"
 tc TC-P10 "--only recommended 는 선언을 뺀다" jqe 'all(.results[]; .group == "recommended")' run project "$P1" --only recommended
 P3="$WORK/proj with space"; mkdir -p "$P3/.claude"
 echo '{"enabledPlugins":{"alpha-naming@mk":true}}' > "$P3/.claude/settings.json"

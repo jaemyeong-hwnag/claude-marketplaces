@@ -106,7 +106,7 @@ IDF = ln((전체 + 1) / 그 단어를 가진 플러그인 수) + 0.1 — 흔한 
 - 추천 점수 = Σ 신호 가중치 × 필드 점수 / 10. 단어 일치만 본다 (부분 · 동의어 · 오타 없음)
 - **대상 불일치** — 플러그인 이름에 감지되지 않은 언어 · 프레임워크(신호의 `exclusive`) 단어가 있으면 ×0.3 (Java 프로젝트의 `kotlin-*`)
 - 파일 색인은 깊이 8, `prune` 디렉터리(node_modules · .git · build …)를 뺀다
-- `--only declared|missing|recommended`. 기본 한도 없음, 최소 점수 1
+- `--only declared|missing|recommended`. `missing` 은 `declared` · `dependency` 그룹 중 설치 안 된 것(`missing` · `marketplace-missing` · `unknown-plugin`)만이다 — 설치 안 된 추천은 넣지 않는다 (`summary.missing` 과 같은 기준). 기본 한도 없음, 최소 점수 1
 - 설정 파일이 JSON 이 아니면 그 파일만 건너뛰고 `settingsErrors` 에 경로를 낸다
 - 대상 밖 선언(다른 마켓 · internal)은 결과에 넣지 않고 `outOfScope` 에 id 를 낸다
 
