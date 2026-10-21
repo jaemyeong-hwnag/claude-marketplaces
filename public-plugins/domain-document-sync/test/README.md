@@ -11,7 +11,7 @@ test/domain-document-sync.test.sh TC-C     # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. 필요한 것: `git`, `jq`.
 
-## 자동 TC (63건)
+## 자동 TC (67건)
 
 픽스처는 **모든 규칙을 지키는 저장소**다 — Java(`src/main/java/**/order/**`) · TypeScript(`web/src/features/order/`) · Python(`services/billing/**`) 세 언어, 블록 목록 · 인라인 목록 · `!` 제외, concept 이 있는 도메인 · `_meta.md` 만 있는 도메인 · `code:` 가 없는 도메인. TC 마다 한 곳만 깨뜨린다.
 
@@ -80,6 +80,10 @@ test/domain-document-sync.test.sh TC-C     # ID 접두사로 필터
 | TC-C26 | `git mv` 로 도메인 밖으로 옮기면 원래 도메인을 막는다 |
 | TC-C27 | `git mv` 로 옮기고 그 도메인 문서도 고치면 통과한다 |
 | TC-C28 | 중괄호 글롭 `{py,kt}` 에 걸리는 코드가 바뀌면 막는다 |
+| TC-C29 | 요청 전에 커밋한 도메인 코드를 요청 안에서 메시지만 amend 하면 막지 않는다 |
+| TC-C30 | 요청 시작 때 있던 원격 위로 리베이스해도 다시 얹힌 내 커밋은 이번 변경이 아니다 |
+| TC-C31 | 요청 시작 때 있던 원격을 merge 커밋으로 합쳐도 이번 변경이 아니다 |
+| TC-C32 | 리베이스한 뒤 도메인 코드를 고치면 막는다 |
 
 ### D. 편집 훅 (pre-edit · post-edit)
 

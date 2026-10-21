@@ -274,6 +274,30 @@ tc TC-C28 "중괄호 글롭 {py,kt} 에 걸리는 코드가 바뀌면 막는다"
 make_repo; printf -- "---\ncode: ['services/billing/*.{py,kt}', README.md]\n---\n# 결제\n" > docs/domain/billing/_meta.md; git commit -qam brace
 hook snapshot "$S"; echo 'def refund(): pass' >> services/billing/pay.py; hook stop "$S"; expect_code 2; expect_out "billing: services/billing/pay.py"
 
+tc TC-C29 "요청 전에 커밋한 도메인 코드를 요청 안에서 메시지만 amend 하면 막지 않는다"
+make_repo; echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java; git commit -qam order
+hook snapshot "$S"; git commit -q --amend -m order2; hook stop "$S"; expect_code 0; expect_no_out
+
+tc TC-C30 "요청 시작 때 있던 원격 위로 리베이스해도 다시 얹힌 내 커밋은 이번 변경이 아니다"
+make_repo; base="$(git rev-parse HEAD)"; git checkout -qb feat
+echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java; git commit -qam order
+git checkout -q --detach "$base"; echo 'def refund(): pass' >> services/billing/pay.py; git commit -qam remote
+git update-ref refs/remotes/origin/main HEAD; git checkout -q feat
+hook snapshot "$S"; [ "$TC_ON" = 1 ] && git rebase -q origin/main; hook stop "$S"; expect_code 0; expect_no_out
+
+tc TC-C31 "요청 시작 때 있던 원격을 merge 커밋으로 합쳐도 이번 변경이 아니다"
+make_repo; base="$(git rev-parse HEAD)"; git checkout -qb feat; echo y >> README.md; git commit -qam readme
+git checkout -q --detach "$base"; echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java; git commit -qam remote
+git update-ref refs/remotes/origin/main HEAD; git checkout -q feat
+hook snapshot "$S"; [ "$TC_ON" = 1 ] && git merge -q --no-edit origin/main; hook stop "$S"; expect_code 0; expect_no_out
+
+tc TC-C32 "리베이스한 뒤 도메인 코드를 고치면 막는다"
+make_repo; base="$(git rev-parse HEAD)"; git checkout -qb feat; echo y >> README.md; git commit -qam readme
+git checkout -q --detach "$base"; echo 'def refund(): pass' >> services/billing/pay.py; git commit -qam remote
+git update-ref refs/remotes/origin/main HEAD; git checkout -q feat
+hook snapshot "$S"; [ "$TC_ON" = 1 ] && git rebase -q origin/main
+echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java; hook stop "$S"; expect_code 2; expect_out "order: src/main/java/com/shop/order/Order.java"; expect_not "billing"
+
 tc TC-C18 "문서 루트가 없는 저장소에서는 아무것도 하지 않는다"
 make_repo; rm -rf docs; hook snapshot "$S"; echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java
 hook stop "$S"; expect_code 0; expect_no_out

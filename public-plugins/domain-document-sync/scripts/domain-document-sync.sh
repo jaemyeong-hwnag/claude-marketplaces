@@ -111,21 +111,18 @@ EOF
     if [ -n "$exc" ]; then grep -Ev "$exc"; else cat; fi
 }
 
-# 이번 요청의 비교 기준 — 요청 시작 때의 HEAD. 요청 안에서 한 커밋도 이번 변경이다.
-# 요청 시작 때 원격 기본 브랜치에 있던 커밋은 뺀다. 지금의 원격은 push 로 HEAD 가 되므로 보지 않는다
-turn_ref() { # $1=기준 파일 (1행 요청 시작 HEAD · 2행 그때의 원격 기본 브랜치)
-  local base remote mb
+# 이번 요청에서 바뀐 파일 — 요청 시작 HEAD 와 지금 작업 트리가 다른 파일. 커밋 · push · amend · squash 해도 남는다.
+# 요청 시작 때의 원격이 지금 HEAD 에 합쳐져 있으면 그 원격과도 달라야 한다 — 합치거나 리베이스로 들어온 원격 변경은 뺀다
+turn_changed_files() { # $1=기준 파일 (1행 요청 시작 HEAD · 2행 그때의 원격 기본 브랜치)
+  local base remote
   base="$(sed -n 1p "$1" 2>/dev/null)"
   remote="$(sed -n 2p "$1" 2>/dev/null)"
-  [ -n "$base" ] || { echo HEAD; return; }
-  # amend · squash · 리베이스 · 브랜치 전환으로 이어지지 않으면 공통 조상까지 넓힌다
-  git merge-base --is-ancestor "$base" HEAD 2>/dev/null || base="$(git merge-base "$base" HEAD 2>/dev/null)"
-  [ -n "$base" ] || { echo HEAD; return; }
-  if [ -n "$remote" ]; then
-    mb="$(git merge-base HEAD "$remote" 2>/dev/null)"
-    [ -n "$mb" ] && [ "$mb" != "$base" ] && git merge-base --is-ancestor "$base" "$mb" 2>/dev/null && base="$mb"
+  git cat-file -e "${base:-none}^{commit}" 2>/dev/null || base=HEAD
+  if [ -n "$remote" ] && [ "$remote" != "$base" ] && git merge-base --is-ancestor "$remote" HEAD 2>/dev/null; then
+    { changed_files "$base"; changed_files "$remote"; } | sort | uniq -d
+  else
+    changed_files "$base"
   fi
-  echo "$base"
 }
 
 # 원격 기본 브랜치의 지금 커밋 (없으면 빈 값)
@@ -228,7 +225,7 @@ mode_stop() {
   git rev-parse --git-dir >/dev/null 2>&1 || exit 0
   local active changed slug code now prev acks viol=""
   active="$(printf '%s' "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null || echo false)"
-  changed="$(changed_files "$(turn_ref "$BASE_FILE")")"
+  changed="$(turn_changed_files "$BASE_FILE")"
   [ -z "$changed" ] && exit 0
   acks="$(cat "$ACK" 2>/dev/null || true)"
 
