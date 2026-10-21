@@ -49,18 +49,23 @@
 | 예약 도메인 | `*.local` · `*.test` · `*.internal` · `host.docker.internal` |
 | 사용자 지정 | `STRESS_TEST_ALLOWED_HOSTS` — 쉼표 · 공백 구분, `*.perf.example.com` 처럼 앞 와일드카드 |
 
-**보는 곳**
-- 명령 안의 URL, 이름에 `URL` · `HOST` 가 든 변수 대입(`-e BASE_URL=api.example.com`)
-- `--host` · `-H`
-- 명령이 가리키는 스크립트 파일(`*.js` · `*.py` · `*.jmx` · …) 안의 URL과 JMX `HTTPSampler.domain`
+**보는 곳** — 부하 명령과 파이프(`|`)로 이어진 구간만 본다. `&&` · `;` 로 나뉜 다른 명령(`curl … && k6 run …`)은 변수 대입(`export BASE_URL=… &&`)만 본다
+- 그 구간의 URL, 이름에 `URL` · `HOST` 가 든 변수 대입(`-e BASE_URL=api.example.com`)
+- `--host` · locust 의 `-H` (hey · wrk · ab · oha 의 `-H` 는 헤더라 보지 않는다)
+- 명령이 가리키는 스크립트 파일(`*.js` · `*.py` · `*.jmx` · …, `<script.js` 로 넘긴 것 포함) 안의 URL과 JMX `HTTPSampler.domain`
 - `-f` 없는 `locust` 는 `locustfile.py`
 
-`import` · `require` 줄의 URL(예: k6 jslib)은 보지 않는다.
+**보지 않는 것** — 부하 대상이 아닌 URL
+- `import` · `require` 줄과 `from '<url>'`(여러 줄 import 의 끝 줄)의 URL (예: k6 jslib)
+- 출력 대상 — `--out` · `-o` 값, `>` 로 쓰는 파일, k6 설정 변수 `K6_*` 대입 (`-e K6_…` 로 넘기는 스크립트 변수는 본다)
+- heredoc 본문 — 셸에 먹이는 heredoc(`bash <<EOF`)은 명령으로, 부하 명령 줄의 heredoc(`k6 run - <<EOF`)은 스크립트로 본다
 
 **부하 명령으로 보는 것** — 명령 구간의 첫 단어
 - `k6 run|cloud` · `locust` · `jmeter` · `gatling` · `wrk` · `wrk2` · `vegeta attack` · `hey` · `oha` · `ab` · `artillery run|quick` · `autocannon`
 - 그 이미지를 쓰는 `docker run`
 - `mvn` · `gradle` 의 gatling 태스크
+
+첫 단어를 찾을 때 건너뛰는 것 — 환경 변수 대입 · 옵션, `sudo` · `time` · `nohup` · `exec` · `command` · `env` · `npx` · `bunx` · `pnpx` · `uvx`, `uv` · `poetry` · `pipenv` · `pdm` · `hatch` 의 `run`, `python -m`, `timeout [옵션] 시간`, 셸 키워드 `do` · `then` · `else` · `elif` · `if` · `while` · `until` · `!`. `sh` · `bash` 의 `-c` 는 그 인자를 다시 본다.
 
 **설정 방법** — `STRESS_TEST_ALLOWED_HOSTS` 는 프로젝트 `.claude/settings.json` 의 `env` 에 둔다.
 
