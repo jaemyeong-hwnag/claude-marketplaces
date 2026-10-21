@@ -76,8 +76,8 @@ scan() {
     function is_pascal(s) { return s ~ /^[A-Z][A-Za-z0-9]*$/ }
     function emit(kind, code, msg) { printf "%s\037%s\037%d\037%s\n", kind, code, NR, msg }
 
-    # ---- 주석 · 문자열 · 템플릿 리터럴을 비운다 (따옴표만 남긴다) ----
-    function clean(s,   out, i, n, c, c2, q) {
+    # ---- 주석 · 문자열 · 템플릿 · 정규식 리터럴을 비운다 (따옴표만 남긴다) ----
+    function clean(s,   out, i, n, c, c2, q, inclass) {
       out = ""; n = length(s); i = 1
       while (i <= n) {
         c = substr(s, i, 1); c2 = substr(s, i, 2)
@@ -86,18 +86,34 @@ scan() {
           if (c == "\\") { i += 2; continue }
           if (c2 == "${") { tdepth++; i += 2; continue }
           if (c == "}" && tdepth > 0) { tdepth--; i++; continue }
-          if (c == "`" && tdepth == 0) { st = ""; out = out "`"; i++; continue }
+          if (c == "`" && tdepth == 0) { st = ""; out = out "`"; prev = "a"; i++; continue }
           i++; continue
         }
         if (c2 == "/*") { st = "block"; out = out " "; i += 2; continue }
         if (c2 == "//") break
         if (c == "\"" || c == "\047") {
-          q = c; out = out q q; i++
+          q = c; out = out q q; prev = "a"; i++
           while (i <= n) { c = substr(s, i, 1); if (c == "\\") { i += 2; continue } i++; if (c == q) break }
           continue
         }
         if (c == "`") { st = "tpl"; tdepth = 0; out = out "`"; i++; continue }
-        out = out c; i++
+        # 정규식 리터럴 — 앞 토큰이 값이 아닐 때의 / 다. 붙은 "</" 는 JSX 닫는 태그다
+        if (c == "/" && substr(out, length(out), 1) != "<" && (prev == "" || index("(,=:[!&|?{};+-*%<>~^", prev) > 0 || prevword ~ /^(return|typeof|case|do|else|in|of|new|delete|void|throw|yield|await)$/)) {
+          # 문자 클래스 안의 / 는 끝이 아니다
+          i++; inclass = 0
+          while (i <= n) {
+            c = substr(s, i, 1)
+            if (c == "\\") { i += 2; continue }
+            if (c == "[") inclass = 1; else if (c == "]") inclass = 0
+            else if (c == "/" && !inclass) break
+            i++
+          }
+          out = out "0"; prev = "a"; i++; continue
+        }
+        out = out c
+        if (c ~ /[A-Za-z0-9_$]/) { if (prev ~ /[A-Za-z0-9_$]/) prevword = prevword c; else prevword = c; prev = c }
+        else if (c !~ /[ \t]/) { prev = c; prevword = "" }
+        i++
       }
       return out
     }
@@ -137,7 +153,7 @@ scan() {
     }
 
     BEGIN {
-      st = ""; tdepth = 0; sp = 0; pend = ""; ebuf = ""
+      st = ""; tdepth = 0; sp = 0; pend = ""; ebuf = ""; prev = ""; prevword = ""
       kname["class"] = "클래스"; kname["interface"] = "인터페이스"; kname["type"] = "타입"
       kname["enum"] = "enum"; kname["namespace"] = "네임스페이스"; kname["module"] = "네임스페이스"
     }

@@ -11,7 +11,7 @@ test/validate-typescript-naming.test.sh TC-T3    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다.
 
-## 자동 TC (37건)
+## 자동 TC (41건)
 
 픽스처는 **규칙을 지키는 파일**(`order-service.ts`)이고, TC 마다 한 곳만 깨뜨린다. 과잉 차단(막으면 안 되는 것)을 막는 TC 를 조항마다 둔다.
 
@@ -42,6 +42,10 @@ test/validate-typescript-naming.test.sh TC-T3    # ID 접두사로 필터
 | TC-T21 | *.mts · *.cts 도 본다 |
 | TC-T22 | 루트가 .claude/worktrees 안이어도 검사한다 (제외는 루트 기준) |
 | TC-T23 | --all 은 루트의 .claude/worktrees 를 건너뛴다 |
+| TC-T24 | 정규식 리터럴의 /* 를 블록 주석으로 읽지 않는다 — 뒤의 위반을 막는다 (#89) |
+| TC-T25 | 정규식 안의 글 · 나눗셈은 위반으로 읽지 않는다 (#89) |
+| TC-T26 | 나눗셈을 정규식으로 읽지 않는다 — 같은 줄 뒤의 위반을 막는다 (#89) |
+| TC-T27 | tsx 의 닫는 태그 </ 를 정규식으로 읽지 않는다 — 같은 줄 뒤의 위반을 막는다 (#89) |
 
 ### B. 훅
 

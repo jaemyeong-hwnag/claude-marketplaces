@@ -31,7 +31,8 @@ public class OrderCancelService {                // JN-02 · JN-03 (OrderCancelS
 
 | 경우 | 이유 |
 |---|---|
-| 테스트 메서드의 밑줄 — `cancel_whenPaid_throws` | Google 가이드가 JUnit 테스트 메서드 이름의 밑줄을 허용한다 |
+| 테스트 경로(`/test/` · `…Test/` 소스셋 · `*Test.java` · `*Tests.java`)의 메서드 이름 밑줄 — `cancel_whenPaid_throws` | Google 가이드가 JUnit 테스트 메서드 이름의 밑줄을 허용한다. main 코드의 메서드 밑줄은 막는다 |
+| 변수 이름 `record` — `record instanceof String s` | `record` 는 문맥 키워드다. `record 이름(` · `record 이름<` 일 때만 선언으로 본다 |
 | `serialVersionUID` | 언어가 정한 이름이다 |
 | 원시 타입 · `String` 이 아닌 `static final` — `Logger log`, `List<String> names` | 깊이 불변인지 기계가 모른다. 상수면 UPPER_SNAKE_CASE, 아니면 lowerCamelCase — AI 가 판단한다 |
 | 지역 변수 · 매개변수 · 접근 제어자 없는 멤버 | 선언을 문법 없이 가려낼 수 없다. AI 가 판단한다 |

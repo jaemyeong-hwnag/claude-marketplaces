@@ -43,10 +43,20 @@ is_target() { # $1=경로
   return 0
 }
 
+# 테스트 소스인가 — 테스트 메서드 이름의 밑줄(JN-05)은 여기서만 허용한다
+is_test_path() { # $1=경로
+  case "/$1" in
+    */test/*|*/*Test/*|*Test.java|*Tests.java) return 0 ;;
+  esac
+  return 1
+}
+
 # ---- 언어 규칙 --------------------------------------------------------------
-# $1=내용 파일 $2=원래 파일명(basename) → "E|W \037 조항 \037 줄 \037 메시지" 줄들
+# $1=내용 파일 $2=원래 파일명(basename) $3=원래 경로 → "E|W \037 조항 \037 줄 \037 메시지" 줄들
 scan() {
-  awk -v fname="$2" '
+  local istest=0
+  is_test_path "${3:-$2}" && istest=1
+  awk -v fname="$2" -v istest="$istest" '
     function upper_camel(s,   n, i, out, parts) {
       if (s ~ /_/) {
         n = split(tolower(s), parts, "_"); out = ""
@@ -101,6 +111,8 @@ scan() {
       while (match(rest, /[^A-Za-z0-9_$.@](class|interface|enum|record)[ \t]+[A-Za-z_$][A-Za-z0-9_$]*/) || match(rest, /@interface[ \t]+[A-Za-z_$][A-Za-z0-9_$]*/)) {
         m = substr(rest, RSTART, RLENGTH); rest = substr(rest, RSTART + RLENGTH)
         n = m; sub(/^.*[ \t]/, "", n)
+        # record 는 문맥 키워드다 — "record 이름(" · "record 이름<" 일 때만 선언이다 (변수 record 뒤의 instanceof 등)
+        if (m ~ /^[^A-Za-z0-9_$.@]record[ \t]/ && rest !~ /^[ \t]*[(<]/) continue
         if (n !~ /^[A-Z][A-Za-z0-9]*$/)      emit("E", "JN-02", "타입 이름 \047" n "\047 는 UpperCamelCase 여야 한다 → \047" upper_camel(n) "\047")
         else if (n ~ /[A-Z][A-Z][A-Z][A-Z]/) emit("W", "JN-06", "타입 이름 \047" n "\047 — 약어도 한 단어처럼 쓴다 (HTTPClient → HttpClient)")
       }
@@ -126,8 +138,8 @@ scan() {
           n = last_ident(head)
           if (type ~ /^(class|interface|enum|record|return|new|throw)$/) { }
           else if (last == "(") {
-            # JN-05 메서드 — 테스트 메서드의 밑줄(given_when_then)은 허용한다
-            if (n !~ /^[a-z][A-Za-z0-9_]*$/) emit("E", "JN-05", "메서드 이름 \047" n "\047 는 lowerCamelCase 여야 한다 → \047" lower_camel(n) "\047")
+            # JN-05 메서드 — 테스트 경로의 메서드 밑줄(given_when_then)은 허용한다
+            if (istest ? (n !~ /^[a-z][A-Za-z0-9_]*$/) : (n !~ /^[a-z][A-Za-z0-9]*$/)) emit("E", "JN-05", "메서드 이름 \047" n "\047 는 lowerCamelCase 여야 한다 → \047" lower_camel(n) "\047")
           } else if (isstatic && isfinal) {
             # JN-04 상수 — 원시 타입 · String 만 판정한다. 그 밖의 static final 은 상수인지 기계가 모른다
             if (type ~ /^(byte|short|int|long|float|double|char|boolean|String)$/ && n != "serialVersionUID" && n !~ /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/)
@@ -156,8 +168,8 @@ collect() { # $1=scan 출력 파일 $2=라벨(경로)
   done < "$1"
 }
 
-check_file() { # $1=경로
-  scan "$1" "$(basename "$1")" > "$TMP/scan"
+check_file() { # $1=경로 [$2=테스트 경로 판정에 쓸 상대 경로]
+  scan "$1" "$(basename "$1")" "${2:-$1}" > "$TMP/scan"
   collect "$TMP/scan" "$1"
 }
 
@@ -208,8 +220,8 @@ hook() {
   [ -f "$path" ] && cat "$path" > "$TMP/before"
   after_content "$payload" "$TMP/before" > "$TMP/after" || exit 0
 
-  scan "$TMP/before" "$name" > "$TMP/scan-before"
-  scan "$TMP/after" "$name" > "$TMP/scan-after"
+  scan "$TMP/before" "$name" "$rel" > "$TMP/scan-before"
+  scan "$TMP/after" "$name" "$rel" > "$TMP/scan-after"
   # 새로 생긴 위반 — 줄 번호를 빼고 (종류 · 조항 · 메시지) 로 센다. 같은 위반이 늘어난 만큼만 새것이다
   # NR == FNR 은 첫 파일이 비면 둘째 파일에서도 참이 된다 — 파일 이름으로 가른다
   awk -F'\037' 'FILENAME == ARGV[1] { seen[$1 FS $2 FS $4]++; next } seen[$1 FS $2 FS $4]-- > 0 { next } { print }' \
@@ -238,7 +250,7 @@ check_tree() { # $1=루트 디렉터리
   local root="${1%/}" f
   # 제외는 루트 기준으로 쓴다 — "*/.claude/…" 는 루트가 워크트리 안이면 전부 제외한다
   while IFS= read -r f; do
-    is_target "${f#"$root"/}" && check_file "$f"
+    is_target "${f#"$root"/}" && check_file "$f" "${f#"$root"/}"
   done < <(find "$root" \( -name .git -o -name node_modules -o -name build -o -name target -o -name .gradle \
                           -o -path "$root/.claude/worktrees" \) -prune -o -type f -name '*.java' -print 2>/dev/null | sort)
 }

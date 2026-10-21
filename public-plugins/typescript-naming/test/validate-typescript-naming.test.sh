@@ -142,6 +142,22 @@ run --all "$TMP/r/.claude/worktrees/w"; expect_code 2; expect_out "bad_three"
 tc TC-T23 "--all 은 루트의 .claude/worktrees 를 건너뛴다"
 run --all "$TMP/r"; expect_code 0
 
+tc TC-T24 "정규식 리터럴의 /* 를 블록 주석으로 읽지 않는다 — 뒤의 위반을 막는다 (#89)"
+f="$(tsf re.ts 's.replace(/\\/*$/, \047\047);\nclass order_service {}\n')"
+run "$f"; expect_code 2; expect_out "'order_service'"
+
+tc TC-T25 "정규식 안의 글 · 나눗셈은 위반으로 읽지 않는다 (#89)"
+f="$(tsf re-ok.ts 'const re = /let bad_one = 1/g;\nconst ratio = total / count / 2;\nconst half = (size) / 2;\nfunction check(s: string) {\n  return /class bad_two {/.test(s);\n}\nclass OrderService {}\n')"
+run "$f"; expect_code 0; expect_no_out
+
+tc TC-T26 "나눗셈을 정규식으로 읽지 않는다 — 같은 줄 뒤의 위반을 막는다 (#89)"
+f="$(tsf div.ts 'const ratio = total / count; let bad_three = 1;\n')"
+run "$f"; expect_code 2; expect_out "'bad_three'"
+
+tc TC-T27 "tsx 의 닫는 태그 </ 를 정규식으로 읽지 않는다 — 같은 줄 뒤의 위반을 막는다 (#89)"
+f="$(tsf Tag.tsx 'const el = <b>x</b>; let bad_four = 1;\n')"
+run "$f"; expect_code 2; expect_out "'bad_four'"
+
 # --- B. 훅 -------------------------------------------------------------------
 tc TC-T30 "Write 로 위반 파일을 새로 만들면 막는다"
 rm -rf "$SRC"; mkdir -p "$SRC"

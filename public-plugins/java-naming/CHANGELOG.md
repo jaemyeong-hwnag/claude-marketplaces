@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.1.2
+
+### Fixed
+- 변수 이름 `record` 뒤의 `instanceof` 를 record 선언으로 읽어 JN-02 로 막던 것 (#89) — `record 이름(` · `record 이름<` 일 때만 선언으로 본다
+- 메서드 이름의 밑줄을 경로와 상관없이 허용해 main 코드의 `cancel_order()` 를 놓치던 것 (#89) — 테스트 경로(`/test/` · `…Test/` 소스셋 · `*Test.java` · `*Tests.java`)에서만 허용한다
+
 ## 0.1.1
 
 ### Changed
