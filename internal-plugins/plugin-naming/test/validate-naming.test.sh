@@ -17,6 +17,8 @@ VERBOSE="${VERBOSE:-0}"
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/naming-tc.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
+# CLI 는 현재 디렉터리의 git 최상위 사전을 쓰므로, 저장소 밖에서 돌려 플러그인 기본 사전으로 고정한다
+cd "$TMP"
 
 PASS=0; FAIL=0; SKIP=0
 TC_ID=""; TC_DESC=""; TC_FAILED=0
@@ -148,6 +150,14 @@ run "plugins/config-check/x.md"; expect_code 2; expect_out "'validate' 를 쓰�
 tc TC-033 "여러 단어로 된 deny 는 이름 전체와 대조해 막는다"
 run "plugins/continuous-integration/x.md"; expect_code 2; expect_out "'ci' 를 쓰세요"
 
+tc TC-036 "여러 단어 deny 가 이름 일부여도 막는다 (#86)"
+run plugin-name-rule-validate; expect_code 2; expect_out "'name-rule' 은 glossary 의 deny 단어입니다"
+run plugin-continuous-integration-validate; expect_code 2; expect_out "'ci' 를 쓰세요"
+
+tc TC-037 "여러 단어 deny 의 단어가 떨어져 있거나 순서가 다르면 통과한다 (#86)"
+run continuous-order-integration-validate; expect_code 0; expect_noout "deny 단어입니다"
+run plugin-rule-name-validate; expect_code 0; expect_noout "deny 단어입니다"
+
 tc TC-034 "use 단어로 바꾸면 통과한다"
 run "plugins/document-sync/x.md"; expect_code 0
 
@@ -167,6 +177,15 @@ run "plugins/git-branch-naming/x.md"; expect_code 0; expect_noout "줄임말이�
 
 tc TC-043 "네 글자 이상은 경고 대상이 아니다"
 run "plugins/notion-sync/x.md"; expect_code 0; expect_noout "줄임말이면 사용 금지"
+
+tc TC-044 "훅 모드는 새 이름의 줄임말 경고를 additionalContext 로 넘긴다 (#86)"
+run_stdin "$(hook_json PreToolUse "$TMP/abbr/public-plugins/abc-naming/README.md")"; expect_code 0
+printf '%s' "$OUT" | jq -e '.hookSpecificOutput.additionalContext | test("줄임말이면 사용 금지")' >/dev/null 2>&1 || fail_tc "additionalContext 에 줄임말 경고 없음"
+
+tc TC-045 "훅 모드는 이미 있는 이름의 줄임말 경고를 다시 넘기지 않는다 (#86)"
+mkdir -p "$TMP/abbr/public-plugins/abc-naming"; : > "$TMP/abbr/public-plugins/abc-naming/README.md"
+OUT="$(hook_json PreToolUse "$TMP/abbr/public-plugins/abc-naming/README.md" | CLAUDE_PROJECT_DIR="$TMP/abbr" "$SCRIPT" 2>&1)"; CODE=$?
+expect_code 0; expect_empty
 
 section "== F. 경로 분류 =="
 
@@ -235,6 +254,27 @@ expect_code 0; expect_empty
 tc TC-136 "상위 경로에 skills/ 가 있어도 가장 오른쪽 스킬 디렉터리를 본다"
 run_stdin "$(hook_json PreToolUse "/x/skills/Bad_Dir/public-plugins/order-sync/skills/order-create/SKILL.md")"; expect_code 0
 expect_noout "Bad_Dir"
+
+# 워크트리 사본 사전: 기본 사전에 zap 을 더한 git 저장소
+WT="$TMP/wt"; mkdir -p "$WT/internal-plugins/plugin-naming/references" "$WT/public-plugins/order-zap"
+git -C "$WT" init -q
+jq '.action += [{"use":"zap","deny":["zapp"],"meaning":"테스트용 단어"}] | .action |= sort_by(.use)' \
+  "$PLUGIN_ROOT/references/glossary.json" > "$WT/internal-plugins/plugin-naming/references/glossary.json"
+
+tc TC-068 "편집 경로의 git 최상위 사전을 쓴다 — 워크트리에서 등록한 단어 (#86)"
+OUT="$(hook_json PreToolUse "$WT/public-plugins/order-zap/README.md" | CLAUDE_PROJECT_DIR="$TMP" "$SCRIPT" 2>&1)"; CODE=$?
+expect_code 0
+
+tc TC-068b "그 사전이 없는 경로는 기본 사전으로 막는다 (#86)"
+OUT="$(hook_json PreToolUse "$TMP/other/public-plugins/order-zap/README.md" | CLAUDE_PROJECT_DIR="$TMP" "$SCRIPT" 2>&1)"; CODE=$?
+expect_code 2; expect_out "끝 단어 'zap' 이 사전에 없습니다"
+
+tc TC-068c "NAMING_GLOSSARY 가 git 최상위 사전보다 앞선다 (#86)"
+OUT="$(hook_json PreToolUse "$WT/public-plugins/order-zap/README.md" | NAMING_GLOSSARY="$PLUGIN_ROOT/references/glossary.json" "$SCRIPT" 2>&1)"; CODE=$?
+expect_code 2; expect_out "끝 단어 'zap' 이 사전에 없습니다"
+
+tc TC-069 "--all 은 루트의 git 최상위 사전을 쓴다 (#86)"
+run --all "$WT"; expect_code 0; expect_noout "'zap'"
 
 tc TC-063 "PostToolUse 정상 glossary 는 통과시킨다"
 run_stdin "$(hook_json PostToolUse "$PLUGIN_ROOT/references/glossary.json")"; expect_code 0
@@ -340,10 +380,9 @@ rm -rf "$TMP/repo"; mkdir -p "$TMP/repo/plugins/java"
 run --all "$TMP/repo"; expect_code 2; expect_out "plugin 'java'"
 
 tc TC-082 "전체 검사가 스킬·커맨드·에이전트 위반도 찾아낸다"
-rm -rf "$TMP/repo2"; mkdir -p "$TMP/repo2/.claude/skills/utils" "$TMP/repo2/.claude/commands" "$TMP/repo2/.claude/agents"
-touch "$TMP/repo2/.claude/skills/utils/SKILL.md" \
-      "$TMP/repo2/.claude/commands/review.md" \
-      "$TMP/repo2/.claude/agents/reviewer.md"
+P2="$TMP/repo2/plugins/order-sync"
+rm -rf "$TMP/repo2"; mkdir -p "$P2/skills/utils" "$P2/commands" "$P2/agents"
+touch "$P2/skills/utils/SKILL.md" "$P2/commands/review.md" "$P2/agents/reviewer.md"
 run --all "$TMP/repo2"
 expect_code 2; expect_out "skill 'utils'"; expect_out "command 'review'"; expect_out "agent 'reviewer'"
 
@@ -364,12 +403,21 @@ touch "$TMP/repo5/.claude/worktrees/12-x/.claude/skills/utils/SKILL.md" "$TMP/re
 run --all "$TMP/repo5"; expect_code 0; expect_noout "utils"
 
 tc TC-086 "워크트리 밖의 같은 위반은 여전히 잡는다"
-mkdir -p "$TMP/repo5/.claude/skills/utils"; touch "$TMP/repo5/.claude/skills/utils/SKILL.md"
+mkdir -p "$TMP/repo5/plugins/order-sync/skills/utils"; touch "$TMP/repo5/plugins/order-sync/skills/utils/SKILL.md"
 run --all "$TMP/repo5"; expect_code 2; expect_out "skill 'utils'"
 
 tc TC-087 "루트 자체가 워크트리 안(절대 경로)이어도 검사한다 (#3)"
-rm -rf "$TMP/outer"; WTR="$TMP/outer/.claude/worktrees/wt"; mkdir -p "$WTR/.claude/skills/utils"; touch "$WTR/.claude/skills/utils/SKILL.md"
+rm -rf "$TMP/outer"; WTR="$TMP/outer/.claude/worktrees/wt"; mkdir -p "$WTR/plugins/order-sync/skills/utils"; touch "$WTR/plugins/order-sync/skills/utils/SKILL.md"
 run --all "$WTR"; expect_code 2; expect_out "skill 'utils'"
+
+tc TC-088 "전체 검사는 플러그인 디렉터리 밖(.agent-tasks/ 초안)을 보지 않는다 (#86)"
+rm -rf "$TMP/repo6"; mkdir -p "$TMP/repo6/.agent-tasks/x/draft/skills/Bad_Name" "$TMP/repo6/public-plugins/order-sync"
+touch "$TMP/repo6/.agent-tasks/x/draft/skills/Bad_Name/SKILL.md"
+run --all "$TMP/repo6"; expect_code 0; expect_noout "Bad_Name"
+
+tc TC-089 "플러그인 디렉터리 안의 같은 위반은 여전히 잡는다 (#86)"
+mkdir -p "$TMP/repo6/public-plugins/order-sync/skills/Bad_Name"; touch "$TMP/repo6/public-plugins/order-sync/skills/Bad_Name/SKILL.md"
+run --all "$TMP/repo6"; expect_code 2; expect_out "skill 'Bad_Name'"
 
 section "== J. 슬롯 =="
 

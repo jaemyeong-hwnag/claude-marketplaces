@@ -16,14 +16,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
-# 사전 해석 순서: 환경변수 → 프로젝트 사전 → 플러그인 기본 사전
-if [ -n "${NAMING_GLOSSARY:-}" ]; then
-  GLOSSARY="$NAMING_GLOSSARY"
-elif [ -r "$PROJECT_DIR/references/glossary.json" ]; then
-  GLOSSARY="$PROJECT_DIR/references/glossary.json"
-else
-  GLOSSARY="$PLUGIN_ROOT/references/glossary.json"
-fi
+# 플러그인은 메인 체크아웃에서 로드되므로, 워크트리에서 고친 사전은 편집 경로의 git 최상위에서 찾는다
+TOPLEVEL_GLOSSARY="internal-plugins/plugin-naming/references/glossary.json"
+GLOSSARY=""
 
 KEBAB_RE='^[a-z0-9]+(-[a-z0-9]+)*$'
 # 슬롯은 {대상}-{범위}-{관심사}-{목적} 네 개이고, 슬롯마다 1 ~ 3 단어다 (kotlin-spring = 대상 한 슬롯).
@@ -40,16 +35,41 @@ JUDGMENTS=()
 MODE=cli
 
 die() { echo "validate-naming: $*" >&2; exit 1; }
-[ -r "$GLOSSARY" ] || die "glossary 를 찾을 수 없습니다: $GLOSSARY"
 command -v jq >/dev/null 2>&1 || die "jq 가 필요합니다"
 
-# deny 단어 → use / 카테고리 / 의미 조회 테이블
-DENY_TABLE="$(jq -r 'to_entries[] | .key as $cat | .value[]
-  | .use as $use | .meaning as $meaning
-  | (.deny // [])[] | [., $use, $cat, $meaning] | @tsv' "$GLOSSARY")"
-USE_WORDS="$(jq -r '.[][] | .use' "$GLOSSARY")"
-# 단어 → 카테고리. 카테고리가 곧 슬롯을 정한다.
-USE_CATEGORY="$(jq -r 'to_entries[] | .key as $c | .value[] | [.use, $c] | @tsv' "$GLOSSARY")"
+git_toplevel() { # $1=경로 → 그 경로(없으면 가장 가까운 상위 디렉터리)의 git 최상위
+  local d="$1"
+  [ -n "$d" ] || return 0
+  while [ ! -d "$d" ]; do
+    d="$(dirname "$d")"
+  done
+  git -C "$d" rev-parse --show-toplevel 2>/dev/null
+}
+
+# 사전 해석 순서: 환경변수 → 기준 경로의 git 최상위 사전 → 프로젝트 사전 → 플러그인 기본 사전
+# $1=기준 경로 (훅은 편집 경로, --all 은 루트, 그 밖의 CLI 는 현재 디렉터리)
+load_glossary() {
+  local top
+  top="$(git_toplevel "$1")"
+  if [ -n "${NAMING_GLOSSARY:-}" ]; then
+    GLOSSARY="$NAMING_GLOSSARY"
+  elif [ -n "$top" ] && [ -r "$top/$TOPLEVEL_GLOSSARY" ]; then
+    GLOSSARY="$top/$TOPLEVEL_GLOSSARY"
+  elif [ -r "$PROJECT_DIR/references/glossary.json" ]; then
+    GLOSSARY="$PROJECT_DIR/references/glossary.json"
+  else
+    GLOSSARY="$PLUGIN_ROOT/references/glossary.json"
+  fi
+  [ -r "$GLOSSARY" ] || die "glossary 를 찾을 수 없습니다: $GLOSSARY"
+
+  # deny 단어 → use / 카테고리 / 의미 조회 테이블
+  DENY_TABLE="$(jq -r 'to_entries[] | .key as $cat | .value[]
+    | .use as $use | .meaning as $meaning
+    | (.deny // [])[] | [., $use, $cat, $meaning] | @tsv' "$GLOSSARY")"
+  USE_WORDS="$(jq -r '.[][] | .use' "$GLOSSARY")"
+  # 단어 → 카테고리. 카테고리가 곧 슬롯을 정한다.
+  USE_CATEGORY="$(jq -r 'to_entries[] | .key as $c | .value[] | [.use, $c] | @tsv' "$GLOSSARY")"
+}
 
 # 슬롯 등급: 1 대상·범위 / 2 관심사 / 3 목적. 왼쪽에서 오른쪽으로 커지기만 해야 한다.
 slot_rank() { # $1=단어 → 등급
@@ -146,11 +166,18 @@ validate_name() {
     done
   done
 
-  # 검사 대상 = 구성 단어 + (두 단어 이상일 때만) 이름 전체
+  # 검사 대상 = 구성 단어 + 연속한 두 단어 이상의 조합 (여러 단어 deny 는 이름 어디에 있어도 막는다)
   local -a targets=("${segs[@]}")
-  [ "${#segs[@]}" -ge 2 ] && targets+=("$name")
+  local k joined
+  for ((i = 0; i < ${#segs[@]}; i++)); do
+    joined="${segs[$i]}"
+    for ((k = i + 1; k < ${#segs[@]}; k++)); do
+      joined="$joined-${segs[$k]}"
+      targets+=("$joined")
+    done
+  done
 
-  # glossary deny 검사: 전체 이름 + 각 구성 단어
+  # glossary deny 검사
   for seg in "${targets[@]}"; do
     hit="$(lookup_deny "$seg")"
     [ -n "$hit" ] || continue
@@ -189,7 +216,8 @@ validate_name() {
   # 슬롯 구분을 같이 넘겨, 단어가 어느 슬롯으로 읽혔는지 드러낸다.
   [ "$judge" = 1 ] && JUDGMENTS+=("$kind '$name' — $breakdown")
 
-  # 앞 단어의 줄임말 의심은 경고로만 남긴다
+  # 앞 단어의 줄임말 의심은 경고로만 남긴다. 판단 요청과 같이 새 이름에만 붙인다.
+  [ "$judge" = 1 ] || return 0
   local idx
   for ((idx = 0; idx < ${#segs[@]} - 1; idx++)); do
     seg="${segs[$idx]}"
@@ -280,33 +308,39 @@ validate_glossary() {
   [ -n "$out" ] && while IFS= read -r l; do ERRORS+=("glossary: $l"); done <<< "$out"
 }
 
-# 훅 모드에서 AI 판단 항목을 Claude 컨텍스트로 넘긴다
-emit_judgments_json() {
-  [ "${#JUDGMENTS[@]}" -gt 0 ] || return 0
-  local body j
-  body="네이밍 판단 요청 (plugin-naming) — 기계 규칙은 통과했습니다. 규칙을 지켰다고 옳은 이름은 아닙니다. 아래 이름을 직접 판단하세요."
-  for j in "${JUDGMENTS[@]}"; do body="$body"$'\n'"- $j"; done
-  body="$body"$'\n'"판단할 것:"
-  body="$body"$'\n'"  1. 이름만 보고 무엇을 가리키는지 한 문장으로 말할 수 있는가 (무슨 structure 인가, 무슨 name 인가)"
-  body="$body"$'\n'"  2. 슬롯이 실제 대상·범위와 맞는가 — 넓지도 좁지도 않은가. 대상·범위 단어를 대상과 범위로 어디서 나누는지 말할 수 있고, 각각 ${MAX_SLOT_WORDS} 단어 이내인가"
-  body="$body"$'\n'"  3. 무엇을 다루는지 말하지 않는 범용 단어를 쓰지 않았는가 (utils, manager, data, misc …)"
-  body="$body"$'\n'"  4. 무엇을 하는지와 이름이 같은 것을 말하는가 (plugin.json 의 description 과 대조)"
-  body="$body"$'\n'"  5. 기존 이름과 헷갈리거나 기능이 겹치지 않는가 (marketplace.json 의 이름·description 과 대조 — 겹치면 기존 플러그인에 스킬을 더한다)"
-  body="$body"$'\n'"옳지 않다고 판단하면 이름을 다시 만드세요. 기준: $PLUGIN_ROOT/references/naming-rules.md 의 'AI 가 판단할 것'"
+# 훅 모드에서 경고와 AI 판단 항목을 Claude 컨텍스트로 넘긴다 — exit 0 의 stderr 는 Claude 에게 가지 않는다
+emit_context_json() {
+  local body="" w j
+  if [ "${#WARNINGS[@]}" -gt 0 ]; then
+    body="네이밍 경고 (plugin-naming)"
+    for w in "${WARNINGS[@]}"; do body="$body"$'\n'"- $w"; done
+  fi
+  if [ "${#JUDGMENTS[@]}" -gt 0 ]; then
+    body="${body:+$body$'\n'}네이밍 판단 요청 (plugin-naming) — 기계 규칙은 통과했습니다. 규칙을 지켰다고 옳은 이름은 아닙니다. 아래 이름을 직접 판단하세요."
+    for j in "${JUDGMENTS[@]}"; do body="$body"$'\n'"- $j"; done
+    body="$body"$'\n'"판단할 것:"
+    body="$body"$'\n'"  1. 이름만 보고 무엇을 가리키는지 한 문장으로 말할 수 있는가 (무슨 structure 인가, 무슨 name 인가)"
+    body="$body"$'\n'"  2. 슬롯이 실제 대상·범위와 맞는가 — 넓지도 좁지도 않은가. 대상·범위 단어를 대상과 범위로 어디서 나누는지 말할 수 있고, 각각 ${MAX_SLOT_WORDS} 단어 이내인가"
+    body="$body"$'\n'"  3. 무엇을 다루는지 말하지 않는 범용 단어를 쓰지 않았는가 (utils, manager, data, misc …)"
+    body="$body"$'\n'"  4. 무엇을 하는지와 이름이 같은 것을 말하는가 (plugin.json 의 description 과 대조)"
+    body="$body"$'\n'"  5. 기존 이름과 헷갈리거나 기능이 겹치지 않는가 (marketplace.json 의 이름·description 과 대조 — 겹치면 기존 플러그인에 스킬을 더한다)"
+    body="$body"$'\n'"옳지 않다고 판단하면 이름을 다시 만드세요. 기준: $PLUGIN_ROOT/references/naming-rules.md 의 'AI 가 판단할 것'"
+  fi
+  [ -n "$body" ] || return 0
   jq -n --arg c "$body" '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $c}}'
 }
 
 report() {
   local w e j
+  if [ "$MODE" = hook ] && [ "${#ERRORS[@]}" -eq 0 ]; then
+    emit_context_json
+    exit 0
+  fi
   for w in ${WARNINGS+"${WARNINGS[@]}"}; do echo "⚠️  $w" >&2; done
   if [ "${#ERRORS[@]}" -eq 0 ] && [ "${#JUDGMENTS[@]}" -gt 0 ]; then
-    if [ "$MODE" = hook ]; then
-      emit_judgments_json
-    else
-      echo "" >&2
-      echo "🤔 AI 가 판단할 것 — 기계 규칙은 통과했습니다. 이 이름이 옳은지는 별개입니다." >&2
-      for j in "${JUDGMENTS[@]}"; do echo "  - $j" >&2; done
-    fi
+    echo "" >&2
+    echo "🤔 AI 가 판단할 것 — 기계 규칙은 통과했습니다. 이 이름이 옳은지는 별개입니다." >&2
+    for j in "${JUDGMENTS[@]}"; do echo "  - $j" >&2; done
     exit 0
   fi
   if [ "${#ERRORS[@]}" -gt 0 ]; then
@@ -324,28 +358,28 @@ report() {
 main() {
   if [ "$#" -gt 0 ]; then
     case "$1" in
-      --glossary) validate_glossary "${2:-$GLOSSARY}" ;;
+      --glossary) load_glossary "$(pwd)"; validate_glossary "${2:-$GLOSSARY}" ;;
       --all)
-        local root="${2:-$PROJECT_DIR}" d f
-        # 이름이 *plugins 로 끝나는 디렉터리를 플러그인 디렉터리로 본다.
-        # .claude/worktrees/ 제외는 루트 기준이다 — "*/.claude/worktrees/*" 로 쓰면 루트 자체가 워크트리 안일 때 전부 제외된다.
+        local root="${2:-$PROJECT_DIR}" pd d f
+        load_glossary "$root"
+        # 이름이 *plugins 로 끝나는 디렉터리 아래의 플러그인만 본다 — 루트의 .agent-tasks/ 초안 · .claude/worktrees/ 는 검사 대상이 아니다
         while IFS= read -r d; do validate_name plugin "$d"; done < <(
-          find "$root" -mindepth 1 -maxdepth 1 -type d -name '*plugins' -not -path '*/.git*' 2>/dev/null \
-            | while IFS= read -r pd; do
-                find "$pd" -mindepth 1 -maxdepth 1 -type d 2>/dev/null \
-                  | while IFS= read -r x; do basename "$x"; done
-              done | sort -u
+          for pd in "${root%/}"/*plugins/*/; do [ -d "$pd" ] && basename "$pd"; done | sort -u
         )
-        while IFS= read -r d; do validate_name skill "$(basename "$d")"; done \
-          < <(find "$root" -type d -name skills -not -path '*/.git/*' -not -path "${root%/}/.claude/worktrees/*" \
-              -exec find {} -mindepth 1 -maxdepth 1 -type d \; 2>/dev/null)
-        while IFS= read -r f; do validate_name command "$(basename "$f" .md)"; done \
-          < <(find "$root" -type f -path '*/commands/*.md' -not -path '*/.git/*' -not -path "${root%/}/.claude/worktrees/*" 2>/dev/null)
-        while IFS= read -r f; do validate_name agent "$(basename "$f" .md)"; done \
-          < <(find "$root" -type f -path '*/agents/*.md' -not -path '*/.git/*' -not -path "${root%/}/.claude/worktrees/*" 2>/dev/null)
+        for pd in "${root%/}"/*plugins/*/; do
+          [ -d "$pd" ] || continue
+          while IFS= read -r d; do validate_name skill "$(basename "$d")"; done \
+            < <(find "$pd" -type d -name skills -not -path '*/.git/*' \
+                -exec find {} -mindepth 1 -maxdepth 1 -type d \; 2>/dev/null)
+          while IFS= read -r f; do validate_name command "$(basename "$f" .md)"; done \
+            < <(find "$pd" -type f -path '*/commands/*.md' -not -path '*/.git/*' 2>/dev/null)
+          while IFS= read -r f; do validate_name agent "$(basename "$f" .md)"; done \
+            < <(find "$pd" -type f -path '*/agents/*.md' -not -path '*/.git/*' 2>/dev/null)
+        done
         validate_glossary "$GLOSSARY"
         ;;
-      *) for arg in "$@"; do
+      *) load_glossary "$(pwd)"
+         for arg in "$@"; do
            if [[ "$arg" == */* || "$arg" == *.md ]]; then
              validate_path "$arg" || true
            else
@@ -364,6 +398,7 @@ main() {
   event="$(printf '%s' "$payload" | jq -r '.hook_event_name // ""' 2>/dev/null)"
   path="$(printf '%s' "$payload" | jq -r '.tool_input.file_path // .tool_input.path // ""' 2>/dev/null)"
   [ -n "$path" ] || exit 0
+  load_glossary "$path"
 
   case "$event" in
     PostToolUse)

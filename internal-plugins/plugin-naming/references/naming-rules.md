@@ -153,7 +153,7 @@ kotlin-spring-api-naming-validate
 - 판단 기준: *공식 문서가 그 줄임말을 정식 명칭으로 쓰는가?*
   - 허용: `k8s` (Kubernetes 공식), `api` (업계 표준)
   - 금지: `doc` (document 의 공식 약어가 아님), `repo`, `cfg`
-- 허용된 줄임말은 반드시 `glossary.json` 에 `use` 로 등록해 관리한다. 끝 단어라면 **차단**되고, 앞 단어라면 3자 이하일 때 경고한다.
+- 허용된 줄임말은 반드시 `glossary.json` 에 `use` 로 등록해 관리한다. 끝 단어라면 **차단**되고, 앞 단어라면 3자 이하일 때 경고한다. 훅은 경고를 새 이름에만 `additionalContext` 로 넘긴다.
 
 ## 6. 사전 (glossary.json)
 
@@ -162,13 +162,16 @@ kotlin-spring-api-naming-validate
 | 순위 | 위치 | 용도 |
 |---|---|---|
 | 1 | `$NAMING_GLOSSARY` | 테스트·일회성 검증 |
-| 2 | `$CLAUDE_PROJECT_DIR/references/glossary.json` | 프로젝트 전용 사전 |
-| 3 | `${CLAUDE_PLUGIN_ROOT}/references/glossary.json` | 플러그인 기본 사전 |
+| 2 | 기준 경로의 git 최상위 `internal-plugins/plugin-naming/references/glossary.json` | 워크트리에서 고친 사전 |
+| 3 | `$CLAUDE_PROJECT_DIR/references/glossary.json` | 프로젝트 전용 사전 |
+| 4 | `${CLAUDE_PLUGIN_ROOT}/references/glossary.json` | 플러그인 기본 사전 |
+
+기준 경로는 훅이면 편집 경로, `--all` 이면 루트, 그 밖의 CLI 면 현재 디렉터리다. 플러그인은 메인 체크아웃에서 로드되므로, 2 가 없으면 워크트리에서 등록한 단어를 훅이 모른다.
 
 프로젝트 사전을 두면 플러그인 사전은 **병합되지 않고 대체된다.** 공통 단어까지 포함해 복사한 뒤 도메인 단어를 더한다.
 
 - 끝 단어는 `glossary.json` 의 `use` 단어만 사용한다. 앞 단어는 도메인 고유명사를 허용한다.
-- `deny` 목록의 단어는 위치를 가리지 않고 플러그인명·스킬명·커맨드명·에이전트명에 쓸 수 없다.
+- `deny` 목록의 단어는 위치를 가리지 않고 플러그인명·스킬명·커맨드명·에이전트명에 쓸 수 없다. 여러 단어 deny(`name-rule`)는 이름 안의 연속한 단어 조합과 대조한다.
 - `validate-naming.sh` 가 deny 사용·끝 단어 미등록·슬롯 순서를 자동으로 막는다.
 - 새 관심사·목적 단어가 필요하면 이름을 비틀지 말고 `glossary-update` 스킬로 먼저 등록한다.
 
@@ -215,7 +218,7 @@ kotlin-spring-api-naming-validate
 "${CLAUDE_PLUGIN_ROOT}/scripts/validate-naming.sh" plugins/spring-naming
 "${CLAUDE_PLUGIN_ROOT}/scripts/validate-naming.sh" order-service
 
-# 저장소 전체
+# 저장소 전체 (<루트>/*plugins/*/ 아래만)
 "${CLAUDE_PLUGIN_ROOT}/scripts/validate-naming.sh" --all .
 
 # 사전 구조만
