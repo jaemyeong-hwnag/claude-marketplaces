@@ -23,10 +23,10 @@ lang_of() {
   esac
 }
 
-is_test_path() {
-  case "$1" in
-    */test/*|*/tests/*|*/__tests__/*|*/spec/*|*/testdata/*|*/fixtures/*|test/*|tests/*) return 0 ;;
-    *_test.go|*.test.*|*.spec.*|*Test.java|*Tests.java|*Test.kt|*Tests.kt|*/test_*.py|test_*.py|*_test.py|*conftest.py) return 0 ;;
+is_test_path() { # $1=기준 디렉터리 안 상대 경로
+  case "/$1" in
+    */test/*|*/tests/*|*/__tests__/*|*/spec/*|*/testdata/*|*/fixtures/*) return 0 ;;
+    *_test.go|*.test.*|*.spec.*|*Test.java|*Tests.java|*Test.kt|*Tests.kt|*/test_*.py|*_test.py|*conftest.py) return 0 ;;
   esac
   return 1
 }

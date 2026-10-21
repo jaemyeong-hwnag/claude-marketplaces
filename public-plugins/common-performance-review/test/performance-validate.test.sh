@@ -389,6 +389,8 @@ fi
 run "$R"; expect_out "src/a.py"; expect_not "test/b.py"; expect_out "파일 1개"
 run "$R/src"; expect_out "src/a.py"; expect_out "파일 1개"
 run "$R/test"; expect_out "파일 0개"
+if [ "$TC_ON" = 1 ]; then for d in fixtures __tests__ spec testdata; do mkdir -p "$R/$d"; printf 'x = User.objects.all()\n' > "$R/$d/h.py"; done; fi
+run "$R"; expect_not "fixtures/"; expect_not "__tests__/"; expect_not "spec/h.py"; expect_not "testdata/"; expect_out "파일 1개"
 OUT=""; [ "$TC_ON" = 1 ] && OUT="$(cd / && "$SCRIPT" "$N" 2>&1)"; expect_out "src/a.py"; expect_not "tests/b.py"; expect_out "파일 1개"
 
 echo "== D. 훅"
@@ -424,6 +426,10 @@ if [ "$TC_ON" = 1 ]; then
 fi
 run_stdin "$(payload PostToolUse "$R/src/svc.py" "x = User.objects.all()")"; expect_code 0; expect_out "PF-12"
 run_stdin "$(payload PostToolUse "$R/tests/svc.py" "x = User.objects.all()")"; expect_code 0; expect_no_out
+for d in fixtures __tests__ spec testdata; do
+  [ "$TC_ON" = 1 ] && { mkdir -p "$R/$d"; printf 'x = User.objects.all()\n' > "$R/$d/h.py"; }
+  run_stdin "$(payload PostToolUse "$R/$d/h.py" "x = User.objects.all()")"; expect_code 0; expect_no_out
+done
 
 flush_tc
 echo ""
