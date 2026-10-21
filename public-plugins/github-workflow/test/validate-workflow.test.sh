@@ -350,6 +350,17 @@ run bash -c "printf '%s' '{\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"Wr
 tc TC-W97 "stdin 이 비면 통과시킨다"
 run bash -c "printf '' | '$V'"; expect_code 0; expect_no_out
 
+tc TC-W98 "지금 없는 디렉터리 · 변수 경로로 cd · -C 하면 시작 디렉터리(main)로 보지 않는다"
+HOOK "mkdir -p $TMP/new-repo && cd $TMP/new-repo && git init -q && git commit --allow-empty -m i" "$TMP/mn"; expect_code 0
+HOOK "git init -q X && git -C X commit --allow-empty -m i" "$TMP/mn"; expect_code 0
+HOOK 'cd "$TMPDIR/x" && git commit -m i' "$TMP/mn"; expect_code 0
+HOOK 'cd "$TMPDIR/x" && git tag v1' "$TMP/mn"; expect_code 0
+
+tc TC-W99 "모르는 디렉터리에서도 git push origin main 은 막고, 그 뒤 절대 경로 cd 는 다시 따라간다"
+HOOK "cd $TMP/nowhere && git push origin main" "$TMP/mn"; expect_code 2; expect_out "(W-09)"
+HOOK "cd $TMP/nowhere && cd $TMP/mn && git commit -m x" "$TMP/mn"; expect_code 2; expect_out "(W-09)"
+HOOK "cd $TMP/nowhere && cd mn && git commit -m x" "$TMP"; expect_code 0
+
 echo "== G. branch-create =="
 
 mkrepo sc
@@ -376,6 +387,20 @@ run "$BC" feature 13 order-two "$W"; expect_code 0
   [ -z "$(git -C "$W" status --porcelain -- .claude)" ] || fail_tc ".claude/worktrees 가 untracked 로 보인다"
   [ "$(grep -c 'worktrees' "$(git -C "$W" rev-parse --path-format=absolute --git-common-dir)/info/exclude")" = 1 ] || fail_tc "exclude 줄이 한 줄이 아니다"
 }
+
+tc TC-W104 "branch-create 는 워크트리 안에서 불러도 메인 체크아웃 아래에 만든다 — 중첩하지 않는다"
+run env -u CLAUDE_PROJECT_DIR bash -c "cd '$W/.claude/worktrees/12-order-sync' && '$BC' feature 14 nested-a"; expect_code 0
+[ "$TC_ON" = 1 ] && {
+  [ -d "$W/.claude/worktrees/14-nested-a" ] || fail_tc "메인 체크아웃 아래에 없다"
+  [ ! -e "$W/.claude/worktrees/12-order-sync/.claude/worktrees/14-nested-a" ] || fail_tc "워크트리 안에 중첩됐다"
+}; true
+
+tc TC-W105 "branch-create 는 [루트]로 워크트리를 받아도 메인 체크아웃 아래에 만든다"
+run "$BC" feature 15 nested-b "$W/.claude/worktrees/12-order-sync"; expect_code 0
+[ "$TC_ON" = 1 ] && {
+  [ -d "$W/.claude/worktrees/15-nested-b" ] || fail_tc "메인 체크아웃 아래에 없다"
+  [ ! -e "$W/.claude/worktrees/12-order-sync/.claude" ] || fail_tc "워크트리 안에 중첩됐다"
+}; true
 
 echo "== H. 기본 브랜치 (origin/HEAD) =="
 
@@ -502,6 +527,10 @@ HOME="$TMP" HOOK "cd ~/mn && git commit -m x" "$FB"; expect_code 2
 
 tc TC-W175 "리다이렉션 대상 · 2>&1 은 refspec 이 아니다"
 HOOK "git push -u origin feature/7-order-sync > /dev/null 2>&1" "$FB"; expect_code 0
+
+tc TC-W176 "cd 의 옵션(-P · --)을 건너뛰고 대상 디렉터리를 따라간다"
+HOOK "cd -P $MN && git commit -m x" "$FB"; expect_code 2
+HOOK "cd -- $MN && git commit -m x" "$FB"; expect_code 2
 
 tc TC-W180 "jq 가 없으면 git · gh 명령을 막고 다른 명령은 통과시킨다"
 NOJQ="$TMP/nojq"; mkdir -p "$NOJQ"

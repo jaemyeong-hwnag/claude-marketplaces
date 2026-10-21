@@ -4,19 +4,22 @@
 #   branch-create.sh <feature|bugfix> <이슈 번호> <slug> [루트]
 #
 # 기본 브랜치: origin/HEAD 가 가리키는 브랜치 (없으면 origin/main → origin/master → main)
-# 워크트리 위치: {루트}/.claude/worktrees/{이슈}-{slug}  (W-04)
+# 워크트리 위치: {메인 체크아웃}/.claude/worktrees/{이슈}-{slug}  (W-04) — [루트]가 워크트리여도 메인 체크아웃
 # 종료 코드: 0 성공 / 2 규칙 위반·확인 실패 / 1 실행 오류
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ "$#" -ge 3 ] || { echo "사용법: branch-create.sh <feature|bugfix> <이슈 번호> <slug> [루트]" >&2; exit 1; }
 TYPE="$1"; ISSUE="$2"; SLUG="$3"
-ROOT="$(cd "${4:-${CLAUDE_PROJECT_DIR:-$(pwd)}}" && pwd)"
+START="$(cd "${4:-${CLAUDE_PROJECT_DIR:-$(pwd)}}" && pwd)"
 BRANCH="$TYPE/$ISSUE-$SLUG"
-WT="$ROOT/.claude/worktrees/$ISSUE-$SLUG"
 
 "$SCRIPT_DIR/validate-workflow.sh" --branch "$BRANCH" || exit 2
-git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || { echo "❌ $ROOT 는 git 저장소가 아니다" >&2; exit 2; }
+git -C "$START" rev-parse --git-dir >/dev/null 2>&1 || { echo "❌ $START 는 git 저장소가 아니다" >&2; exit 2; }
+# 워크트리 안에서 불러도 메인 체크아웃에 만든다 — 중첩되면 바깥 워크트리를 지울 때 안쪽이 같이 지워진다
+COMMON="$(git -C "$START" rev-parse --path-format=absolute --git-common-dir)"
+if [ "$(basename "$COMMON")" = .git ]; then ROOT="$(dirname "$COMMON")"; else ROOT="$(git -C "$START" rev-parse --show-toplevel)"; fi
+WT="$ROOT/.claude/worktrees/$ISSUE-$SLUG"
 MAIN="$(git -C "$ROOT" symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)"; MAIN="${MAIN#origin/}"
 if [ -z "$MAIN" ]; then
   MAIN=main
