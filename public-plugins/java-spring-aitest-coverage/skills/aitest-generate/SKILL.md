@@ -17,9 +17,9 @@ description: Java · Spring Boot 코드를 고친 뒤 테스트를 쓰거나 케
 
 ## 인터페이스
 
-- **입력**: 대상 메서드 · 클래스, `git diff HEAD`, 소속 모듈
+- **입력**: 대상 메서드 · 클래스, `git diff <기준>`, 소속 모듈 — `<기준>` 은 Stop 차단 메시지가 알려준 ref (막히기 전이고 요청 안에서 커밋하지 않았으면 `HEAD`)
 - **출력**: `<module>/src/test/java/<대상과 같은 패키지>/<대상 클래스>AiTest.java` — 만든 뒤 **실행해 통과 확인**
-- **통과 게이트**: `aiTest` PASS · 수정 메서드 JaCoCo 100% · `"${CLAUDE_PLUGIN_ROOT}/scripts/diff-coverage-validate.sh" HEAD` PASS
+- **통과 게이트**: `aiTest` PASS · 수정 메서드 JaCoCo 100% · `"${CLAUDE_PLUGIN_ROOT}/scripts/diff-coverage-validate.sh" <기준>` PASS
 - **불변**: 프로덕션 코드 수정 금지(버그를 찾으면 보고만) · 새 테스트 라이브러리 금지 · `Thread.sleep` 금지
 
 ## 0. 환경 확인
@@ -28,7 +28,7 @@ description: Java · Spring Boot 코드를 고친 뒤 테스트를 쓰거나 케
 
 ## 1. 대상 분석
 
-- `git diff HEAD` 와 untracked 파일로 바뀐 Controller · Service · 매퍼와 **모듈**을 확정한다
+- `git diff <기준>` 과 untracked 파일로 바뀐 Controller · Service · 매퍼와 **모듈**을 확정한다
 - 라이브러리 모듈(core · common 등) 변경이면 테스트는 **소비 모듈**에 만든다. 소비 모듈이 `.claude/java-spring-aitest-coverage.json` 의 `libraryModules` 에 없으면 추가를 제안한다 (`C-04`)
 - 같은 클래스의 기존 `*AiTest*` 를 먼저 찾는다 (`grep -rl '<Class>' <module>/src/test/java`) — 있으면 보강, 없으면 새로
 
@@ -71,7 +71,7 @@ description: Java · Spring Boot 코드를 고친 뒤 테스트를 쓰거나 케
 
 ```bash
 ./gradlew :<module>:aiTestFast --tests '<패키지>.<클래스>AiTest'    # 반복 실행 (Docker 준비 생략)
-"${CLAUDE_PLUGIN_ROOT}/scripts/diff-coverage-validate.sh" HEAD      # 완료 전 — aiTest + JaCoCo + 판정
+"${CLAUDE_PLUGIN_ROOT}/scripts/diff-coverage-validate.sh" <기준>    # 완료 전 — aiTest + JaCoCo + 판정
 ```
 
 - JDK 는 프로젝트 `sourceCompatibility` · toolchain 에 맞춘다 (설정 `javaVersion`). Docker 가 필요하다

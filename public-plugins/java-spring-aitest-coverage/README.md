@@ -36,7 +36,7 @@ claude plugin install java-spring-aitest-coverage@jaemyeong-hwnag-plugins --scop
 ## 주의
 
 - 게이트는 `gradle/ai-test.gradle` 또는 `@interface AiTest` 가 있는 저장소에서만 돈다. 없으면 세션당 한 번 알리기만 한다
-- Stop 훅은 Gradle 을 돌리지 않고 **기존 리포트**로 판정한다. 코드를 고친 뒤 `scripts/diff-coverage-validate.sh HEAD` 로 리포트를 갱신해야 통과한다 — `aitest-generate` 가 한다
+- Stop 훅은 Gradle 을 돌리지 않고 **기존 리포트**로 판정한다. 코드를 고친 뒤 `scripts/diff-coverage-validate.sh <기준>` 으로 리포트를 갱신해야 통과한다 — `aitest-generate` 가 한다. `<기준>` 은 차단 메시지가 알려준 ref 다 (요청 안에서 커밋했으면 `HEAD` 로는 diff 가 비어 통과해 버린다)
 - 한 번 막힌 뒤 다시 완료하면 허용하고 경고만 남긴다(무한 루프 방지). 주석 · 포맷만 바꾼 경우 등은 `aitest: skip <사유>` 면제를 쓴다 — 게이트 메시지가 ACK 파일 경로를 알려준다
 - 지원 범위: Gradle **Groovy DSL** · Spring Boot 2.x ~ 4.x · Testcontainers 1.x / 2.x · MySQL · PostgreSQL · Redis · RabbitMQ. Kotlin DSL · Maven · Kotlin 소스(`src/main/kotlin`)는 보지 않는다
 - 실측한 조합 — 전부 스모크 · 게이트 차단 · 100% 통과까지 확인 (`test/README.md` 수동 확인)
@@ -91,8 +91,8 @@ claude plugin install java-spring-aitest-coverage@jaemyeong-hwnag-plugins --scop
 ## 사용
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/scripts/diff-coverage-validate.sh" HEAD               # aiTest + JaCoCo + 판정
-"${CLAUDE_PLUGIN_ROOT}/scripts/diff-coverage-validate.sh" --check-only HEAD  # Controller @AiTest 존재만
+"${CLAUDE_PLUGIN_ROOT}/scripts/diff-coverage-validate.sh" <기준>               # aiTest + JaCoCo + 판정 (<기준> = 차단 메시지의 ref)
+"${CLAUDE_PLUGIN_ROOT}/scripts/diff-coverage-validate.sh" --check-only <기준>  # Controller @AiTest 존재만
 test/diff-coverage-validate.test.sh                                           # 회귀 테스트
 ```
 

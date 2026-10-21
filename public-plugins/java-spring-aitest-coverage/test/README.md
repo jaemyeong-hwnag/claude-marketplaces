@@ -13,7 +13,7 @@ test/diff-coverage-validate.test.sh TC-H     # ID 접두사로 필터
 
 Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아래 "수동 확인" 을 본다.
 
-## 자동 TC (43건)
+## 자동 TC (59건)
 
 ### A. 메서드 커버리지 (method-coverage-get.sh)
 
@@ -53,6 +53,12 @@ Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아�
 | TC-D20 | 실행: gradlew 가 실패하면 실패로 끝난다 |
 | TC-D21 | 설정 파일이 JSON 이 아니면 실행 오류(2) |
 | TC-D22 | macOS 기본 bash 3.2 로도 돈다 |
+| TC-D23 | git 루트 ≠ Gradle 루트 — 변경 메서드가 100% 미만이면 막는다 (C-02) |
+| TC-D24 | git 루트 ≠ Gradle 루트 — 최신 리포트 + 100% 면 통과한다 |
+| TC-D25 | 지운 Controller 는 C-01 대상이 아니다 |
+| TC-D26 | Controller 를 지우며 다른 Controller 를 바꾸면 그 Controller 는 막는다 (C-01) |
+| TC-D27 | 모듈 디렉터리에서 연 세션도 Gradle 루트 기준으로 보고 100% 미만을 막는다 (C-02) |
+| TC-D28 | `--also`: 그 ref 와 같은 파일은 보지 않는다 |
 
 ### C. 훅 (aitest-coverage-validate.sh)
 
@@ -71,7 +77,17 @@ Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아�
 | TC-H11 | 테스트만 바뀌면 막지 않는다 |
 | TC-H12 | 하위 디렉터리에서 호출해도 저장소 루트 기준으로 본다 |
 | TC-H13 | 요청 안에서 커밋한 Controller 변경도 본다 (C-05) |
-| TC-H14 | 원격 기본 브랜치에서 받아온 커밋은 이번 변경이 아니다 (C-05) |
+| TC-H14 | 요청 시작 때 원격 기본 브랜치에 있던 커밋은 요청 안에서 합쳐도 이번 변경이 아니다 (C-05) |
+| TC-H15 | 요청 안에서 커밋하고 원격 기본 브랜치로 push 해도 막는다 (C-05) |
+| TC-H16 | 요청 시작 HEAD 를 amend 해도 막는다 (C-05) |
+| TC-H17 | amend 가 대상 경로를 건드리지 않으면 막지 않는다 (C-05) |
+| TC-H18 | git 루트 ≠ Gradle 루트 — Gradle 루트의 환경으로 게이트를 켜고 0% 를 막는다 (C-02 · C-06) |
+| TC-H19 | Controller 와 그 AiTest 를 지우면 막지 않는다 (C-01) |
+| TC-H20 | 모듈 디렉터리에서 연 세션이 그 밖의 모듈을 고쳐도 본다 (C-04) |
+| TC-H21 | 요청 전에 커밋한 Controller 를 요청 안에서 메시지만 amend 하면 막지 않는다 (C-05) |
+| TC-H22 | 요청 전 Controller 커밋을 amend 하며 대상 밖 파일만 더하면 막지 않는다 (C-05) |
+| TC-H23 | 요청 전 받아둔 원격 위로 요청 안에서 리베이스하면 원격 변경도 이전 커밋도 막지 않는다 (C-05) |
+| TC-H24 | 요청 전 받아둔 원격을 요청 안에서 merge 커밋으로 합쳐도 원격 변경은 막지 않는다 (C-05) |
 
 ## 수동 확인 — 실제 Gradle · testcontainer
 

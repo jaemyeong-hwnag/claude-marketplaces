@@ -86,6 +86,12 @@ EOS
   ) >/dev/null
   echo "$r"
 }
+# 모노레포 — 기본 구성을 backend/ 아래로 옮긴다 (git 루트 ≠ Gradle 루트). $1=이름 → 저장소 경로 출력
+mono_repo() {
+  local r; r="$(repo "$1")"
+  ( cd "$r" && mkdir backend && git mv app core gradle build.gradle gradlew .gitignore backend/ && git commit -qm mono ) >/dev/null
+  echo "$r"
+}
 change_bar() { controller_src "$2" "$3" 'x + 2' > "$1"; }   # bar 의 6번째 줄만 바꾼다
 aitest_for() { # $1=경로 $2=본문에 넣을 단어
   mkdir -p "$(dirname "$1")"
@@ -328,6 +334,56 @@ if on; then
   fi
 fi
 
+tc TC-D23 "git 루트 ≠ Gradle 루트 — 변경 메서드가 100% 미만이면 막는다 (C-02)"
+if on; then
+  R="$(mono_repo d23)"; B="$R/backend"
+  change_bar "$B/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  aitest_for "$B/app/src/test/java/com/ex/app/FooControllerAiTest.java" x
+  fresh_report "$B/app/$REPORT" com/ex/app FooController 10 0
+  CLAUDE_PROJECT_DIR="$B" run "$D" --report-only HEAD; expect_code 1; expect_out "FAIL app com.ex.app.FooController#bar(I)I"
+fi
+
+tc TC-D24 "git 루트 ≠ Gradle 루트 — 최신 리포트 + 100% 면 통과한다"
+if on; then
+  R="$(mono_repo d24)"; B="$R/backend"
+  change_bar "$B/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  aitest_for "$B/app/src/test/java/com/ex/app/FooControllerAiTest.java" x
+  fresh_report "$B/app/$REPORT" com/ex/app FooController 0 0
+  CLAUDE_PROJECT_DIR="$B" run "$D" --report-only HEAD; expect_code 0; expect_out "changed method coverage 100%"
+fi
+
+tc TC-D25 "지운 Controller 는 C-01 대상이 아니다"
+if on; then
+  R="$(repo d25)"; aitest_for "$R/app/src/test/java/com/ex/app/FooControllerAiTest.java" x
+  ( cd "$R" && git add -A && git commit -qm t && git rm -q app/src/main/java/com/ex/app/FooController.java app/src/test/java/com/ex/app/FooControllerAiTest.java ) >/dev/null
+  CLAUDE_PROJECT_DIR="$R" run "$D" --report-only HEAD; expect_code 0; expect_not "FAIL"
+fi
+
+tc TC-D26 "Controller 를 지우며 다른 Controller 를 바꾸면 그 Controller 는 막는다 (C-01)"
+if on; then
+  R="$(repo d26)"; controller_src com.ex.app BarController 'x' > "$R/app/src/main/java/com/ex/app/BarController.java"
+  ( cd "$R" && git add -A && git commit -qm bar && git rm -q app/src/main/java/com/ex/app/FooController.java ) >/dev/null
+  change_bar "$R/app/src/main/java/com/ex/app/BarController.java" com.ex.app BarController
+  CLAUDE_PROJECT_DIR="$R" run "$D" --check-only HEAD; expect_code 1; expect_out "BarController"; expect_not "FooController"
+fi
+
+tc TC-D27 "모듈 디렉터리에서 연 세션도 Gradle 루트 기준으로 보고 100% 미만을 막는다 (C-02)"
+if on; then
+  R="$(repo d27)"; change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  aitest_for "$R/app/src/test/java/com/ex/app/FooControllerAiTest.java" x
+  fresh_report "$R/app/$REPORT" com/ex/app FooController 10 0
+  CLAUDE_PROJECT_DIR="$R/app" run "$D" --report-only HEAD; expect_code 1; expect_out "FAIL app com.ex.app.FooController#bar(I)I"
+fi
+
+tc TC-D28 "--also: 그 ref 와 같은 파일은 보지 않는다"
+if on; then
+  R="$(repo d28)"; git -C "$R" branch other
+  change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  git -C "$R" commit -qam remote; git -C "$R" branch -f other HEAD; git -C "$R" reset -q --hard HEAD~1; git -C "$R" merge -q --no-ff --no-edit other
+  CLAUDE_PROJECT_DIR="$R" run "$D" --check-only --also other HEAD~1; expect_code 0; expect_out "no diff vs HEAD~1"
+  CLAUDE_PROJECT_DIR="$R" run "$D" --check-only HEAD~1; expect_code 1; expect_out "FooController"
+fi
+
 flush_tc; echo "== aitest-coverage-validate.sh (훅)"
 
 tc TC-H01 "git 저장소가 아니면 조용히 통과한다"
@@ -418,16 +474,108 @@ if on; then
   CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h13)" "$H"; expect_code 2; expect_out "완료 보류(java-spring-aitest-coverage)"
 fi
 
-tc TC-H14 "원격 기본 브랜치에서 받아온 커밋은 이번 변경이 아니다 (C-05)"
+tc TC-H14 "요청 시작 때 원격 기본 브랜치에 있던 커밋은 요청 안에서 합쳐도 이번 변경이 아니다 (C-05)"
 if on; then
   R="$(repo h14)"; git init -q --bare -b main "$TMP/h14-origin.git"
   git -C "$R" remote add origin "$TMP/h14-origin.git"; git -C "$R" push -q -u origin main
   git clone -q -b main "$TMP/h14-origin.git" "$TMP/h14-other"
   change_bar "$TMP/h14-other/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
   git -C "$TMP/h14-other" -c user.email=o@o -c user.name=o commit -qam other; git -C "$TMP/h14-other" push -q origin main
+  git -C "$R" fetch -q
   CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h14)" "$H" snapshot
-  git -C "$R" pull -q --ff-only
+  git -C "$R" merge -q --ff-only origin/main
   CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h14)" "$H"; expect_code 0; expect_empty
+fi
+
+tc TC-H15 "요청 안에서 커밋하고 원격 기본 브랜치로 push 해도 막는다 (C-05)"
+if on; then
+  R="$(repo h15)"; git -C "$R" update-ref refs/remotes/origin/main HEAD
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h15)" "$H" snapshot
+  change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  git -C "$R" commit -qam change; git -C "$R" update-ref refs/remotes/origin/main HEAD
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h15)" "$H"; expect_code 2; expect_out "완료 보류(java-spring-aitest-coverage)"
+fi
+
+tc TC-H16 "요청 시작 HEAD 를 amend 해도 막는다 (C-05)"
+if on; then
+  R="$(repo h16)"; echo y > "$R/README"; git -C "$R" add README; git -C "$R" commit -qm second
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h16)" "$H" snapshot
+  change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  git -C "$R" commit -qa --amend -m second2
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h16)" "$H"; expect_code 2; expect_out "완료 보류(java-spring-aitest-coverage)"
+fi
+
+tc TC-H17 "amend 가 대상 경로를 건드리지 않으면 막지 않는다 (C-05)"
+if on; then
+  R="$(repo h17)"; echo y > "$R/README"; git -C "$R" add README; git -C "$R" commit -qm second
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h17)" "$H" snapshot
+  git -C "$R" commit -q --amend -m second2
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h17)" "$H"; expect_code 0; expect_empty
+fi
+
+tc TC-H18 "git 루트 ≠ Gradle 루트 — Gradle 루트의 환경으로 게이트를 켜고 0% 를 막는다 (C-02 · C-06)"
+if on; then
+  R="$(mono_repo h18)"; B="$R/backend"
+  CLAUDE_PROJECT_DIR="$B" run_in "$(hook_in h18)" "$H" snapshot
+  change_bar "$B/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  aitest_for "$B/app/src/test/java/com/ex/app/FooControllerAiTest.java" x
+  fresh_report "$B/app/$REPORT" com/ex/app FooController 10 0
+  CLAUDE_PROJECT_DIR="$B" run_in "$(hook_in h18)" "$H"; expect_code 2; expect_out "below 100%"
+fi
+
+tc TC-H19 "Controller 와 그 AiTest 를 지우면 막지 않는다 (C-01)"
+if on; then
+  R="$(repo h19)"; aitest_for "$R/app/src/test/java/com/ex/app/FooControllerAiTest.java" x
+  git -C "$R" add -A; git -C "$R" commit -qm t
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h19)" "$H" snapshot
+  git -C "$R" rm -q app/src/main/java/com/ex/app/FooController.java app/src/test/java/com/ex/app/FooControllerAiTest.java
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h19)" "$H"; expect_code 0; expect_empty
+fi
+
+tc TC-H20 "모듈 디렉터리에서 연 세션이 그 밖의 모듈을 고쳐도 본다 (C-04)"
+if on; then
+  R="$(repo h20)"; CLAUDE_PROJECT_DIR="$R/app" run_in "$(hook_in h20)" "$H" snapshot
+  change_bar "$R/core/src/main/java/com/ex/core/PriceCalculator.java" com.ex.core PriceCalculator
+  CLAUDE_PROJECT_DIR="$R/app" run_in "$(hook_in h20)" "$H"; expect_code 2; expect_out "core/src/main/java/com/ex/core/PriceCalculator.java"
+fi
+
+tc TC-H21 "요청 전에 커밋한 Controller 를 요청 안에서 메시지만 amend 하면 막지 않는다 (C-05)"
+if on; then
+  R="$(repo h21)"; change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  git -C "$R" commit -qam before; git -C "$R" update-ref refs/remotes/origin/main HEAD~1
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h21)" "$H" snapshot
+  git -C "$R" commit -q --amend -m before2
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h21)" "$H"; expect_code 0; expect_empty
+fi
+
+tc TC-H22 "요청 전 Controller 커밋을 amend 하며 대상 밖 파일만 더하면 막지 않는다 (C-05)"
+if on; then
+  R="$(repo h22)"; change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  git -C "$R" commit -qam before; git -C "$R" update-ref refs/remotes/origin/main HEAD~1
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h22)" "$H" snapshot
+  echo r > "$R/README"; git -C "$R" add README; git -C "$R" commit -q --amend -m before2
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h22)" "$H"; expect_code 0; expect_empty
+fi
+
+tc TC-H23 "요청 전 받아둔 원격 위로 요청 안에서 리베이스하면 원격 변경도 이전 커밋도 막지 않는다 (C-05)"
+if on; then
+  R="$(repo h23)"; git -C "$R" checkout -qb feat
+  change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController; git -C "$R" commit -qam feat
+  git -C "$R" checkout -q main; change_bar "$R/core/src/main/java/com/ex/core/PriceCalculator.java" com.ex.core PriceCalculator
+  git -C "$R" commit -qam remote; git -C "$R" update-ref refs/remotes/origin/main HEAD; git -C "$R" checkout -q feat
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h23)" "$H" snapshot
+  git -C "$R" rebase -q origin/main
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h23)" "$H"; expect_code 0; expect_empty
+fi
+
+tc TC-H24 "요청 전 받아둔 원격을 요청 안에서 merge 커밋으로 합쳐도 원격 변경은 막지 않는다 (C-05)"
+if on; then
+  R="$(repo h24)"; git -C "$R" checkout -qb feat; git -C "$R" commit -q --allow-empty -m e; git -C "$R" checkout -q main
+  change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  git -C "$R" commit -qam remote; git -C "$R" update-ref refs/remotes/origin/main HEAD; git -C "$R" checkout -q feat
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h24)" "$H" snapshot
+  git -C "$R" merge -q --no-edit origin/main
+  CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h24)" "$H"; expect_code 0; expect_empty
 fi
 
 flush_tc
