@@ -18,6 +18,8 @@ METRICS="$REF/service-health-metrics.json"
 die() { echo "project-completeness: $*" >&2; exit 2; }
 command -v jq >/dev/null 2>&1 || die "jq 가 필요합니다"
 
+need_val() { [ $# -ge 2 ] || die "$1 에 값이 없습니다"; }
+
 # 쉼표 목록 → JSON 배열
 csv_json() { jq -cn --arg s "${1:-}" '$s | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0))'; }
 
@@ -60,10 +62,9 @@ cmd_detect() {
   in_ci() { grep -Eqi "$1" "$tmp/ci"; }
 
   # 매니페스트 — 의존성 이름이 나오는 곳만
-  : > "$tmp/deps"; : > "$tmp/rundeps"; : > "$tmp/scripts"
+  : > "$tmp/deps"; : > "$tmp/rundeps"
   if [ -f "$root/package.json" ]; then
     jq -r '(.dependencies // {}) | keys[]' "$root/package.json" 2>/dev/null >> "$tmp/rundeps"
-    jq -r '(.scripts // {})[]' "$root/package.json" 2>/dev/null > "$tmp/scripts"
   fi
   # 도구 의존성은 하위 모듈 · 패키지에도 있다 (멀티 모듈 · 모노레포)
   local f
@@ -87,6 +88,8 @@ cmd_detect() {
   rundep() { grep -Eqi "$1" "$tmp/rundeps"; }
 
   local precommit=""; [ -f "$root/.pre-commit-config.yaml" ] && precommit="$(cat "$root/.pre-commit-config.yaml")"
+  local githooks="$precommit"; for f in .husky/pre-commit lefthook.yml lefthook.yaml .lefthook.yml .lefthook.yaml; do [ -f "$root/$f" ] && githooks="$githooks
+$(cat "$root/$f")"; done
   local golangci=""; for f in .golangci.yml .golangci.yaml; do [ -f "$root/$f" ] && golangci="$golangci$(cat "$root/$f")"; done
   local gradle=""; for f in build.gradle build.gradle.kts; do [ -f "$root/$f" ] && gradle="$gradle$(cat "$root/$f")"; done
 
@@ -116,8 +119,11 @@ cmd_detect() {
   local linters='\b(lint|eslint|ruff|golangci|biome|oxlint|gofmt|clippy|xo|flake8|pylint|standard|checkstyle|spotless|ktlint|detekt|pmd)\b'
   local l_ci=false l_pc=false l_sc=false
   in_ci "$linters" && l_ci=true
-  printf '%s' "$precommit" | grep -Eq "$linters" && l_pc=true
-  grep -Eq "$linters" "$tmp/scripts" && in_ci 'npm (run )?(lint|test|ci)|pnpm|yarn|nox|tox|make|gradlew?|mvnw?' && l_sc=true
+  printf '%s' "$precommit" | grep -Eq "$linters" && in_ci 'pre-commit run|pre-commit/action' && l_pc=true
+  # 린터를 부르는 package.json 스크립트를 CI 가 실제로 실행해야 한다 — yarn build 만 도는 CI 는 아니다
+  local lint_scripts
+  lint_scripts="$(jq -r --arg re "$linters" '(.scripts // {}) | to_entries[] | select(.value | test($re)) | .key' "$root/package.json" 2>/dev/null | grep -E '^[A-Za-z0-9:_.-]+$' | sed 's/[.]/[.]/g' | paste -sd'|' -)"
+  [ -n "$lint_scripts" ] && in_ci "(npm|pnpm|yarn|bun)( run)?[[:space:]]+($lint_scripts)([[:space:]]|\$|\"|')" && l_sc=true
   judge code.lint-ci "CI=$l_ci pre-commit=$l_pc script=$l_sc" \
     test "$l_ci" = true -o "$l_pc" = true -o "$l_sc" = true
 
@@ -135,11 +141,24 @@ cmd_detect() {
     test "$ts_strict" = true -o "$py_strict" = true -o "$go_strict" = true -o "$jvm_strict" = true
 
   local gate=false
+  local checks="$linters|(npm|pnpm|yarn|bun)( run)?[[:space:]]+(test|build|check|verify|ci)\b|\b(pytest|tox|nox|gradlew?|mvnw?|jest|vitest|tsc|make)\b|go (test|build|vet)|cargo (test|build)|dotnet (test|build)"
+  # 검사를 로컬 재사용 워크플로 · 복합 액션(uses: ./…)에 두는 PR 워크플로도 있다
+  wf_body() {
+    local u a
+    cat "$root/$1"
+    sed -nE "s/^[[:space:]-]*uses:[[:space:]]*[\"']?\.\/([^\"'@[:space:]]+).*/\1/p" "$root/$1" | grep -v '\.\.' |
+      while IFS= read -r u; do
+        if [ -f "$root/$u" ]; then cat "$root/$u"
+        else for a in action.yml action.yaml; do [ -f "$root/$u/$a" ] && cat "$root/$u/$a"; done; fi
+      done
+    return 0
+  }
   while IFS= read -r f; do
     grep -Eq 'pull_request|merge_request' "$root/$f" 2>/dev/null &&
-      ! grep -Eq 'continue-on-error:[[:space:]]*true|allow_failure:[[:space:]]*true' "$root/$f" && gate=true
+      ! grep -Eq 'continue-on-error:[[:space:]]*true|allow_failure:[[:space:]]*true' "$root/$f" &&
+      wf_body "$f" | grep -Ev '^[[:space:]]*(#|-?[[:space:]]*name:)' | grep -E "$checks" >/dev/null && gate=true
   done < <(list '^\.github/workflows/.*\.ya?ml$|^\.gitlab-ci\.yml$')
-  judge code.quality-gate "PR 트리거 · 실패 허용 없음 = $gate (CI ${ci_count}개)" test "$gate" = true
+  judge code.quality-gate "PR 트리거 · lint · test · build 실행 · 실패 허용 없음 = $gate (CI ${ci_count}개)" test "$gate" = true
   judge code.codeowners "$(list '(^|/)CODEOWNERS$' | head -1)" has '(^|/)CODEOWNERS$'
   put code.ai-provenance unknown "커밋 트레일러 · CONTRIBUTING 의 AI 정책 — git log 로 확인"
   judge code.architecture-boundary "dependency-cruiser · import-linter · ArchUnit · depguard" \
@@ -158,7 +177,7 @@ cmd_detect() {
 
   # security
   local sc_pc=false sc_ci=false
-  printf '%s' "$precommit" | grep -Eq 'gitleaks|trufflehog|detect-secrets' && sc_pc=true
+  printf '%s' "$githooks" | grep -Eq 'gitleaks|trufflehog|detect-secrets' && sc_pc=true
   in_ci 'gitleaks|trufflehog|detect-secrets' && sc_ci=true
   judge security.secret-scan "pre-commit=$sc_pc CI=$sc_ci" test "$sc_pc" = true -a "$sc_ci" = true
   judge security.sast "CI 에 semgrep · codeql · bandit · gosec · spotbugs" \
@@ -180,8 +199,14 @@ cmd_detect() {
   judge perf.lighthouse-budget "lighthouserc + CI lhci" eval 'has "(^|/)lighthouserc|(^|/)\\.lighthouserc" && in_ci "lhci|lighthouse"'
   judge perf.bundle-budget "size-limit · bundlewatch + CI" \
     eval '{ dep "size-limit|bundlewatch|bundlesize" || has "^\\.size-limit"; } && in_ci "size-limit|bundlewatch|bundlesize"'
-  judge perf.load-test "k6 · Gatling · Locust · JMeter 스크립트" \
-    eval 'has "locustfile\\.py$|(^|/)gatling|\\.jmx$" || list "(perf|load-?test|k6)" | grep -Eq "\\.(js|ts)$"'
+  # 경로에 perf 가 든 아무 파일(src/utils/performance.ts)이 아니라 부하 테스트 디렉터리 또는 k6 import 만 센다
+  local load=false
+  if has 'locustfile\.py$|(^|/)gatling|\.jmx$|(^|/)(perf|load|load-?tests?|k6|stress-?tests?)/[^/]*\.(js|ts)$'; then load=true
+  else
+    list '\.(js|ts)$' | head -2000 > "$tmp/jsts"
+    in_files "$tmp/jsts" "(from[[:space:]]+|require\\()[\"']k6(/[a-z/-]+)?[\"']" && load=true
+  fi
+  judge perf.load-test "k6 · Gatling · Locust · JMeter 스크립트 (부하 테스트 디렉터리 또는 k6 import)" test "$load" = true
 
   # ux
   local both="$tmp/both"; cat "$tmp/src" "$tmp/tests" > "$both"
@@ -191,7 +216,12 @@ cmd_detect() {
   # ops
   judge ops.tracing "OpenTelemetry 의존성" dep 'opentelemetry'
   judge ops.slo "SLO 정의 파일 (openslo · sloth)" has '(openslo|sloth|slo)\.ya?ml$|(^|/)slos?/'
-  judge ops.oncall-runbook "런북 · alertmanager" eval 'grep -Eiq "runbook|alertmanager|oncall|on-call" "$tmp/files"'
+  # 빈 파일 · 제목만 있는 파일은 런북이 아니다
+  local oncall=false
+  while IFS= read -r f; do
+    grep -Ev '^[[:space:]]*(#|$)' "$root/$f" 2>/dev/null | grep '[^[:space:]]' >/dev/null && { oncall=true; break; }
+  done < <(grep -Ei 'runbook|alertmanager|oncall|on-call' "$tmp/files")
+  judge ops.oncall-runbook "런북 · alertmanager (제목 · 주석 말고 내용이 있는 파일)" test "$oncall" = true
   judge ops.synthetic-monitoring "Checkly · 합성 모니터링" eval 'dep checkly || has "(^|/)__checks__/"'
   judge ops.rollback "피처 플래그 SDK 또는 롤백 워크플로" \
     eval 'dep "growthbook|unleash|launchdarkly|flagsmith|statsig|openfeature|togglz|ff4j" || in_ci rollback'
@@ -274,8 +304,8 @@ cmd_scope() {
   local type="" na=""
   while [ $# -gt 0 ]; do
     case "$1" in
-      --type) type="${2:-}"; shift 2 ;;
-      --na) na="${2:-}"; shift 2 ;;
+      --type) need_val "$@"; type="$2"; shift 2 ;;
+      --na) need_val "$@"; na="$2"; shift 2 ;;
       *) die "scope: 모르는 인자 $1" ;;
     esac
   done
@@ -305,9 +335,9 @@ cmd_score() {
   local type="" pass="" na=""
   while [ $# -gt 0 ]; do
     case "$1" in
-      --type) type="${2:-}"; shift 2 ;;
-      --pass) pass="${2:-}"; shift 2 ;;
-      --na) na="${2:-}"; shift 2 ;;
+      --type) need_val "$@"; type="$2"; shift 2 ;;
+      --pass) need_val "$@"; pass="$2"; shift 2 ;;
+      --na) need_val "$@"; na="$2"; shift 2 ;;
       *) die "score: 모르는 인자 $1" ;;
     esac
   done

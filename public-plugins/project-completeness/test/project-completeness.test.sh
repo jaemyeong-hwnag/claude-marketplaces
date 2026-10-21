@@ -34,6 +34,13 @@ ptype() { detect "$1" | jq -e --arg t "$2" '.projectType == $t'; }
 ptype_null() { detect "$1" | jq -e '.projectType == null'; }
 out_has() { local p="$1" out; shift; out="$("$@" 2>&1)"; grep -Fq -- "$p" <<<"$out"; }   # 파이프로 grep -q 하면 pipefail 에서 SIGPIPE 로 흔들린다
 exit_is() { local want="$1"; shift; "$@" >/dev/null 2>&1; [ $? -eq "$want" ]; }
+exit_within() { # $1=종료 코드 $2...=명령 — 5초 안에 끝나지 않으면 죽이고 실패 (무한 루프 회귀)
+  local want="$1" p i; shift
+  "$@" >/dev/null 2>&1 & p=$!
+  for i in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$p" 2>/dev/null || break; sleep 0.5; done
+  if kill -0 "$p" 2>/dev/null; then kill "$p"; return 1; fi
+  wait "$p"; [ $? -eq "$want" ]
+}
 
 echo "== detect: 프로젝트 타입"
 D=$(fx web); echo '{"dependencies":{"react":"18"}}' > "$D/package.json"
@@ -110,6 +117,101 @@ tc TC-D19 "IaC 가 없으면 security.iac-scan 은 판정 보류" unknown "$D" s
 echo 'FROM alpine' > "$D/Dockerfile"
 tc TC-D20 "Dockerfile 이 있는데 스캔이 없으면 미통과" failed "$D" security.iac-scan
 
+D=$(fx lintscript); echo '{"private":true,"scripts":{"lint":"eslint ."}}' > "$D/package.json"
+put "$D/.github/workflows/ci.yml" <<'EOF'
+on: [push]
+jobs: { b: { runs-on: ubuntu-latest, steps: [ { run: yarn install && yarn build } ] } }
+EOF
+tc TC-D30 "package.json 에 lint 스크립트가 있어도 CI 가 yarn build 만 돌리면 code.lint-ci 미통과" failed "$D" code.lint-ci
+put "$D/.github/workflows/ci.yml" <<'EOF'
+on: [push]
+jobs: { b: { runs-on: ubuntu-latest, steps: [ { run: yarn install }, { run: yarn lint } ] } }
+EOF
+tc TC-D31 "CI 가 린터를 부르는 스크립트(yarn lint)를 실행하면 통과" passed "$D" code.lint-ci
+
+D=$(fx lintpc); echo x > "$D/README.md"
+printf 'repos:\n  - repo: local\n    hooks: [{ id: ruff, entry: ruff check }]\n' > "$D/.pre-commit-config.yaml"
+put "$D/.github/workflows/ci.yml" <<'EOF'
+on: [push]
+jobs: { t: { runs-on: ubuntu-latest, steps: [ { run: pytest } ] } }
+EOF
+tc TC-D32 "pre-commit 에만 린터가 있고 CI 가 pre-commit 을 돌리지 않으면 code.lint-ci 미통과" failed "$D" code.lint-ci
+put "$D/.github/workflows/ci.yml" <<'EOF'
+on: [push]
+jobs: { t: { runs-on: ubuntu-latest, steps: [ { uses: pre-commit/action@v3.0.1 } ] } }
+EOF
+tc TC-D33 "CI 가 pre-commit 을 돌리면 pre-commit 의 린터로 통과" passed "$D" code.lint-ci
+
+D=$(fx labeler); echo x > "$D/README.md"
+put "$D/.github/workflows/labeler.yml" <<'EOF'
+name: build and test labels
+on: pull_request
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v5
+EOF
+tc TC-D34 "PR 트리거 워크플로가 labeler 뿐이면 code.quality-gate 미통과 (name 의 단어는 세지 않는다)" failed "$D" code.quality-gate
+put "$D/.github/workflows/ci.yml" <<'EOF'
+on: pull_request
+jobs: { t: { runs-on: ubuntu-latest, steps: [ { run: npm ci }, { run: npm test } ] } }
+EOF
+tc TC-D35 "PR 트리거 워크플로가 test 를 돌리면 통과" passed "$D" code.quality-gate
+
+D=$(fx secret-hook); echo x > "$D/README.md"
+put "$D/.github/workflows/s.yml" <<'EOF'
+jobs: { s: { steps: [ { run: gitleaks detect } ] } }
+EOF
+printf '#!/bin/sh\nnpx lint-staged\n' | put "$D/.husky/pre-commit"
+tc TC-D36 "husky 훅에 시크릿 스캐너가 없으면 security.secret-scan 미통과" failed "$D" security.secret-scan
+printf '#!/bin/sh\ngitleaks protect --staged --redact\n' > "$D/.husky/pre-commit"
+tc TC-D37 "CI + .husky/pre-commit 의 gitleaks 면 통과" passed "$D" security.secret-scan
+rm -rf "$D/.husky"; printf 'pre-commit:\n  commands:\n    secrets:\n      run: gitleaks protect --staged\n' > "$D/lefthook.yml"
+tc TC-D38 "CI + lefthook.yml 의 gitleaks 면 통과" passed "$D" security.secret-scan
+
+D=$(fx loadtest); echo x > "$D/README.md"
+echo 'export const mark = () => performance.now();' | put "$D/src/utils/performance.ts"
+tc TC-D39 "경로에 perf 가 든 일반 소스(src/utils/performance.ts)는 perf.load-test 미통과" failed "$D" perf.load-test
+echo "import http from 'k6/http';" | put "$D/scripts/smoke.js"
+tc TC-D40 "k6 를 import 하는 스크립트가 있으면 통과" passed "$D" perf.load-test
+rm -f "$D/scripts/smoke.js"; echo 'export default function () {}' | put "$D/perf/baseline.js"
+tc TC-D41 "부하 테스트 디렉터리(perf/)의 스크립트면 통과" passed "$D" perf.load-test
+
+D=$(fx reusable); echo x > "$D/README.md"
+put "$D/.github/workflows/pr.yml" <<'EOF'
+on: pull_request
+jobs:
+  ci:
+    uses: ./.github/workflows/reusable-ci.yml
+EOF
+put "$D/.github/workflows/reusable-ci.yml" <<'EOF'
+on: workflow_call
+jobs: { t: { runs-on: ubuntu-latest, steps: [ { run: npm test } ] } }
+EOF
+tc TC-D42 "PR 워크플로가 로컬 재사용 워크플로로 test 를 돌리면 code.quality-gate 통과" passed "$D" code.quality-gate
+D=$(fx composite); echo x > "$D/README.md"
+put "$D/.github/workflows/pr.yml" <<'EOF'
+on: pull_request
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/ci
+EOF
+put "$D/.github/actions/ci/action.yml" <<'EOF'
+runs: { using: composite, steps: [ { run: npm test, shell: bash } ] }
+EOF
+tc TC-D43 "PR 워크플로가 로컬 복합 액션으로 test 를 돌리면 code.quality-gate 통과" passed "$D" code.quality-gate
+
+D=$(fx runbook); echo x > "$D/README.md"
+: | put "$D/docs/runbooks/CheckoutAvailability.md"
+tc TC-D44 "빈 런북 파일은 ops.oncall-runbook 미통과" failed "$D" ops.oncall-runbook
+printf '# CheckoutAvailability\n\n## 영향\n\n' > "$D/docs/runbooks/CheckoutAvailability.md"
+tc TC-D45 "제목만 있는 런북은 미통과" failed "$D" ops.oncall-runbook
+printf '# CheckoutAvailability\n\n## 영향\n결제를 완료하지 못한다.\n' > "$D/docs/runbooks/CheckoutAvailability.md"
+tc TC-D46 "내용이 있는 런북이면 통과" passed "$D" ops.oncall-runbook
+
 echo "== detect: 흔적"
 D=$(fx hintsrc); mkdir -p "$D/src"; src3 "$D"
 echo 'export function refund() {}' > "$D/src/pay.js"
@@ -150,6 +252,7 @@ scope_rows() { [ "$("$S" scope --type "$1" | grep -c '^- \[x\]')" -eq $((69 - $(
 tc TC-S01 "--type library 는 N/A 를 뺀 항목만 보인다" scope_rows library
 tc TC-S02 "모르는 타입 → 종료 2" exit_is 2 "$S" scope --type spaceship
 tc TC-S03 "레시피가 있는 항목에 표시" out_has '`security.secret-scan` 🔑 시크릿 스캔이 pre-commit과 CI 양쪽에 있는가 · 레시피' "$S" scope
+tc TC-S05 "값 없이 끝난 --type · --na 는 멈추지 않고 종료 2" eval 'exit_within 2 "$S" scope --type && exit_within 2 "$S" scope --na'
 tc TC-S04 "--na 로 선언한 항목은 빠진다" eval 'out=$("$S" scope --na code.adr); ! grep -Fq "code.adr" <<<"$out"'
 
 echo "== score"
@@ -163,6 +266,8 @@ tc TC-C05 "사용자 선언 N/A 는 따로 표시한다" out_has "사용자 선�
 tc TC-C06 "타입 N/A 와 겹치는 선언은 사용자 선언으로 세지 않는다" eval 'out=$("$S" score --type library --na ops.slo); ! grep -Fq "사용자 선언" <<<"$out"'
 LIBCRIT="$(jq -r '.projectTypes.library.na as $na | [.categories[].items[] | select(.critical) | .id | select(. as $i | $na | index($i) | not)] | join(",")' "$REF/completeness-checklist.json")"
 tc TC-C07 "N/A 인 핵심 항목은 위험도에 넣지 않는다 (library)" out_has "🟢 안전" "$S" score --type library --pass "$LIBCRIT"
+tc TC-C09 "값 없이 끝난 --pass · --type 은 멈추지 않고 종료 2" eval 'exit_within 2 "$S" score --pass && exit_within 2 "$S" score --type'
+tc TC-C10 "빈 값 --pass \"\" (통과 0개)는 그대로 채점한다" eval 'exit_within 0 "$S" score --pass "" && out=$("$S" score --pass ""); grep -Fq "핵심 0/12" <<<"$out"'
 tc TC-C08 "공백 쉼표 · 앞뒤 공백을 견딘다" out_has "핵심 1/12" "$S" score --pass " code.lint-ci ,,"
 
 echo "== health"

@@ -23,9 +23,9 @@
   },
   "categories": [
     {"id": "code", "title": "코드", "iso": "Maintainability", "items": [
-      {"id": "code.lint-ci", "text": "린터·포매터가 CI에서 강제되는가", "critical": true, "mode": "auto", "how": "CI 워크플로에 lint step + 린터 설정 파일(eslint.config.*/.eslintrc*/biome.json/.golangci.y*ml/pyproject[tool.ruff])"},
+      {"id": "code.lint-ci", "text": "린터·포매터가 CI에서 강제되는가", "critical": true, "mode": "auto", "how": "CI 본문이 린터를 실행한다 — 린터 명령, 린터를 부르는 package.json 스크립트(npm·pnpm·yarn·bun run <이름>), 또는 린터가 든 pre-commit 을 CI 가 돌림(pre-commit run·pre-commit/action)"},
       {"id": "code.type-strict", "text": "타입 체크가 strict 모드로 통과하는가", "critical": false, "mode": "auto", "how": "tsconfig strict / mypy strict / .golangci govet·staticcheck 활성"},
-      {"id": "code.quality-gate", "text": "Quality Gate(신규 코드 기준)가 PR을 차단하는가", "critical": true, "mode": "auto", "how": "PR 트리거 워크플로가 존재하고 실패 시 차단되는가 (continue-on-error 아님)"},
+      {"id": "code.quality-gate", "text": "Quality Gate(신규 코드 기준)가 PR을 차단하는가", "critical": true, "mode": "auto", "how": "PR 트리거 워크플로(또는 그것이 부르는 로컬 재사용 워크플로·복합 액션)가 lint·test·build 를 돌리고 실패 시 차단되는가 (continue-on-error 아님, name 의 단어는 세지 않음)"},
       {"id": "code.duplication", "text": "중복 코드 비율이 5% 미만인가", "critical": false, "mode": "run", "how": "jscpd · dupl · SonarQube 중복률", "cost": "2~5분"},
       {"id": "code.unused-code", "text": "미사용 파일·export·의존성이 0에 수렴하는가 (Knip)", "critical": false, "mode": "run", "how": "knip · depcheck · golangci unused", "cost": "1~3분"},
       {"id": "code.complexity", "text": "순환 복잡도 상위 함수를 파악하고 있는가", "critical": false, "mode": "run", "how": "gocyclo · radon · eslint complexity", "cost": "1~2분"},
@@ -44,7 +44,7 @@
       {"id": "test.flaky-tracking", "text": "플레이키 테스트를 추적·격리하는가", "critical": false, "mode": "ask", "how": "플레이키 추적은 CI 대시보드·재시도 정책에 있어 저장소만으로는 불확실"}
     ]},
     {"id": "security", "title": "보안", "iso": "Security", "items": [
-      {"id": "security.secret-scan", "text": "시크릿 스캔이 pre-commit과 CI 양쪽에 있는가", "critical": true, "mode": "auto", "how": "pre-commit 훅과 CI 양쪽에 gitleaks·trufflehog"},
+      {"id": "security.secret-scan", "text": "시크릿 스캔이 pre-commit과 CI 양쪽에 있는가", "critical": true, "mode": "auto", "how": "pre-commit 훅(.pre-commit-config.yaml·.husky/pre-commit·lefthook.yml)과 CI 양쪽에 gitleaks·trufflehog·detect-secrets"},
       {"id": "security.sast", "text": "SAST(Semgrep/CodeQL)가 CI에 있는가", "critical": false, "mode": "auto", "how": "CI 에 semgrep · codeql · bandit · gosec"},
       {"id": "security.sca-sbom", "text": "SCA 스캔과 SBOM 생성·보관을 하는가", "critical": false, "mode": "auto", "how": "CI 에 trivy·osv-scanner·snyk + syft·sbom-action"},
       {"id": "security.critical-vulnerability", "text": "Critical/High 취약점이 0인가", "critical": true, "mode": "run", "how": "trivy fs . 또는 osv-scanner -r . 실행해 실제 건수 확인", "cost": "1~3분"},
@@ -58,7 +58,7 @@
       {"id": "perf.lighthouse-budget", "text": "Lighthouse CI 성능 예산이 PR을 게이트하는가", "critical": false, "mode": "auto", "how": "lighthouserc* 존재 + CI 에서 lhci autorun"},
       {"id": "perf.bundle-budget", "text": "번들 예산이 CI에 있는가", "critical": false, "mode": "auto", "how": "size-limit·bundlewatch 설정 + CI step"},
       {"id": "perf.latency-baseline", "text": "백엔드 p95/p99 지연 기준선이 문서화되어 있는가", "critical": false, "mode": "ask", "how": "p95/p99 기준선 문서는 저장소 밖(위키·대시보드)에 있는 경우가 많다"},
-      {"id": "perf.load-test", "text": "부하 테스트로 포화점(saturation knee)을 알고 있는가", "critical": false, "mode": "auto", "how": "k6·gatling·locust 스크립트 존재. 실제 포화점 수치는 ask"},
+      {"id": "perf.load-test", "text": "부하 테스트로 포화점(saturation knee)을 알고 있는가", "critical": false, "mode": "auto", "how": "locustfile.py·gatling·.jmx, 부하 테스트 디렉터리(perf·load·load-test·k6·stress-test)의 js·ts, 또는 k6 를 import 하는 스크립트. 실제 포화점 수치는 ask"},
       {"id": "perf.slow-query", "text": "DB slow query를 모니터링하는가", "critical": false, "mode": "ask", "how": "DB slow query 모니터링은 인프라 설정에 있다"},
       {"id": "perf.n-plus-one", "text": "N+1 쿼리·불필요 리렌더 점검 이력이 있는가", "critical": false, "mode": "ask", "how": "N+1·리렌더 점검 이력은 PR·이슈 기록을 봐야 한다"}
     ]},
@@ -73,7 +73,7 @@
     {"id": "ops", "title": "운영", "iso": "Reliability · Safety", "items": [
       {"id": "ops.tracing", "text": "OpenTelemetry 계측으로 end-to-end 트레이스가 이어지는가", "critical": false, "mode": "auto", "how": "@opentelemetry/* · opentelemetry-* 의존성과 계측 초기화 파일"},
       {"id": "ops.slo", "text": "핵심 여정에 SLO와 에러버짓이 있는가", "critical": true, "mode": "auto", "how": "SLO 정의(openslo·sloth·nobl9·grafana slo) 파일. 준수율은 service_health 로"},
-      {"id": "ops.oncall-runbook", "text": "온콜·에스컬레이션·런북이 정의되어 있는가", "critical": true, "mode": "auto", "how": "docs/runbooks · 온콜 설정 · alertmanager 라우팅"},
+      {"id": "ops.oncall-runbook", "text": "온콜·에스컬레이션·런북이 정의되어 있는가", "critical": true, "mode": "auto", "how": "docs/runbooks · 온콜 설정 · alertmanager 라우팅 — 제목·주석 말고 내용이 있는 파일"},
       {"id": "ops.status-page", "text": "상태 페이지와 장애 커뮤니케이션 절차가 있는가", "critical": false, "mode": "ask", "how": "상태 페이지는 외부 서비스다"},
       {"id": "ops.synthetic-monitoring", "text": "합성 모니터링이 핵심 플로우를 상시 검증하는가", "critical": false, "mode": "auto", "how": "checkly·__checks__ · 합성 모니터링 설정"},
       {"id": "ops.rollback", "text": "롤백 또는 피처플래그로 즉시 되돌릴 수 있는가", "critical": true, "mode": "auto", "how": "피처 플래그 SDK(growthbook·unleash·launchdarkly) 또는 롤백 워크플로"},
