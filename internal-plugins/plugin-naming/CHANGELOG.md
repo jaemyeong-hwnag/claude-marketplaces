@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.11.0
+
+### Added
+- 사전 `quality` 에 `slop` (동의어 `ai-slop` · `fluff` 금지) (#114) — 새 플러그인 `common-document-slop-review` 와 스킬 `document-slop-review` · 에이전트 `document-slop-reviewer`
+
 ## 0.10.1
 
 ### Fixed
