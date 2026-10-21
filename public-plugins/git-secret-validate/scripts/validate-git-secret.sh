@@ -18,9 +18,17 @@ set -uo pipefail
 PAYLOAD=""
 if [ "$#" -eq 0 ] && [ ! -t 0 ]; then
   PAYLOAD="$(cat)"
-  if [[ "$PAYLOAD" =~ \"tool_name\"[[:space:]]*:[[:space:]]*\"Bash\" ]] && command -v jq >/dev/null 2>&1; then
-    # cwd · 경로에 git 이 흔히 들어가므로 명령만 본다
-    [[ "$(printf '%s' "$PAYLOAD" | jq -r '.tool_input.command // ""' 2>/dev/null)" == *git* ]] || exit 0
+  if [[ "$PAYLOAD" =~ \"tool_name\"[[:space:]]*:[[:space:]]*\"Bash\" ]]; then
+    if command -v jq >/dev/null 2>&1; then
+      # cwd · 경로에 git 이 흔히 들어가므로 명령만 본다
+      [[ "$(printf '%s' "$PAYLOAD" | jq -r '.tool_input.command // ""' 2>/dev/null)" == *git* ]] || exit 0
+    else
+      # exit 1 은 훅 오류일 뿐 명령을 막지 않는다 — 명령을 읽을 수 없으니 commit · push 로 보이면 막는다
+      no_jq_re='"command"[[:space:]]*:[[:space:]]*"([^"\\]|\\.)*git([^"\\]|\\.)*(commit|push)'
+      [[ "$PAYLOAD" =~ $no_jq_re ]] || exit 0
+      echo "validate-git-secret: jq 가 없어 git commit · push 를 검사할 수 없어 막는다 — jq 를 설치한다 (brew install jq)" >&2
+      exit 2
+    fi
   fi
 fi
 
@@ -183,22 +191,41 @@ engine_note() {
 }
 
 # ---- 훅: Bash ------------------------------------------------------------------
-# git 과 하위 명령 사이의 전역 옵션 — git -C dir · git -c k=v · git --no-pager. 두 함수가 같이 쓴다
-GIT_GLOBAL_OPTS='([[:space:]]+-[Cc][[:space:]]+[^[:space:]]+|[[:space:]]+--?[A-Za-z][A-Za-z-]*(=[^[:space:]]+)?)*'
-# 명령에서 git 하위 명령이 있는지
+# git 과 하위 명령 사이의 전역 옵션 — git -C dir · git -c k=v · git --no-pager. 값은 따옴표 문자열도 된다. 두 함수가 같이 쓴다
+GIT_OPT_VAL="(\"[^\"]*\"|'[^']*'|[^[:space:]\"'])+"
+GIT_GLOBAL_OPTS="([[:space:]]+-[Cc][[:space:]]+$GIT_OPT_VAL|[[:space:]]+--?[A-Za-z][A-Za-z-]*(=$GIT_OPT_VAL)?)*"
+# 명령에서 git 하위 명령이 있는지 — /usr/bin/git 처럼 경로로 불러도
 has_git_sub() { # $1=명령 $2=하위 명령
-  printf '%s' "$1" | grep -qE "(^|[;&|(\`[:space:]])git$GIT_GLOBAL_OPTS[[:space:]]+$2([[:space:]]|\$|[;&|)])"
+  printf '%s' "$1" | grep -qE "(^|[;&|(\`[:space:]])([^[:space:];&|(\`]*/)?git$GIT_GLOBAL_OPTS[[:space:]]+$2([[:space:]]|\$|[;&|)])"
 }
-# 하위 명령 뒤 인자 — 다음 셸 구분자까지
+# 하위 명령 뒤 인자 — 다음 셸 구분자까지. GIT_GLOBAL_OPTS 가 묶음 넷을 써서 인자는 여섯째 묶음이다
 git_sub_args() { # $1=명령 $2=하위 명령
-  printf '%s' "$1" | tr '\n' ' ' | sed -nE "s/.*git$GIT_GLOBAL_OPTS[[:space:]]+$2([[:space:]]+([^;&|]*))?.*/\\4/p" | head -1
+  printf '%s' "$1" | tr '\n' ' ' | sed -nE "s/.*git$GIT_GLOBAL_OPTS[[:space:]]+$2([[:space:]]+([^;&|]*))?.*/\\6/p" | head -1
+}
+# 따옴표를 벗겨 단어로 나눈다
+shell_words() { # $1=문자열 → 한 줄에 하나
+  local s="$1" i c q="" w="" on=0
+  for ((i = 0; i < ${#s}; i++)); do
+    c="${s:i:1}"
+    if [ -n "$q" ]; then
+      if [ "$c" = "$q" ]; then q=""; else w="$w$c"; fi
+      continue
+    fi
+    case "$c" in
+      \"|\') q="$c"; on=1 ;;
+      ' '|$'\t') [ "$on" = 1 ] && printf '%s\n' "$w"; w=""; on=0 ;;
+      *) w="$w$c"; on=1 ;;
+    esac
+  done
+  [ "$on" = 1 ] && printf '%s\n' "$w"
+  return 0
 }
 # 명령이 작업할 디렉터리 — 앞쪽 cd X && 와 git -C X 를 따른다
 command_dir() { # $1=명령 $2=훅 cwd
   local d="$2" c x
   c="$(printf '%s' "$1" | sed -nE 's/^[[:space:]]*cd[[:space:]]+("([^"]+)"|'"'"'([^'"'"']+)'"'"'|([^[:space:];&|]+)).*/\2\3\4/p' | head -1)"
   if [ -n "$c" ]; then case "$c" in /*) d="$c" ;; "~"*) d="$HOME${c#\~}" ;; *) d="$d/$c" ;; esac; fi
-  x="$(printf '%s' "$1" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+("([^"]+)"|([^[:space:]]+)).*/\2\3/p' | head -1)"
+  x="$(printf '%s' "$1" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+("([^"]+)"|'"'"'([^'"'"']+)'"'"'|([^[:space:]]+)).*/\2\3\4/p' | head -1)"
   if [ -n "$x" ]; then case "$x" in /*) d="$x" ;; *) d="$d/$x" ;; esac; fi
   printf '%s' "$d"
 }
@@ -222,19 +249,48 @@ commit_pathspecs() { # $1=commit 인자 → 한 줄에 하나
   set +f
 }
 
+# 명령 안 모든 git add 의 인자 → ADD_SPECS(경로) · ADD_FORCE(-f) · ADD_ALL(. · -A · -u 처럼 전체를 넣는다)
+parse_git_add() { # $1=명령
+  local seg tok seen=0
+  ADD_SPECS=(); ADD_FORCE=0; ADD_ALL=0
+  while IFS= read -r seg; do
+    has_git_sub "$seg" add || continue
+    seen=1
+    while IFS= read -r tok; do
+      case "$tok" in
+        --) ;;
+        .|./|:/|-A|--all|-u|--update|--pathspec-from-file*) ADD_ALL=1 ;;
+        -f|--force) ADD_FORCE=1 ;;
+        --*) ;;
+        -*[Au]*) ADD_ALL=1; case "$tok" in *f*) ADD_FORCE=1 ;; esac ;;
+        -*f*) ADD_FORCE=1 ;;
+        -*) ;;
+        # 변수 · 명령 치환은 셸이 펼치기 전이라 어떤 경로인지 모른다
+        *\$*|*\`*) ADD_ALL=1 ;;
+        *) ADD_SPECS+=("$tok") ;;
+      esac
+    done < <(shell_words "$(git_sub_args "$seg" add)")
+  done < <(printf '%s\n' "$1" | tr ';&|' '\n\n\n')
+  # 경로 없는 git add 는 어디를 넣는지 모른다 — 넓게 본다
+  if [ "$seen" = 1 ] && [ "${#ADD_SPECS[@]}" = 0 ]; then ADD_ALL=1; fi
+  return 0
+}
+
 hook_commit() { # $1=저장소 $2=명령
-  local repo="$1" cmd="$2" scan="$TMP/commit" paths="$TMP/commit-paths" add_args commit_args worktree=0 has_head=1 tok
+  local repo="$1" cmd="$2" scan="$TMP/commit" paths="$TMP/commit-paths" commit_args worktree=0 has_head=1 tok
   mkdir -p "$scan"; : > "$paths"
   g -C "$repo" rev-parse -q --verify HEAD >/dev/null 2>&1 || has_head=0
   commit_args="$(git_sub_args "$cmd" commit)"
-  # git add 가 같은 명령에 있으면 아직 스테이징 전이다 — 바뀐 파일 전체를 본다
-  if has_git_sub "$cmd" add; then worktree=1; fi
+  # git add 가 같은 명령에 있으면 아직 스테이징 전이다 — 전체를 넣으면 바뀐 파일 전체, 경로를 주면 그 경로만 본다
+  parse_git_add "$cmd"
+  if [ "$ADD_ALL" = 1 ]; then worktree=1; fi
   if printf ' %s ' "$commit_args" | grep -qE '[[:space:]](-[A-Za-z]*a[A-Za-z]*|--all)[[:space:]]'; then worktree=1; fi
   # git commit <경로> · --only · -i 는 그 경로의 작업 트리 내용을 커밋한다
-  local specs=()
+  local specs=() add_specs=()
   if [ "$worktree" = 0 ] && [ "$has_head" = 1 ]; then
     while IFS= read -r tok; do [ -n "$tok" ] && specs+=("$tok"); done < <(commit_pathspecs "$commit_args")
   fi
+  [ "$worktree" = 0 ] && add_specs=(${ADD_SPECS+"${ADD_SPECS[@]}"})
 
   {
     g -C "$repo" diff --cached -U0 --no-color --no-ext-diff 2>/dev/null
@@ -243,9 +299,24 @@ hook_commit() { # $1=저장소 $2=명령
       else g -C "$repo" diff -U0 --no-color --no-ext-diff 2>/dev/null; fi
     fi
     if [ "${#specs[@]}" -gt 0 ]; then g -C "$CMD_DIR" diff HEAD -U0 --no-color --no-ext-diff -- "${specs[@]}" 2>/dev/null; fi
+    if [ "${#add_specs[@]}" -gt 0 ]; then
+      if [ "$has_head" = 1 ]; then g -C "$CMD_DIR" diff HEAD -U0 --no-color --no-ext-diff -- "${add_specs[@]}" 2>/dev/null
+      else g -C "$CMD_DIR" diff -U0 --no-color --no-ext-diff -- "${add_specs[@]}" 2>/dev/null; fi
+    fi
   } | patch_to_dir "$scan"
   g -C "$repo" diff --cached --name-only --diff-filter=ACMR 2>/dev/null >> "$paths"
   if [ "${#specs[@]}" -gt 0 ]; then g -C "$CMD_DIR" diff HEAD --name-only --diff-filter=ACMR -- "${specs[@]}" 2>/dev/null >> "$paths"; fi
+
+  if [ "${#add_specs[@]}" -gt 0 ]; then
+    g -C "$CMD_DIR" diff --name-only --diff-filter=ACMR -- "${add_specs[@]}" 2>/dev/null >> "$paths"
+    # git add -f 는 ignore 된 파일도 넣는다
+    local exclude=(--exclude-standard)
+    [ "$ADD_FORCE" = 1 ] && exclude=()
+    while IFS= read -r tok; do
+      [ -n "$tok" ] || continue
+      echo "$tok" >> "$paths"; copy_file "$repo" "$tok" "$scan"
+    done < <(g -C "$CMD_DIR" ls-files --full-name -o ${exclude+"${exclude[@]}"} -- "${add_specs[@]}" 2>/dev/null)
+  fi
 
   if [ "$worktree" = 1 ]; then
     g -C "$repo" diff --name-only --diff-filter=ACMR 2>/dev/null >> "$paths"
@@ -254,11 +325,8 @@ hook_commit() { # $1=저장소 $2=명령
       echo "$tok" >> "$paths"; copy_file "$repo" "$tok" "$scan"
     done < <(g -C "$repo" ls-files -o --exclude-standard 2>/dev/null)
     # git add -f 는 ignore 된 파일도 넣는다 — 이름을 적은 파일을 따로 본다
-    add_args="$(git_sub_args "$cmd" add)"
-    if printf ' %s ' "$add_args" | grep -qE '[[:space:]](-[A-Za-z]*f[A-Za-z]*|--force)[[:space:]]'; then
-      for tok in $add_args; do
-        case "$tok" in -*) continue ;; esac
-        tok="${tok%\"}"; tok="${tok#\"}"; tok="${tok%\'}"; tok="${tok#\'}"
+    if [ "$ADD_FORCE" = 1 ]; then
+      for tok in ${ADD_SPECS+"${ADD_SPECS[@]}"}; do
         while IFS= read -r p; do
           [ -n "$p" ] || continue
           echo "$p" >> "$paths"; copy_file "$repo" "$p" "$scan"

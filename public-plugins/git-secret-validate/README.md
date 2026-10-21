@@ -33,11 +33,11 @@ brew install gitleaks    # 권장 — 없으면 내장 패턴으로 본다
 ## 주의
 
 - 커밋은 막고 작성은 경고만 한다. ignore 된 `.env` 에 키를 쓰는 것은 정상이라 알리지 않는다
-- `git add … && git commit` 처럼 한 명령이면 아직 스테이징 전이라 바뀐 파일 · ignore 안 된 새 파일 전체를 본다
+- `git add … && git commit` 처럼 한 명령이면 아직 스테이징 전이라 `git add` 에 준 경로를 본다 (`.` · `-A` · `-u` 면 바뀐 파일 · ignore 안 된 새 파일 전체)
 - `git push` 는 현재 브랜치에서 어떤 원격에도 없는 커밋만 본다
 - Claude 가 실행하는 명령만 본다. 터미널에서 직접 하는 커밋까지 막으려면 pre-commit 과 CI 에 gitleaks 를 따로 둔다
 - 오탐은 그 줄의 `gitleaks:allow` 주석이나 저장소 루트 `.git-secret-allow`(글롭 한 줄씩)로 뺀다. 넣는 것은 사용자가 정한다
-- 바이너리 · 1MB 넘는 파일은 보지 않는다. `jq` · `git` 이 필요하다
+- 바이너리 · 1MB 넘는 파일은 보지 않는다. `jq` · `git` 이 필요하다 (jq 가 없으면 `git commit` · `git push` 를 막는다)
 
 ## 규칙 요약
 
