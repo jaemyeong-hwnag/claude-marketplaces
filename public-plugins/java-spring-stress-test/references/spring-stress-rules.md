@@ -34,7 +34,7 @@ Spring Boot 3.x(Spring MVC · 내장 Tomcat · HikariCP) 서버를 부하 측정
 ### 탐지 범위
 
 - 설정은 `application*.properties` · `application*.yml|yaml` 를 본다. `src/test/` 와 프로필 이름에 `dev` · `local` · `test` 가 들어간 파일은 보지 않는다
-- 한 파일을 `---`(yml) · `#---`(properties) 로 나눈 문서 중 `spring.config.activate.on-profile`(또는 `spring.profiles`)이 `dev` · `local` · `test` 인 문서도 보지 않는다. `!local` 처럼 부정이 든 문서는 본다
+- 한 파일을 `---`(yml) · `#---`(properties) 로 나눈 문서 중 `spring.config.activate.on-profile`(또는 `spring.profiles`)이 `dev` · `local` · `test` 인 문서도 보지 않는다. `!local` 처럼 부정이 든 문서, `dev | prod` · `dev,prod` 처럼 다른 프로필로도 켜지는 문서는 본다
 - 키는 relaxed binding 으로 맞춘다 — 소문자로 바꾸고 `-` · `_` 를 뺀다 (`show-sql` = `showSql`)
 - 환경 변수 · 명령행 인자 · Config Server 로 준 값은 보지 않는다. 실행 명령은 AI 가 본다 (`SPR-11`)
 - `SPR-05` 는 빌드 파일에 `micrometer-registry-prometheus` 가 있을 때, `SPR-07` 은 `spring-boot-starter-actuator` 와 `spring-boot-starter-web` 이 있고 Jetty · Undertow 가 없을 때만 본다

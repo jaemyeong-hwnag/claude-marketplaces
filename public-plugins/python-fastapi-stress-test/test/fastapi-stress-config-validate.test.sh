@@ -121,6 +121,16 @@ put "$d/.github/workflows/e2e.yml" 'jobs:\n  e2e:\n    steps:\n      - run: uvic
 put "$d/.gitlab-ci.yml" 'e2e:\n  script:\n    - fastapi dev app/main.py &\n'
 run "$d"; expect_code 0; expect_no_out
 
+tc TC-F28 "이름에 dev · local · test 가 든 파일 · CI 파일의 워커 설정은 보지 않는다 (FAS-02 과잉 차단 방지)"
+d="$(proj)"
+put "$d/app/metrics.py" 'from prometheus_client import Counter\n'
+put "$d/docker-compose.dev.yml" 'services:\n  api:\n    command: uvicorn app.main:app --workers 4\n'
+put "$d/.github/workflows/e2e.yml" 'jobs:\n  e2e:\n    steps:\n      - run: gunicorn app.main:app -w 4 &\n'
+put "$d/gunicorn_local.py" 'workers = 4\n'
+run "$d"; expect_not "FAS-02"
+put "$d/docker-compose.yml" 'services:\n  api:\n    command: uvicorn app.main:app --workers 4\n'
+run "$d"; expect_code 2; expect_out "FAS-02 docker-compose.yml:3"; expect_not "FAS-02 docker-compose.dev.yml"
+
 tc TC-F06 "워커가 여럿이고 prometheus 를 쓰는데 PROMETHEUS_MULTIPROC_DIR 가 없으면 막는다 (FAS-02)"
 d="$(proj)"
 put "$d/Dockerfile" 'CMD ["fastapi", "run", "app/main.py", "--workers", "4"]\n'

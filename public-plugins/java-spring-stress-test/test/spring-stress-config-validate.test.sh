@@ -222,6 +222,15 @@ run "$p"; expect_code 2; expect_out "❌ SPR-02 src/main/resources/application.y
 p="$(proj s25p)"; printf '#---\nspring.config.activate.on-profile=prod\nlogging.level.root=DEBUG\n' >> "$(props "$p")"
 run "$p"; expect_code 2; expect_out "❌ SPR-02 src/main/resources/application.properties"
 
+tc TC-S26 "dev · local · test 와 운영 프로필을 함께 켜는 문서(dev | prod · dev,prod)는 막고, 모든 선택지가 dev · local · test 면 막지 않는다 (SPR-02)"
+p="$(proj s26)"
+printf 'logging:\n  level:\n    root: INFO\n---\nspring:\n  config:\n    activate:\n      on-profile: dev & cloud\nlogging.level.root: DEBUG\n---\nspring.profiles: dev,local\nlogging.level.root: DEBUG\n' > "$p/src/main/resources/application.yml"
+run "$p"; expect_code 0; expect_no_out
+printf -- '---\nspring.config.activate.on-profile: dev | prod\nlogging.level.root: DEBUG\n' >> "$p/src/main/resources/application.yml"
+run "$p"; expect_code 2; expect_out "❌ SPR-02 src/main/resources/application.yml"
+p="$(proj s26p)"; printf '#---\nspring.profiles=local,prod\nlogging.level.root=DEBUG\n' >> "$(props "$p")"
+run "$p"; expect_code 2; expect_out "❌ SPR-02 src/main/resources/application.properties"
+
 # --- B. 훅 -------------------------------------------------------------------
 BAD="$(proj hookbad)"; sed -i.bak 's/logging.level.root=INFO/logging.level.root=DEBUG/' "$(props "$BAD")"
 

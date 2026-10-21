@@ -35,7 +35,7 @@ FastAPI 서버를 부하 측정할 때 **측정을 무효로 만드는 설정**�
 |---|---|
 | `#` 주석 줄 | 실행되지 않는다 |
 | `*.md` 등 문서 | 실행 구성이 아니다 |
-| 파일 이름에 `dev` · `develop` · `development` · `local` · `test` · `tests` · `testing` 이 단어로 든 파일(`docker-compose.dev.yml`), Makefile 의 그 이름 대상(`dev:`), CI 파일(`.github/` · `.gitlab-ci.yml`) — `FAS-01` | 측정 대상이 아니라 개발 · 테스트 기동이다 |
+| 파일 이름에 `dev` · `develop` · `development` · `local` · `test` · `tests` · `testing` 이 단어로 든 파일(`docker-compose.dev.yml`), Makefile 의 그 이름 대상(`dev:`), CI 파일(`.github/` · `.gitlab-ci.yml`) — `FAS-01` · `FAS-02` 워커 수 | 측정 대상이 아니라 개발 · 테스트 기동이다 |
 | `reload=False` · `debug=False` · `debug=settings.debug` | 리터럴 `True` 만 본다. 변수는 AI 가 값의 출처를 본다 |
 | `--workers 1` · 워커 지정 없음 (`FAS-02`) | 프로세스가 하나면 레지스트리가 하나다 |
 | `.venv/` · `venv/` · `site-packages/` · `node_modules/` · `.git/` · `.tox/` · `build/` · `dist/` · 루트의 `.claude/` | 의존성 · 산출물이다 |

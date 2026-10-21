@@ -26,8 +26,13 @@ find_files() { # $1=루트 $2...=find 이름 조건
 # 한 파일 안의 문서(--- · #---) 중 dev · local · test 프로필에서만 켜지는 문서는 뺀다
 DOC_AWK='
   function doc_key(k, v,   n) { n = tolower(k); gsub(/[-_]/, "", n); if (n == "spring.config.activate.onprofile" || n == "spring.profiles") prof = prof " " tolower(v) }
+  function dev_only(   n, a, i, m) {
+    if (prof ~ /!/) return 0
+    n = split(prof, a, /[|,]/)
+    for (i = 1; i <= n; i++) { if (a[i] ~ /^[ \t()]*$/) continue; if (a[i] !~ /(^|[^a-z])(dev|develop|development|local|test|tests|testing)([^a-z]|$)/) return 0; m = 1 }
+    return m }
   function doc_flush(   i) {
-    if (!(prof !~ /!/ && prof ~ /(^|[^a-z])(dev|develop|development|local|test|tests|testing)([^a-z]|$)/)) for (i = 1; i <= nb; i++) print buf[i]
+    if (!dev_only()) for (i = 1; i <= nb; i++) print buf[i]
     nb = 0; prof = "" }
   function emit(k, v) { doc_key(k, v); buf[++nb] = k "=" v }
   END { doc_flush() }'

@@ -11,7 +11,7 @@ test/spring-stress-config-validate.test.sh TC-S3     # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다.
 
-## 자동 TC (34건)
+## 자동 TC (35건)
 
 픽스처는 **규칙을 지키는 프로젝트**(`build.gradle` · `application.properties` · `Dockerfile` · JMH 소스)이고, TC 마다 복사해 한 곳만 깨뜨린다. 과잉 탐지를 막는 TC 를 조항마다 둔다.
 
@@ -44,6 +44,7 @@ test/spring-stress-config-validate.test.sh TC-S3     # ID 접두사로 필터
 | TC-S23 | 루트가 .claude/worktrees 안이어도 검사한다 (제외는 루트 기준) |
 | TC-S24 | 디렉터리가 아니면 오류 1 |
 | TC-S25 | 한 파일 안 dev · local · test 프로필 문서(--- · #---)의 DEBUG 는 막지 않고, 운영 · 부정(!local) 프로필 문서는 막는다 (SPR-02) |
+| TC-S26 | dev · local · test 와 운영 프로필을 함께 켜는 문서(dev \| prod · dev,prod)는 막고, 모든 선택지가 dev · local · test 면 막지 않는다 (SPR-02) |
 
 ### B. 훅
 

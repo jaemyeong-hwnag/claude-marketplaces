@@ -94,8 +94,8 @@ check() {
   done < "$TMP/f01"
 
   # FAS-02 · FAS-03 멀티 워커 + prometheus
-  scan "cfg py" "--workers[\"']?[[:space:],=]+[\"']?($N)([^0-9]|\$)|gunicorn.*[[:space:]]-w[[:space:]]*[\"']?($N)([^0-9]|\$)|WEB_CONCURRENCY[\"']?[[:space:]]*[:=][[:space:]]*[\"']?($N)([^0-9]|\$)" > "$TMP/workers"
-  scan py "(^|[^[:alnum:]_])workers[[:space:]]*=[[:space:]]*(($N)([^0-9]|\$)|.*cpu_count)" >> "$TMP/workers"
+  scan "cfgprod pyprod" "--workers[\"']?[[:space:],=]+[\"']?($N)([^0-9]|\$)|gunicorn.*[[:space:]]-w[[:space:]]*[\"']?($N)([^0-9]|\$)|WEB_CONCURRENCY[\"']?[[:space:]]*[:=][[:space:]]*[\"']?($N)([^0-9]|\$)" > "$TMP/workers"
+  scan pyprod "(^|[^[:alnum:]_])workers[[:space:]]*=[[:space:]]*(($N)([^0-9]|\$)|.*cpu_count)" >> "$TMP/workers"
   if [ -s "$TMP/workers" ] && has "py dep" 'prometheus[-_]'; then
     if ! has "cfg py dep" 'PROMETHEUS_MULTIPROC_DIR|prometheus_multiproc_dir'; then
       while IFS= read -r line; do
