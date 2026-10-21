@@ -1,0 +1,231 @@
+{
+  "rules": {
+    "DS-01": {
+      "level": "block",
+      "message": "사용자에게 하는 말 · 대화 잔재 — 문서가 아니라 채팅 답의 일부다. 지운다",
+      "patterns": [
+        "도움이 (되|되었|되셨|됐)(으면|길|기를|기 바랍)",
+        "(궁금한|더 궁금한|추가로 궁금한) (점|사항|부분)이 (있으시면|있다면|있으면)",
+        "(필요하시면|원하시면) (말씀|알려)",
+        "말씀해 ?주(세요|십시오)",
+        "(아래|다음)(와 같이|처럼) (정리|작성|수정|요약)(했|해 ?드렸|하였)습니다",
+        "요청(하신|하셨던) (대로|내용|문서|사항)",
+        "^(물론|알겠)(입니다|습니다)[.!]",
+        "(좋은|훌륭한|날카로운) (질문|지적)(입니다|이에요|이네요)",
+        "i hope (this|that|it) helps",
+        "let me know if (you|there)",
+        "feel free to (ask|reach out|let me know)",
+        "^(sure|certainly|of course|absolutely)[,!]",
+        "here('s| is) (your|the (updated|revised|rewritten|improved|complete|final)) ",
+        "as an ai( language model)?[ ,]",
+        "(great|excellent|good) question[.!]",
+        "you're (absolutely )?right[.!]",
+        "as of my (last )?(knowledge|training) (update|cutoff)"
+      ]
+    },
+    "DS-02": {
+      "level": "block",
+      "message": "플레이스홀더 · 템플릿 잔재 — 채우지 않은 자리다. 실제 내용으로 채우거나 지운다",
+      "patterns": [
+        "\\[(여기에|이곳에)[^]]*\\]",
+        "\\[(todo|tbd|tbc|placeholder|insert|작성 ?필요|내용 ?입력|추후 ?작성)[^]]*\\]",
+        "lorem ipsum",
+        "(insert|add|put) [a-z ]{1,30} here",
+        "(내용|설명|예시|이름|날짜)(을|를)? (여기에|이곳에) (작성|입력|넣)",
+        "\\{\\{ ?(placeholder|todo|내용|이름|날짜)[^}]*\\}\\}",
+        "todo: ?(작성|채우|추가|내용|fill|write|add content)"
+      ]
+    },
+    "DS-03": {
+      "level": "block",
+      "message": "챗봇 인용 토큰 · 흔적 — 생성 도구의 내부 표지가 남았다. 지우고 실제 출처로 바꾼다",
+      "patterns": [
+        "oaicite",
+        "contentreference\\[",
+        "【[0-9]+(:[0-9]+)?†",
+        "turn[0-9]+(search|view|news|file)[0-9]+",
+        "utm_source=(chatgpt\\.com|openai|copilot\\.com|perplexity)",
+        "\\[cite_start\\]",
+        "\\[cite: ?[0-9]"
+      ]
+    },
+    "DS-04": {
+      "level": "block",
+      "message": "상대 링크가 가리키는 경로가 없다 — 경로를 고치거나 링크를 지운다"
+    },
+    "DS-05": {
+      "level": "warn",
+      "message": "출처 없는 출처 표현 — 같은 줄에 링크 · 경로 · 각주를 달거나 `미확인` 으로 표시한다 (지우지 않는다)",
+      "patterns": [
+        "(연구|조사|통계|보고서|자료)(에 따르면|결과에 따르면)",
+        "전문가(들)?(은|는|이|에 따르면)",
+        "업계 (표준|관행|모범 ?사례)",
+        "업계에서는",
+        "(널리|일반적으로) 알려(져|진)",
+        "많은 (사람|개발자|기업|팀|전문가)(들)?(이|은|는)",
+        "(studies|research|surveys?|data) (show|shows|suggest|suggests|indicate|indicates|have shown|has shown)",
+        "experts? (say|agree|argue|believe|recommend)",
+        "according to (experts|studies|research)",
+        "it is (widely|generally|commonly) (known|accepted|believed|agreed)",
+        "industry[- ]standard",
+        "many (people|developers|experts|companies|teams) (believe|say|agree|use)"
+      ]
+    },
+    "DS-06": {
+      "level": "warn",
+      "message": "날짜 없는 시점 표현 — 시간이 지나면 거짓이 된다. 기준일(YYYY-MM)을 적거나 표현을 뺀다",
+      "patterns": [
+        "최근(에|의|들어|까지)?",
+        "최신(의| 버전| 정보| 기능| 모델)",
+        "요즘",
+        "오늘날",
+        "현재(로서는|로는|까지|는|에는| 시점)",
+        "지금은",
+        "(^|[^a-z])currently([^a-z]|$)",
+        "(^|[^a-z])recently([^a-z]|$)",
+        "nowadays",
+        "as of (now|today|this writing)",
+        "at the time of writing",
+        "the latest (version|release|model)"
+      ]
+    },
+    "DS-07": {
+      "level": "warn",
+      "message": "근거 없는 수치 단정 — 같은 줄에 출처 · 측정 방법을 달거나 `미확인` 으로 표시한다 (지우지 않는다)",
+      "patterns": [
+        "[0-9]+(\\.[0-9]+)? ?%",
+        "[0-9]+(\\.[0-9]+)? ?배 ?(빠|느|많|적|높|낮|크|작|향상|증가|감소|개선|절감)",
+        "[0-9]+(\\.[0-9]+)?x (faster|slower|more|less|cheaper|better|improvement)",
+        "(faster|slower|reduced|improved|increased|decreased) by [0-9]"
+      ]
+    },
+    "DS-08": {
+      "level": "warn",
+      "message": "메타 서술 · 구조 예고 — 문서가 무엇을 할지 말하지 말고 바로 내용을 쓴다",
+      "patterns": [
+        "이 (문서|글|섹션|장|절|가이드)(에서는|에서|은|는) .{0,60}(살펴|알아|다루|소개|설명하|정리하)",
+        "(살펴|알아)(보겠습니다|봅시다|보도록)",
+        "^(결론적으로|요약하자면|정리하자면|종합하면|결론부터 말하면)",
+        "앞서 (언급|설명|말)한 (바와 같이|것처럼|대로)",
+        "(주목할|눈여겨볼|기억해야 할) (만한 )?(점|것)은",
+        "in this (document|article|guide|section|post|tutorial),? (we|you|i)('ll| will| are going to)",
+        "let's (dive|explore|take a (closer )?look|walk through|break (it|this) down)",
+        "^(in conclusion|to summarize|in summary|to sum up),",
+        "as (mentioned|discussed|noted|stated) (earlier|above|before|previously)",
+        "it('s| is) (important|worth|crucial) (to note|noting|to mention|mentioning)"
+      ]
+    },
+    "DS-09": {
+      "level": "warn",
+      "message": "마지막 마무리 · 요약 절 — 앞 내용을 되풀이한다. 지우거나, 필요하면 요약을 문서 앞으로 옮긴다",
+      "headings": "^(결론|요약|정리|마치며|맺음말|마무리|끝으로|총평|핵심 ?요약|한눈에 ?보기|tl;?dr|conclusions?|summary|in summary|key takeaways|takeaways|final thoughts|wrapping up|wrap-up|recap)$"
+    },
+    "DS-10": {
+      "level": "warn",
+      "message": "생성 모델이 과하게 쓰는 어휘가 몰려 있다 — 구체적인 사실 · 동작으로 바꾼다",
+      "min_distinct": 3,
+      "words": [
+        "additionally", "commendable", "comprehensive", "crucial", "delve", "delves", "delving",
+        "elevate", "embark", "empower", "enduring", "enhance", "foster", "fostering", "garner",
+        "holistic", "intricate", "landscape", "leverage", "meticulous", "meticulously",
+        "multifaceted", "notably", "nuanced", "paramount", "pivotal", "realm", "showcase",
+        "showcasing", "streamline", "tapestry", "testament", "underscore", "underscores",
+        "valuable", "vibrant"
+      ],
+      "patterns": [
+        "시사(하|한|합|된|점)",
+        "다양한",
+        "효과적으로",
+        "원활(한|하게)",
+        "핵심적(인|으로)",
+        "중요한 역할",
+        "극대화",
+        "체계적(인|으로)",
+        "포괄적(인|으로)",
+        "심층적(인|으로)",
+        "종합적(인|으로)",
+        "도모",
+        "제고"
+      ]
+    },
+    "DS-11": {
+      "level": "warn",
+      "message": "대비 구문이 반복된다 (\"X 가 아니라 Y\") — 주장할 것만 바로 쓴다",
+      "min_count": 2,
+      "patterns": [
+        "(단순히|단지|그저|단순한) .{1,40}아니(라|다)",
+        "뿐(만)? 아니라",
+        "에 그치지 않(고|는다)",
+        "not (just|only|merely|simply) [a-z]",
+        "(isn't|is not|aren't|are not) (just|only|merely) ",
+        "it('s| is) not [a-z ,]{1,40}[,;]+ it('s| is) "
+      ]
+    },
+    "DS-12": {
+      "level": "warn",
+      "message": "과장 · 홍보 어휘 — 근거가 되는 사실(수치 · 동작)로 바꾸거나 지운다",
+      "patterns": [
+        "획기적", "혁신적", "놀라운", "완벽(한|하게)", "최고의", "탁월한", "압도적", "독보적",
+        "게임 ?체인저", "차세대",
+        "groundbreaking", "revolutionary", "game[- ]chang(er|ing)", "cutting[- ]edge",
+        "state[- ]of[- ]the[- ]art", "world[- ]class", "best[- ]in[- ]class", "seamless",
+        "unparalleled", "unprecedented", "remarkable", "stunning", "breathtaking", "nestled",
+        "boasts", "renowned", "effortless", "supercharge", "next[- ]generation"
+      ]
+    },
+    "DS-13": {
+      "level": "warn",
+      "message": "헤지가 겹친다 — 확실하면 단정하고, 불확실하면 무엇이 불확실한지 한 번만 쓴다",
+      "patterns": [
+        "(수|것) ?도 있을 (수도|것 ?같|것으로)",
+        "것으로 보일 수",
+        "일 수도 있을",
+        "것 같기도",
+        "(아마|어쩌면|아마도) .{0,30}(수도|것 같|듯)",
+        "(다소|어느 정도|비교적) .{0,20}(수도 있|것 같|듯하)",
+        "(may|might|could) (possibly|potentially|perhaps|conceivably)",
+        "(possibly|potentially|perhaps) (may|might|could)",
+        "it (may|might|could) be (argued|said|suggested) that",
+        "(generally|typically|usually) (tends?|seems?|appears?) to"
+      ]
+    },
+    "DS-14": {
+      "level": "warn",
+      "message": "형식 과잉 — 굵게 · \"**머리말**: 설명\" 목록 · 이모지 제목을 줄이고, 산문이 맞는 곳은 문장으로 쓴다",
+      "bold_min": 8,
+      "bold_ratio": 0.5,
+      "lead_run": 6
+    },
+    "DS-15": {
+      "level": "warn",
+      "message": "제목 수준을 건너뛰었다 — 한 단계씩 내려간다"
+    },
+    "DS-16": {
+      "level": "warn",
+      "message": "같은 문장이 문서 안에 또 있다 — 한 곳에만 둔다",
+      "min_bytes": 40
+    }
+  },
+  "evidence": [
+    "https?://",
+    "\\]\\(",
+    "\\[\\^",
+    "\\[[0-9]+\\]",
+    "출처",
+    "근거",
+    "측정",
+    "실측",
+    "벤치마크",
+    "미확인",
+    "et al",
+    "source:",
+    "measured",
+    "benchmark",
+    "unverified"
+  ],
+  "dated": [
+    "(19|20)[0-9][0-9]",
+    "기준일",
+    "as of [a-z]+ [0-9]"
+  ]
+}

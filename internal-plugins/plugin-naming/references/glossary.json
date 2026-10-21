@@ -322,6 +322,14 @@
       "meaning": "시간 · 공간 · 쿼리 · IO 자원을 얼마나 적게 쓰는가"
     },
     {
+      "use": "slop",
+      "deny": [
+        "ai-slop",
+        "fluff"
+      ],
+      "meaning": "요청한 일을 진척시키지 않는 저품질 생성 콘텐츠"
+    },
+    {
       "use": "standard",
       "deny": [
         "std",
