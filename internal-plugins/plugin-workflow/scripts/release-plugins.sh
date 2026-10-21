@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# 플로우 11 단계 — 머지 뒤 main 에서, 버전이 바뀐 플러그인마다 태그를 달고 GitHub 릴리즈를 만든다.
+# 플로우 11 단계 — 머지 뒤 main 에서, 현재 version 의 태그가 없는 플러그인마다 태그를 달고 GitHub 릴리즈를 만든다.
 #
 #   release-plugins.sh [--dry-run] [--since <ref>] [루트]
 #
-#   --since <ref>  이 ref 와 비교해 version 이 바뀐 플러그인을 고른다 (기본: HEAD^1 — 머지 커밋의 첫 부모)
+#   대상     현재 version 의 {name}--v{version} 태그가 없는 플러그인 — 머지를 여러 번 한 뒤 돌려도 빠지지 않는다
+#   --since <ref>  대상을 이 ref 이후 version 이 바뀐 플러그인으로 좁힌다
 #   --dry-run      무엇을 할지만 보여준다. 태그·푸시·릴리즈를 하지 않는다
 #
 # 시작 전에 전부 확인하고, 하나라도 걸리면 아무것도 하지 않는다.
 #   main 인가 · 작업 트리가 깨끗한가 · origin/main 과 같은가 · 설치본에 Error 가 없는가 ·
-#   태그가 이미 있지 않은가 · CHANGELOG 에 그 버전 절이 있는가
+#   이 저장소의 설치본 version 이 이번 version 인가 · CHANGELOG 에 그 버전 절이 있는가
 #
 # 종료 코드: 0 성공(또는 할 것 없음) / 2 확인 실패 / 1 실행 오류
 set -uo pipefail
@@ -38,22 +39,28 @@ git fetch -q origin "$MAIN" 2>/dev/null || [ "$DRY" = 1 ] || fail "origin 에서
 if git rev-parse --verify -q "origin/$MAIN" >/dev/null; then
   [ "$(git rev-parse HEAD)" = "$(git rev-parse "origin/$MAIN")" ] || fail "HEAD 가 origin/main 과 다르다 — git pull --ff-only 먼저"
 fi
-SINCE="${SINCE:-HEAD^1}"
-git rev-parse --verify -q "$SINCE^{commit}" >/dev/null || fail "비교 기준 '$SINCE' 를 찾을 수 없다"
+if [ -n "$SINCE" ]; then
+  git rev-parse --verify -q "$SINCE^{commit}" >/dev/null || fail "비교 기준 '$SINCE' 를 찾을 수 없다"
+fi
 
 MARKET="$(jq -r '.name // ""' .claude-plugin/marketplace.json 2>/dev/null)"
 
-# 2. 대상 — version 이 바뀐 플러그인
+# 2. 대상 — 현재 version 의 태그가 없는 플러그인
 TARGETS=()
 while IFS= read -r pj; do
   rel="${pj#./}"; dir="$(dirname "$(dirname "$rel")")"
   new="$(jq -r '.version // ""' "$rel" 2>/dev/null)"; name="$(jq -r '.name // ""' "$rel" 2>/dev/null)"
-  old="$(git show "$SINCE:$rel" 2>/dev/null | jq -r '.version // ""' 2>/dev/null)"
-  [ -n "$new" ] && [ -n "$name" ] && [ "$new" != "$old" ] && TARGETS+=("$name|$new|$dir")
+  [ -n "$new" ] && [ -n "$name" ] || continue
+  git rev-parse -q --verify "refs/tags/$name--v$new" >/dev/null && continue
+  if [ -n "$SINCE" ]; then
+    old="$(git show "$SINCE:$rel" 2>/dev/null | jq -r '.version // ""' 2>/dev/null)"
+    [ "$new" != "$old" ] || continue
+  fi
+  TARGETS+=("$name|$new|$dir")
 done < <(find . -mindepth 4 -maxdepth 4 -path './*plugins/*/.claude-plugin/plugin.json' -not -path './.claude/*' | sort)
 
 if [ "${#TARGETS[@]}" -eq 0 ]; then
-  echo "릴리즈할 플러그인이 없다 — $SINCE 이후 version 이 바뀐 플러그인이 없다"
+  echo "릴리즈할 플러그인이 없다 — 모든 플러그인의 현재 version 에 태그가 있다${SINCE:+ (기준 $SINCE 이후 version 이 바뀐 것 중)}"
   exit 0
 fi
 
@@ -67,11 +74,13 @@ prev_tag_version() { # $1=이름 $2=이번 버전
 
 # 3. 사전 확인
 NOTES_DIR="$(mktemp -d)"; trap 'rm -rf "$NOTES_DIR"' EXIT
-LOADERR=""
+LOADERR=""; LJ=""; LJ_OK=0
+ROOT_P="$(pwd -P)"
 if command -v claude >/dev/null 2>&1; then
   # --json 의 errors 필드 우선, 못 받으면 텍스트의 Error: 줄
   LJ="$(claude plugin list --json 2>/dev/null)"
   if printf '%s' "$LJ" | jq -e 'type == "array"' >/dev/null 2>&1; then
+    LJ_OK=1
     LOADERR="$(printf '%s' "$LJ" | jq -r '.[] | select((.errors // []) | length > 0) | "\(.id) Error: \(.errors[0])"')"
   else
     LOADERR="$(claude plugin list 2>/dev/null | awk '/❯/ { id = $NF; next } /^[[:space:]]*Error:/ { sub(/^[[:space:]]*/, ""); print id " " $0 }')"
@@ -82,7 +91,13 @@ for t in "${TARGETS[@]}"; do
   tag="$name--v$ver"
   printf '%s\n' "$LOADERR" | grep -q "^$name@$MARKET " && \
     fail "'$name@$MARKET' 로드 실패가 있다 — 설치 확인(10 단계)을 통과하지 못한 버전은 릴리즈하지 않는다: $(printf '%s\n' "$LOADERR" | grep "^$name@$MARKET " | head -1)"
-  git rev-parse -q --verify "refs/tags/$tag" >/dev/null && fail "태그 '$tag' 가 이미 있다"
+  # sync 훅은 public 플러그인을 갱신하지 않아 옛 설치본이 로드 에러 없이 남는다 — 이 저장소에 적용되는 설치본의 version 을 본다
+  [ "$LJ_OK" = 1 ] || fail "설치본 버전을 확인할 수 없다 — claude plugin list --json 이 필요하다"
+  inst="$(printf '%s' "$LJ" | jq -r --arg id "$name@$MARKET" --arg r "$ROOT" --arg rp "$ROOT_P" \
+    '.[] | select(.id == $id and (.scope == "user" or .projectPath == $r or .projectPath == $rp)) | "\(.scope)=\(.version)"')"
+  [ -n "$inst" ] || fail "'$name@$MARKET' 가 이 저장소에 설치돼 있지 않다 — 설치하고 확인(10 단계)한 뒤 릴리즈한다"
+  bad="$(printf '%s\n' "$inst" | awk -F= -v v="$ver" '$2 != v' | tr '\n' ' ')"
+  [ -z "$bad" ] || fail "'$name@$MARKET' 설치본(${bad% })이 이번 버전 $ver 이 아니다 — claude plugin update $name@$MARKET --scope <범위> 로 맞추고 확인한 뒤 릴리즈한다"
   # 노트 = 이번 버전 절부터 직전 태그 버전의 절 앞까지. 태그가 한 번도 없었으면 끝까지 (첫 릴리즈).
   # 제목은 '## 0.2.0' 또는 '## 0.2.0 - 2026-09-18' (V-05). 첫 제목은 릴리즈 제목과 겹치므로 뺀다.
   prev="$(prev_tag_version "$name" "$ver")"
@@ -99,7 +114,7 @@ for t in "${TARGETS[@]}"; do
 done
 
 # 4. 실행
-echo "릴리즈 대상 (${#TARGETS[@]}개, 기준 $SINCE)"
+echo "릴리즈 대상 (${#TARGETS[@]}개${SINCE:+, 기준 $SINCE})"
 for t in "${TARGETS[@]}"; do
   IFS='|' read -r name ver dir <<< "$t"
   tag="$name--v$ver"
