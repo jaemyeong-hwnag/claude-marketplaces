@@ -266,6 +266,15 @@ repo c2; plug a-sync '["a-sync"]'; run --all "$R"; expect_out "dependency-rules.
 tc TC-P83 "경고만 있으면 종료 코드 0 이다"
 repo c3; plug t-sync; plug a-sync '[{"name":"t-sync","version":"=1.0.0"}]'; run --all "$R"; expect_code 0; expect_out "⚠️"
 
+tc TC-P84 "--all 이 플러그인을 하나도 못 찾으면 실행 오류다 (#88)"
+repo c4; plug a-sync; run --all "$R/internal-plugins/a-sync"; expect_code 1; expect_out "플러그인을 하나도 찾지 못했습니다"
+
+tc TC-P85 "--all 에 없는 루트를 주면 실행 오류다 (#88)"
+run --all "$TMP/nope"; expect_code 1; expect_out "디렉터리가 없습니다"
+
+tc TC-P86 "--all 이 플러그인을 찾으면 검사한다 (#88)"
+run --all "$R"; expect_code 0
+
 flush_tc
 echo
 printf '통과 %d / 실패 %d' "$PASS" "$FAIL"

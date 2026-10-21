@@ -123,8 +123,12 @@ check_no_url() { # $1=파일 $2=라벨
 }
 
 # ---- A-20 ~ A-28 : README -------------------------------------------------
-section_text() { # $1=README $2=제목 → 그 절의 본문
-  awk -v h="$2" '
+# 코드 펜스(``` · ~~~) 여닫이 판정. 펜스 안의 `# 주석` · `## …` 은 제목이 아니다.
+FENCE_AWK='function fence(  m) { if ($0 ~ /^ ? ? ?```/) m = "```"; else if ($0 ~ /^ ? ? ?~~~/) m = "~~~"; else return 0; if (f == "") f = m; else if (m == f) f = ""; else return 0; return 1 }'
+unfenced() { awk "$FENCE_AWK"' fence() || f != "" { next } { print }' "$1"; }
+section_text() { # $1=README $2=제목 → 그 절의 본문 (펜스 안 줄도 본문으로 낸다)
+  awk -v h="$2" "$FENCE_AWK"'
+    fence() || f != "" { if (on) print; next }
     /^## / { cur = substr($0, 4); sub(/[[:space:]]+$/, "", cur); on = (cur == h); next }
     /^# / { on = 0 }
     on
@@ -148,10 +152,10 @@ check_readme() { # $1=플러그인 디렉터리 $2=플러그인명 $3=배치(pub
   local expected actual x sec events deps d
   [ -r "$readme" ] || return 0   # 없는 것은 구조 규칙(P-01)의 몫
 
-  first="$(grep -m1 -E '^# ' "$readme" | sed -E 's/^# +//; s/[[:space:]]+$//')"
+  first="$(unfenced "$readme" | grep -m1 -E '^# ' | sed -E 's/^# +//; s/[[:space:]]+$//')"
   [ "$first" = "$name" ] || err "$name/README.md: 첫 제목이 '# ${first:-없음}' 입니다 — '# $name' 이어야 합니다 (A-20)"
 
-  headings="$(grep -E '^## ' "$readme" | sed -E 's/^## +//; s/[[:space:]]+$//')"
+  headings="$(unfenced "$readme" | grep -E '^## ' | sed -E 's/^## +//; s/[[:space:]]+$//')"
   has_h() { printf '%s\n' "$headings" | grep -qxF -- "$1"; }
 
   for h in "설치" "의존성" "변경 이력"; do
@@ -272,14 +276,17 @@ validate_plugin_dir() { # $1=디렉터리
 }
 
 validate_all() { # $1=루트
-  local root="${1%/}" pd d
+  local root="${1%/}" pd d n=0
+  [ -d "$root" ] || die "--all: '$root' 디렉터리가 없습니다"
   while IFS= read -r d; do
     [ -r "$d/.claude-plugin/plugin.json" ] || continue
+    n=$((n + 1))
     validate_plugin_dir "$d"
   done < <(
     find "$root" -mindepth 1 -maxdepth 1 -type d -name '*plugins' -not -path '*/.git*' 2>/dev/null \
       | while IFS= read -r pd; do find "$pd" -mindepth 1 -maxdepth 1 -type d 2>/dev/null; done | sort
   )
+  [ "$n" -gt 0 ] || die "--all: '$root' 에서 플러그인을 하나도 찾지 못했습니다 — 마켓플레이스 루트(*-plugins/ 를 가진 디렉터리)를 주세요"
 }
 
 report() {

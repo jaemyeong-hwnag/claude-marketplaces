@@ -50,11 +50,13 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 �
 
 ## 사용
 
+저장소 루트에서 실행한다. `--all` 이 플러그인을 하나도 찾지 못하면 실행 오류(종료 코드 `1`)다.
+
 ```bash
-scripts/validate-dependency.sh --all .                       # 저장소 전체
-scripts/validate-dependency.sh --dependents common-naming .  # 누가 기대는가
-scripts/validate-dependency.sh internal-plugins/order-sync   # 이 플러그인의 선언만
-test/validate-dependency.test.sh                             # 회귀 테스트
+internal-plugins/plugin-dependency/scripts/validate-dependency.sh --all .                       # 저장소 전체
+internal-plugins/plugin-dependency/scripts/validate-dependency.sh --dependents common-naming .  # 누가 기대는가
+internal-plugins/plugin-dependency/scripts/validate-dependency.sh internal-plugins/order-sync   # 이 플러그인의 선언만
+internal-plugins/plugin-dependency/test/validate-dependency.test.sh                             # 회귀 테스트
 ```
 
 ## 변경 이력

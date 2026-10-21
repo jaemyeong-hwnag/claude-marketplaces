@@ -254,9 +254,15 @@ emit_notices_json() {
 }
 
 main() {
+  local root
   if [ "$#" -gt 0 ]; then
     case "$1" in
-      --all) analyze "${2:-$PROJECT_DIR}" ;;
+      --all)
+        root="${2:-$PROJECT_DIR}"
+        [ -d "$root" ] || die "--all: '$root' 디렉터리가 없습니다"
+        [ "$(collect "$root" | jq 'length')" -gt 0 ] || \
+          die "--all: '$root' 에서 플러그인을 하나도 찾지 못했습니다 — 마켓플레이스 루트(*-plugins/ 를 가진 디렉터리)를 주세요"
+        analyze "$root" ;;
       --dependents)
         [ -n "${2:-}" ] || die "--dependents 에는 플러그인 이름이 필요합니다"
         dependents "$2" "${3:-$PROJECT_DIR}"; exit 0 ;;
@@ -270,7 +276,7 @@ main() {
     report
   fi
 
-  local payload event path root
+  local payload event path
   payload="$(cat)"
   [ -n "$payload" ] || exit 0
   event="$(printf '%s' "$payload" | jq -r '.hook_event_name // ""' 2>/dev/null)"

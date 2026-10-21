@@ -352,6 +352,33 @@ tc TC-A54 "README 가 없으면 여기서는 보지 않는다 (P-01 의 몫)"
 P="$(make_plugin)"; rm "$P/README.md"
 run "$P"; expect_code 0
 
+tc TC-A55 "설치 펜스 안의 '# 주석' 에서 절이 끝나지 않는다 (A-28, #88)"
+P="$(make_plugin public)"; readme_sub "$P" "/plugin install order-sync@jaemyeong-hwnag-plugins" "\`\`\`bash
+# 프로젝트 범위로 설치
+claude plugin install order-sync@jaemyeong-hwnag-plugins
+\`\`\`"
+run "$P"; expect_code 0
+
+tc TC-A56 "펜스 밖의 '# 제목' 은 여전히 절을 끝낸다 (A-28, #88)"
+P="$(make_plugin public)"; readme_sub "$P" "/plugin install order-sync@jaemyeong-hwnag-plugins" "# 다른 문서
+
+/plugin install order-sync@jaemyeong-hwnag-plugins"
+run "$P"; expect_code 2; expect_out "(A-28)"
+
+tc TC-A57 "펜스 안의 '## …' 은 절 제목으로 세지 않는다 (A-23, #88)"
+P="$(make_plugin)"; readme_sub "$P" "CHANGELOG.md 참조." "CHANGELOG.md 참조.
+
+\`\`\`markdown
+## 부록
+\`\`\`"
+run "$P"; expect_code 0
+
+tc TC-A58 "펜스 밖의 '## …' 은 절 제목으로 센다 (A-23, #88)"
+P="$(make_plugin)"; readme_sub "$P" "CHANGELOG.md 참조." "CHANGELOG.md 참조.
+
+## 부록"
+run "$P"; expect_code 2; expect_out "'## 변경 이력' 뒤에 '## 부록'"
+
 echo "== D. 훅 모드 =="
 
 P="$(make_plugin)"; SK="$P/skills/order-create/SKILL.md"
@@ -418,6 +445,12 @@ cp -R "$(make_plugin)" "$R/internal-plugins/order-sync"
 cp -R "$R/internal-plugins/order-sync" "$R/internal-plugins/item-sync"
 printf '{ "name": "item-sync" }' > "$R/internal-plugins/item-sync/.claude-plugin/plugin.json"
 run --all "$R"; expect_code 2; expect_out "item-sync/README.md: 첫 제목"; expect_not "order-sync/README.md"
+
+tc TC-A85 "--all 이 플러그인을 하나도 못 찾으면 실행 오류다 (#88)"
+run --all "$(make_plugin)"; expect_code 1; expect_out "플러그인을 하나도 찾지 못했습니다"
+
+tc TC-A86 "--all 에 없는 루트를 주면 실행 오류다 (#88)"
+run --all "$TMP/nope"; expect_code 1; expect_out "디렉터리가 없습니다"
 
 tc TC-A81 "없는 디렉터리는 오류를 낸다"
 run "$TMP/nope"; expect_code 2; expect_out "디렉터리가 없습니다"

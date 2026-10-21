@@ -98,4 +98,4 @@ common               독립                      이름: common-{관심사}
 "${CLAUDE_PLUGIN_ROOT}/scripts/validate-dependency.sh" --dependents {이름} .        # 역참조
 ```
 
-종료 코드 `2` 가 위반이다. 경고(`D-10`)만 있으면 `0` 이다.
+종료 코드 `2` 가 위반이다. 경고(`D-10`)만 있으면 `0` 이다. `--all` 이 플러그인을 하나도 찾지 못하면(마켓플레이스 루트가 아니면) `1` 이다.
