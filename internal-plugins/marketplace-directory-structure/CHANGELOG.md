@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.3.2
+
+### Fixed
+- `R-04` 와 플러그인 파일 검사가 git 이 무시하는 경로까지 보던 것 (#87) — `.agent-tasks/` 초안을 `R-04` 로, 플러그인 안의 `.DS_Store` 를 `P-05` · `P-08` 로 막았다. git 저장소면 `git ls-files -co --exclude-standard` 기준으로 보고, 아니면 전부 본다
+- 훅이 경로의 마지막 `plugins/` 를 플러그인 부모로 봐, slug 가 `plugins` 로 끝나는 워크트리에서 루트의 `test/` · `.claude/hooks/` · `.github/` 를 막던 것 (#87). 가장 오른쪽 `public-plugins/` · `internal-plugins/` 로 자른다
+
 ## 0.3.1
 
 ### Fixed

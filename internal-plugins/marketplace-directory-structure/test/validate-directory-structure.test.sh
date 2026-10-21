@@ -166,6 +166,16 @@ run "$P"; expect_code 0
 : > "$P/test/fixture.json"
 run "$P"; expect_code 2; expect_out "test/ 에는"
 
+tc TC-D10a "git 이 무시하는 파일은 보지 않는다 — 루트 · skills/ 의 .DS_Store (#87)"
+R="$(make_root gitplugin)"; put_plugin "$R" internal-plugins order-sync; git -C "$R" init -q
+printf '.DS_Store\n' > "$R/.gitignore"; mkdir -p "$R/internal-plugins/order-sync/skills"
+: > "$R/internal-plugins/order-sync/.DS_Store"; : > "$R/internal-plugins/order-sync/skills/.DS_Store"
+run "$R/internal-plugins/order-sync"; expect_code 0
+
+tc TC-D10b "git 저장소여도 무시되지 않은 파일은 여전히 막는다 (#87)"
+: > "$R/internal-plugins/order-sync/NOTES.md"
+run "$R/internal-plugins/order-sync"; expect_code 2; expect_out "order-sync/NOTES.md: 플러그인 루트에는"; expect_not ".DS_Store"
+
 echo "== C. 스킬 디렉터리 =="
 
 tc TC-D20 "스킬 디렉터리에 SKILL.md 가 없으면 막는다"
@@ -240,6 +250,15 @@ tc TC-D36 "플러그인이 *-plugins 밖에 있으면 막는다"
 R="$(make_root stray)"; put_plugin "$R" tools order-sync
 run --marketplace "$R"; expect_code 2; expect_out "아래에 둡니다"
 
+tc TC-D36a "git 이 무시하는 경로(.agent-tasks/ 초안)의 플러그인은 R-04 로 보지 않는다 (#87)"
+R="$(make_root gitignored)"; git -C "$R" init -q; printf '.agent-tasks/\n' > "$R/.gitignore"
+put_plugin "$R" .agent-tasks/performance-review draft
+run --marketplace "$R"; expect_code 0
+
+tc TC-D36b "git 저장소여도 무시되지 않은 경로의 플러그인은 여전히 막는다 (#87)"
+put_plugin "$R" drafts order-sync
+run --marketplace "$R"; expect_code 2; expect_out "drafts/order-sync: 플러그인은"; expect_not ".agent-tasks"
+
 tc TC-D37 "플러그인이 한 단계 더 깊으면 막는다"
 R="$(make_root deep)"; put_plugin "$R" internal-plugins/group order-sync
 run --marketplace "$R"; expect_code 2; expect_out "바로 아래에 둡니다"
@@ -276,6 +295,15 @@ run_stdin ""; expect_code 0; expect_no_out
 tc TC-D45 "경로가 없는 훅 입력은 통과시킨다"
 run_stdin '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls"}}'
 expect_code 0; expect_no_out
+
+tc TC-D46 "slug 가 plugins 로 끝나는 워크트리의 루트 파일에는 반응하지 않는다 (#87)"
+run_hook "/x/.claude/worktrees/33-stress-test-plugins/test/a.test.sh"; expect_code 0; expect_no_out
+run_hook "/x/.claude/worktrees/33-stress-test-plugins/.claude/hooks/a.sh"; expect_code 0; expect_no_out
+run_hook "/x/.claude/worktrees/33-stress-test-plugins/.github/pull_request_template.md"; expect_code 0; expect_no_out
+
+tc TC-D47 "그 워크트리 안의 플러그인 위반은 여전히 막는다 (#87)"
+run_hook "/x/.claude/worktrees/33-stress-test-plugins/internal-plugins/order-sync/docs/guide.md"
+expect_code 2; expect_out "order-sync/docs/guide.md: 알 수 없는 디렉터리 'docs/'"
 
 echo "== F. CLI 인자 =="
 

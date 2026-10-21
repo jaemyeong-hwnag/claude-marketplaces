@@ -48,6 +48,10 @@ internal-plugins/          # 내부용 (category: internal)
 
 `.claude/worktrees/` 는 Claude Code 가 워크트리를 만드는 자리다. 그 안은 저장소의 사본이므로 `R-04` 가 보지 않는다 (`.claude/plugins/` 와 같은 이유).
 
+git 저장소면 `R-04` 와 플러그인 파일 검사(`P-05` ~ `P-08`)는 git 이 보는 파일(`git ls-files -co --exclude-standard`)만 본다 — 무시된 초안 · `.DS_Store` 는 검사하지 않는다. git 저장소가 아니면 모든 파일을 본다.
+
+훅은 경로를 가장 오른쪽 `public-plugins/` · `internal-plugins/` 로 잘라 플러그인을 찾는다. 이름이 `plugins` 로 끝나는 다른 디렉터리(워크트리 slug `33-stress-test-plugins` 등)는 플러그인 부모로 보지 않는다.
+
 ## 2. 개별 플러그인
 
 배포용은 `public-plugins/`, 내부용은 `internal-plugins/` 아래에 두며 구조는 같다.

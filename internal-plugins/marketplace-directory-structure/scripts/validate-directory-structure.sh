@@ -38,10 +38,13 @@ has_word() { # $1=목록 $2=단어
 }
 
 # 경로가 플러그인 안이면 SPLIT_NAME(플러그인명) · SPLIT_REL(내부 상대경로) 에 담고 0 을 낸다.
+# 가장 오른쪽 public-plugins/ · internal-plugins/ 로 자른다 — 워크트리 slug(33-stress-test-plugins)를 플러그인 부모로 읽지 않게.
 split_plugin_path() { # $1=경로
-  local p="$1" rest name sub
-  [[ "$p" == *plugins/* ]] || return 1
-  rest="${p##*plugins/}"
+  local p="/${1#/}" rest pub int name sub
+  case "$p" in */public-plugins/*|*/internal-plugins/*) ;; *) return 1 ;; esac
+  pub="${p##*/public-plugins/}"
+  int="${p##*/internal-plugins/}"
+  if [ "${#pub}" -le "${#int}" ]; then rest="$pub"; else rest="$int"; fi
   [ -n "$rest" ] || return 1
   name="${rest%%/*}"
   sub="${rest#*/}"
@@ -93,6 +96,17 @@ check_location() {
   esac
 }
 
+# 검사할 파일을 기준 디렉터리 상대 경로로 낸다. git 저장소면 git 이 보는 파일만 (무시된 .DS_Store · 초안 제외). $1=디렉터리
+list_files() {
+  local dir="$1" f
+  if git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git -C "$dir" ls-files -co --exclude-standard 2>/dev/null \
+      | while IFS= read -r f; do [ -e "$dir/$f" ] && printf '%s\n' "$f"; done
+  else
+    find "$dir" -type f -not -path '*/.git/*' 2>/dev/null | while IFS= read -r f; do printf '%s\n' "${f#"$dir"/}"; done
+  fi
+}
+
 # 플러그인 디렉터리 하나를 통째로 검사한다. $1=디렉터리
 validate_plugin_dir() {
   local dir="${1%/}" name manifest declared hooks_rel f rel s
@@ -129,10 +143,9 @@ validate_plugin_dir() {
     fi
   fi
 
-  while IFS= read -r f; do
-    rel="${f#"$dir"/}"
+  while IFS= read -r rel; do
     check_location "$name" "$rel"
-  done < <(find "$dir" -type f -not -path '*/.git/*' 2>/dev/null | sort)
+  done < <(list_files "$dir" | sort)
 
   if [ -d "$dir/skills" ]; then
     while IFS= read -r s; do
@@ -148,6 +161,17 @@ validate_plugin_dir() {
         err "$name/evals/$(basename "$s"): prompt.md 나 case.yaml 이 없습니다 — 케이스가 아닙니다 (P-10)"
     done < <(find "$dir/evals" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
   fi
+}
+
+# stdin 의 루트 상대 경로에서 플러그인 매니페스트만 고른다. 설치 캐시 · 워크트리는 저장소의 사본이라 뺀다.
+filter_manifests() {
+  local f
+  while IFS= read -r f; do
+    case "$f" in
+      .claude/plugins/*|.claude/worktrees/*) ;;
+      .claude-plugin/plugin.json|*/.claude-plugin/plugin.json) printf '%s\n' "$f" ;;
+    esac
+  done
 }
 
 # 마켓플레이스 루트를 검사한다. $1=루트
@@ -170,7 +194,7 @@ validate_marketplace() {
   done < <(find "$root/.claude-plugin" -maxdepth 1 -type f 2>/dev/null | sort)
 
   while IFS= read -r f; do
-    d="$(dirname "$(dirname "$f")")"
+    d="$(dirname "$(dirname "$root/$f")")"
     rel="${d#"$root"/}"
     case "$rel" in
       public-plugins/*|internal-plugins/*)
@@ -180,8 +204,7 @@ validate_marketplace() {
       *)
         err "$rel: 플러그인은 public-plugins/ 또는 internal-plugins/ 아래에 둡니다 (R-04)" ;;
     esac
-  done < <(find "$root" -type f -name plugin.json -path '*/.claude-plugin/*' \
-             -not -path '*/.git/*' -not -path "$root/.claude/plugins/*" -not -path "$root/.claude/worktrees/*" 2>/dev/null | sort)
+  done < <(list_files "$root" | filter_manifests | sort)
 }
 
 validate_all() { # $1=루트
