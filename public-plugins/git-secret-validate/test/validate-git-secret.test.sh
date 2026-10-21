@@ -144,10 +144,12 @@ printf 'fixtures\n' > "$r/.git-secret-allow"
 run "$r/fixtures/k.py"; expect_code 0
 run "$r/c.py"; expect_code 2; expect_out "c.py"
 
-tc TC-S18 "\$ 가 든 값은 값 전체가 \${…} · \$VAR 일 때만 플레이스홀더다"
+tc TC-S18 "\$ 가 든 값은 \${…} · \$VAR 로 시작할 때만 플레이스홀더다"
 r="$(repo)"; printf 'db_password = "%s"\n' 'Tr0ub4dor$horse' > "$r/a.py"
 run --all "$r"; expect_code 2; expect_out "[GS-01] a.py — generic-secret"
 r="$(repo)"; printf 'db_password = "%s"\napi_key = "%s"\n' '$DB_PASSWORD' '${API_KEY:-none}' > "$r/a.py"
+run --all "$r"; expect_code 0
+r="$(repo)"; printf 'PRIVATE_KEY_PATH="%s"\nAPI_KEY_FILE="%s"\n' '$HOME/.ssh/deploy_key' '${XDG_CONFIG_HOME}/app/key' > "$r/deploy.sh"
 run --all "$r"; expect_code 0
 
 # --- B. 훅 — Bash ------------------------------------------------------------
@@ -186,7 +188,7 @@ run_stdin "$(payload_bash "$r" 'git commit -m "fix app.py" --author "a <a@b>"')"
 run_stdin "$(payload_bash "$r" 'git commit -m app.py')"; expect_code 0
 run_stdin "$(payload_bash "$r" 'git commit b.py -m x')"; expect_code 0
 
-tc TC-S47 "git add <경로> 는 그 경로만 보고, . · -A · -u · 경로 없는 git add 는 바뀐 파일 전체를 본다"
+tc TC-S47 "git add <경로> 는 그 경로만 보고, . · -A · -u · 경로 없는 · 변수 경로 git add 는 바뀐 파일 전체를 본다"
 r="$(repo)"; printf 'DB_HOST=localhost\n' > "$r/.env"; printf 'b\n' > "$r/b.txt"; mkdir -p "$r/src"; printf 'x = 1\n' > "$r/src/a.py"
 run_stdin "$(payload_bash "$r" 'git add b.txt && git commit -m "feat: b"')"; expect_code 0; expect_no_out
 run_stdin "$(payload_bash "$r" 'git add "b.txt" src && git commit -m x')"; expect_code 0
@@ -198,6 +200,7 @@ done
 printf 'token = "%s"\n' "$GH_TOKEN" > "$r/src/b.py"; printf 'key = "%s"\n' "$AWS_KEY" >> "$r/app.py"
 run_stdin "$(payload_bash "$r" 'git add src && git commit -m x')"; expect_code 2; expect_out "[GS-01] src/b.py"; expect_not "app.py"
 run_stdin "$(payload_bash "$r" 'git add app.py && git commit -m x')"; expect_code 2; expect_out "[GS-01] app.py"; expect_not "src/b.py"
+run_stdin "$(payload_bash "$r" 'git add "$F" && git commit -m x')"; expect_code 2; expect_out "[GS-01] src/b.py"
 
 tc TC-S48 "-C · -c 값이 따옴표 문자열이어도 commit 으로 알아본다"
 r="$TMP/sp ace"; git init -q -b work "$r"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py
@@ -206,8 +209,20 @@ run_stdin "$(payload_bash "$TMP" "git -C '$r' commit -m x")"; expect_code 2; exp
 run_stdin "$(payload_bash "$r" 'git -c user.name="A B" commit -m x')"; expect_code 2; expect_out "[GS-01] c.py"
 run_stdin "$(payload_bash "$r" "git -c 'user.name=A B' status")"; expect_code 0; expect_no_out
 
+tc TC-S49 "경로로 부른 git 도 commit 으로 알아보고, jq 가 없으면 commit · push 를 막는다"
+r="$(repo)"; printf 'X=1\n' > "$r/.env"; git -C "$r" add .env; mkdir -p "$r/sub"
+run_stdin "$(payload_bash "$r" '/usr/bin/git commit -m x')"; expect_code 2; expect_out "[GS-02] .env"
+run_stdin "$(payload_bash "$r" 'cd sub && ../bin/git -C .. commit -m x')"; expect_code 2; expect_out "[GS-02] .env"
+nojq="$TMP/nojq"; mkdir -p "$nojq"; ln -sf "$(command -v bash)" "$nojq/bash"; ln -sf "$(command -v cat)" "$nojq/cat"
+for c in 'git commit -m x' 'git -c user.name=\"A B\" commit -m x' 'git push'; do
+  OUT="$(printf '{"tool_name":"Bash","cwd":"%s","tool_input":{"command":"%s"}}' "$r" "$c" | PATH="$nojq" "$SCRIPT" 2>&1)"; CODE=$?
+  expect_code 2; expect_out "jq 가 없어"
+done
+OUT="$(printf '{"tool_name":"Bash","cwd":"%s","tool_input":{"command":"git status"}}' "$r" | PATH="$nojq" "$SCRIPT" 2>&1)"; CODE=$?
+expect_code 0; expect_no_out
+
 tc TC-S35 "스테이징된 .env 는 막는다 (GS-02)"
-r="$(repo)"; printf 'X=1\n' > "$r/.env"; git -C "$r" add .env
+r="$(repo)"; printf 'X=1\n' > "$r/.env"; git -C "$r" add .env; mkdir -p "$r/sub"
 run_stdin "$(payload_bash "$r" 'git commit -m env')"; expect_code 2; expect_out "[GS-02] .env"
 
 tc TC-S36 "git add -f 로 ignore 된 파일을 넣으면 막는다 (GS-02)"
@@ -248,7 +263,7 @@ tc TC-S42 "git 저장소 밖 · 빈 입력 · PostToolUse 는 통과한다"
 d="$TMP/plain2"; mkdir -p "$d"
 run_stdin "$(payload_bash "$d" 'git commit -m x')"; expect_code 0; expect_no_out
 run_stdin ""; expect_code 0; expect_no_out
-r="$(repo)"; printf 'X=1\n' > "$r/.env"; git -C "$r" add .env
+r="$(repo)"; printf 'X=1\n' > "$r/.env"; git -C "$r" add .env; mkdir -p "$r/sub"
 run_stdin "$(payload_bash "$r" 'git commit -m x' | jq '.hook_event_name = "PostToolUse"')"; expect_code 0; expect_no_out
 
 tc TC-S43 "git 과 commit 사이의 전역 옵션(--no-pager · -c)이 있어도 -a 를 본다"

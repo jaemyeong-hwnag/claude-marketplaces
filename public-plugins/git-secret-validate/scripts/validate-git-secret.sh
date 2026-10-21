@@ -18,9 +18,17 @@ set -uo pipefail
 PAYLOAD=""
 if [ "$#" -eq 0 ] && [ ! -t 0 ]; then
   PAYLOAD="$(cat)"
-  if [[ "$PAYLOAD" =~ \"tool_name\"[[:space:]]*:[[:space:]]*\"Bash\" ]] && command -v jq >/dev/null 2>&1; then
-    # cwd · 경로에 git 이 흔히 들어가므로 명령만 본다
-    [[ "$(printf '%s' "$PAYLOAD" | jq -r '.tool_input.command // ""' 2>/dev/null)" == *git* ]] || exit 0
+  if [[ "$PAYLOAD" =~ \"tool_name\"[[:space:]]*:[[:space:]]*\"Bash\" ]]; then
+    if command -v jq >/dev/null 2>&1; then
+      # cwd · 경로에 git 이 흔히 들어가므로 명령만 본다
+      [[ "$(printf '%s' "$PAYLOAD" | jq -r '.tool_input.command // ""' 2>/dev/null)" == *git* ]] || exit 0
+    else
+      # exit 1 은 훅 오류일 뿐 명령을 막지 않는다 — 명령을 읽을 수 없으니 commit · push 로 보이면 막는다
+      no_jq_re='"command"[[:space:]]*:[[:space:]]*"([^"\\]|\\.)*git([^"\\]|\\.)*(commit|push)'
+      [[ "$PAYLOAD" =~ $no_jq_re ]] || exit 0
+      echo "validate-git-secret: jq 가 없어 git commit · push 를 검사할 수 없어 막는다 — jq 를 설치한다 (brew install jq)" >&2
+      exit 2
+    fi
   fi
 fi
 
@@ -186,9 +194,9 @@ engine_note() {
 # git 과 하위 명령 사이의 전역 옵션 — git -C dir · git -c k=v · git --no-pager. 값은 따옴표 문자열도 된다. 두 함수가 같이 쓴다
 GIT_OPT_VAL="(\"[^\"]*\"|'[^']*'|[^[:space:]\"'])+"
 GIT_GLOBAL_OPTS="([[:space:]]+-[Cc][[:space:]]+$GIT_OPT_VAL|[[:space:]]+--?[A-Za-z][A-Za-z-]*(=$GIT_OPT_VAL)?)*"
-# 명령에서 git 하위 명령이 있는지
+# 명령에서 git 하위 명령이 있는지 — /usr/bin/git 처럼 경로로 불러도
 has_git_sub() { # $1=명령 $2=하위 명령
-  printf '%s' "$1" | grep -qE "(^|[;&|(\`[:space:]])git$GIT_GLOBAL_OPTS[[:space:]]+$2([[:space:]]|\$|[;&|)])"
+  printf '%s' "$1" | grep -qE "(^|[;&|(\`[:space:]])([^[:space:];&|(\`]*/)?git$GIT_GLOBAL_OPTS[[:space:]]+$2([[:space:]]|\$|[;&|)])"
 }
 # 하위 명령 뒤 인자 — 다음 셸 구분자까지. GIT_GLOBAL_OPTS 가 묶음 넷을 써서 인자는 여섯째 묶음이다
 git_sub_args() { # $1=명령 $2=하위 명령
@@ -257,6 +265,8 @@ parse_git_add() { # $1=명령
         -*[Au]*) ADD_ALL=1; case "$tok" in *f*) ADD_FORCE=1 ;; esac ;;
         -*f*) ADD_FORCE=1 ;;
         -*) ;;
+        # 변수 · 명령 치환은 셸이 펼치기 전이라 어떤 경로인지 모른다
+        *\$*|*\`*) ADD_ALL=1 ;;
         *) ADD_SPECS+=("$tok") ;;
       esac
     done < <(shell_words "$(git_sub_args "$seg" add)")

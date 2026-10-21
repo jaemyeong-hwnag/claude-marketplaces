@@ -27,6 +27,8 @@
 | `git push` | 현재 브랜치에서 어떤 원격에도 없는 커밋 (`HEAD --not --remotes`) 전부 |
 
 - 앞쪽 `cd <dir> &&` 와 `git -C <dir>` 을 따라 저장소를 찾는다. `-C` · `-c` 값은 따옴표 문자열이어도 된다
+- `/usr/bin/git` 처럼 경로로 부른 git 도 본다. `git add` 경로에 변수 · 명령 치환이 있으면 바뀐 파일 전체를 본다
+- `jq` 가 없으면 명령을 읽을 수 없어 `git commit` · `git push` 로 보이는 명령을 막는다
 - 바이너리 · 1MB 넘는 파일은 보지 않는다
 - 다른 브랜치를 이름으로 푸시하는 경우(`git push origin other`)는 현재 브랜치만 본다
 
@@ -42,7 +44,7 @@ gitleaks 가 있으면 gitleaks 의 기본 규칙을 쓴다. 저장소 루트의
 | 자격 증명이 든 값 | JWT, 사용자 · 비밀번호를 넣은 접속 URL |
 | 이름으로 아는 값 | `password` · `secret` · `api_key` · `access_token` · `client_secret` 같은 이름의 변수에 8자 이상 문자열을 직접 넣음 |
 
-- 내장 엔진은 `placeholder` 에 걸리는 값(값 전체가 `${VAR}` · `$VAR` 인 것, `<token>` · `example` · `changeme` · `getenv` …)을 보지 않는다
+- 내장 엔진은 `placeholder` 에 걸리는 값(`${VAR}` · `$VAR` 로 시작하는 값, `<token>` · `example` · `changeme` · `getenv` …)을 보지 않는다
 - 보고는 값의 앞 4글자만 보인다
 
 ## 4. 민감 파일

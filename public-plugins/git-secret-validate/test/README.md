@@ -36,7 +36,7 @@ test/validate-git-secret.test.sh TC-S3    # ID 접두사로 필터
 | TC-S15 | git 저장소가 아닌 디렉터리 · 파일 인자도 본다 |
 | TC-S16 | 하위 디렉터리를 루트로 주면 그 아래만 본다 |
 | TC-S17 | 파일 인자도 .git-secret-allow 를 따른다 |
-| TC-S18 | `$` 가 든 값은 값 전체가 `${…}` · `$VAR` 일 때만 플레이스홀더다 (`Tr0ub4dor$horse` 는 찾는다) |
+| TC-S18 | `$` 가 든 값은 `${…}` · `$VAR` 로 시작할 때만 플레이스홀더다 (`Tr0ub4dor$horse` 는 찾고 `"$HOME/…"` 는 건너뛴다) |
 
 ### B. 훅 — Bash
 
@@ -59,8 +59,9 @@ test/validate-git-secret.test.sh TC-S3    # ID 접두사로 필터
 | TC-S44 | git 이 없는 Bash 명령은 jq · 임시 디렉터리 전에 끝난다 |
 | TC-S45 | git commit <경로> · --only · -i 는 그 경로의 작업 트리 내용을 본다 |
 | TC-S46 | 메시지 · 옵션 값은 경로로 보지 않는다 (과잉 차단 방지) |
-| TC-S47 | git add <경로> 는 그 경로만 보고 (상관없는 .env 로 막지 않는다), . · -A · -u · 경로 없는 git add 는 바뀐 파일 전체를 본다 |
+| TC-S47 | git add <경로> 는 그 경로만 보고 (상관없는 .env 로 막지 않는다), . · -A · -u · 경로 없는 · 변수 경로 git add 는 바뀐 파일 전체를 본다 |
 | TC-S48 | -C · -c 값이 따옴표 문자열이어도 commit 으로 알아본다 |
+| TC-S49 | `/usr/bin/git` 처럼 경로로 부른 git 도 commit 으로 알아보고, jq 가 없으면 commit · push 를 막는다 (exit 1 은 통과된다) |
 
 ### C. 훅 — Write · Edit
 
