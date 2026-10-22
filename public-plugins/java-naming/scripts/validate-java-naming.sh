@@ -79,9 +79,25 @@ scan() {
     # "타입 이름(" · "타입 이름 =" 에서 이름
     function last_ident(s) { sub(/[ \t]*[(=;]$/, "", s); sub(/^.*[^A-Za-z0-9_$]/, "", s); return s }
 
-    BEGIN { incomment = 0; toptype = "" }
+    # 텍스트 블록을 닫는 """ 의 위치 — 앞의 \ 가 홀수 개면 블록 안의 글자다
+    function text_end(s,   i, k, b) {
+      k = 0
+      while ((i = index(s, "\"\"\"")) > 0) {
+        for (b = 0; i - b > 1 && substr(s, i - b - 1, 1) == "\\"; b++) ;
+        if (b % 2 == 0) return k + i
+        k += i + 2; s = substr(s, i + 3)
+      }
+      return 0
+    }
+
+    BEGIN { incomment = 0; intext = 0; toptype = "" }
     {
       line = $0
+      # 텍스트 블록(""") 안의 줄은 코드가 아니다
+      if (intext) {
+        i = text_end(line); if (i == 0) next
+        line = substr(line, i + 3); intext = 0
+      }
       # 문자열 · 문자 리터럴을 비운다 (그 안의 "class" 나 "/*" 를 코드로 읽지 않게)
       gsub(/"([^"\\]|\\.)*"/, "\"\"", line)
       gsub(/\047([^\047\\]|\\.)*\047/, "\047\047", line)
@@ -97,6 +113,7 @@ scan() {
       }
       line = out line
       sub(/\/\/.*$/, "", line)
+      if ((i = index(line, "\"\"\"")) > 0) { line = substr(line, 1, i - 1); intext = 1 }
       if (line ~ /^[ \t]*$/) next
 
       # JN-01 패키지
