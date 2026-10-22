@@ -177,6 +177,6 @@
           pass_filenames: false
   ```
 - **검증**: `pre-commit run --all-files`
-- **CI**: `- uses: pre-commit/action@v3.0.1`
+- **CI**: `- uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1`
 - **롤백**: `pre-commit uninstall` + 설정 파일 삭제
 - **비고**: 원격 훅 저장소(`ruff-pre-commit` · `pre-commit-hooks`)를 쓰면 `rev` 를 설치 시점 최신 태그로 갱신한다 — `pre-commit autoupdate`.

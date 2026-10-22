@@ -73,7 +73,7 @@
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: google/osv-scanner-action/osv-scanner-action@v1
+      - uses: google/osv-scanner-action/osv-scanner-action@764c91816374ff2d8fc2095dab36eecd42d61638 # v1.9.2
         with: { scan-args: "-r ./" }
   ```
 - **검증**: `osv-scanner -r .`
@@ -156,7 +156,7 @@
     steps:
       - uses: actions/checkout@v4
         with: { persist-credentials: false }
-      - uses: ossf/scorecard-action@v2
+      - uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # v2.5.0
         with: { results_file: results.sarif, results_format: sarif }
       - uses: github/codeql-action/upload-sarif@v3
         with: { sarif_file: results.sarif }

@@ -128,7 +128,7 @@
 - **선행 조건**: lcov 리포트 생성 (위 레시피)
 - **설정** — CI step:
   ```yaml
-  - uses: codecov/codecov-action@v4
+  - uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4.6.0
     with:
       files: ./coverage/lcov.info
       token: ${{ secrets.CODECOV_TOKEN }}
@@ -249,7 +249,7 @@
 - **검증**: `npm run build && npx size-limit` → **출력된 현재 크기를 `limit` 에 기입**한다. 임의값 금지.
 - **CI**:
   ```yaml
-  - uses: andresz1/size-limit-action@v1
+  - uses: andresz1/size-limit-action@94bc357df29c36c8f8d50ea497c3e225c3c95d1d # v1.8.0
     with: { github_token: "${{ secrets.GITHUB_TOKEN }}", build_script: build }
   ```
 - **롤백**: `size-limit` 필드 삭제

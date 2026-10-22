@@ -211,6 +211,15 @@ printf '# CheckoutAvailability\n\n## 영향\n\n' > "$D/docs/runbooks/CheckoutAva
 tc TC-D45 "제목만 있는 런북은 미통과" failed "$D" ops.oncall-runbook
 printf '# CheckoutAvailability\n\n## 영향\n결제를 완료하지 못한다.\n' > "$D/docs/runbooks/CheckoutAvailability.md"
 tc TC-D46 "내용이 있는 런북이면 통과" passed "$D" ops.oncall-runbook
+D=$(fx postmortem); echo '{"dependencies":{"express":"4"}}' > "$D/package.json"
+: | put "$D/docs/postmortem.md"
+tc TC-D47 "빈 포스트모템 파일은 ops.postmortem 미통과" failed "$D" ops.postmortem
+printf '# TODO\n' > "$D/docs/postmortem.md"
+tc TC-D48 "주석 · 제목만 있는 포스트모템 템플릿은 미통과" failed "$D" ops.postmortem
+rm "$D/docs/postmortem.md"; echo 'export const postMortem = 1;' | put "$D/src/lib/postMortem.ts"
+tc TC-D49 "이름만 닮은 코드 파일은 미통과" failed "$D" ops.postmortem
+printf '# 2026-01-01 결제 장애\n\n결제 API 가 30분 동안 5xx 를 냈다.\n' | put "$D/docs/postmortems/2026-01-01-payment.md"
+tc TC-D50 "내용이 있는 포스트모템이면 통과" passed "$D" ops.postmortem
 
 echo "== detect: 흔적"
 D=$(fx hintsrc); mkdir -p "$D/src"; src3 "$D"
@@ -314,6 +323,11 @@ crit_doc_ok() {
   [ "$doc" = "$json" ]
 }
 tc TC-X04 "규칙 원본의 핵심 항목 = 체크리스트의 critical" crit_doc_ok
+third_party_pinned() { # 공식(actions/ · github/) 밖의 액션은 @<40자 SHA> # vX.Y.Z
+  ! grep -hoE 'uses: [^ `]+@[^ `]+( # [^`]+)?' "$REF"/recipe-*.md | grep -Ev '^uses: (actions|github)/' |
+    grep -Ev '@[0-9a-f]{40} # v[0-9]+\.[0-9]+\.[0-9]+$' | grep .
+}
+tc TC-X05 "레시피의 서드파티 CI 액션은 SHA 로 고정하고 태그를 주석으로 단다" third_party_pinned
 
 echo
 echo "통과 $PASS / 실패 $FAIL"
