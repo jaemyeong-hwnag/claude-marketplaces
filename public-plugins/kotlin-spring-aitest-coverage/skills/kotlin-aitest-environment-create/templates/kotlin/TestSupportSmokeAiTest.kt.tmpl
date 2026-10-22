@@ -1,0 +1,17 @@
+package {{APP_PACKAGE}}
+
+import {{PACKAGE}}.AiTest
+import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Test
+import org.springframework.context.ApplicationContext
+
+/** test-support 스모크 — 컨텍스트가 testcontainer 인프라로 올라오는지만 본다. 실제 @AiTest 가 생기면 지워도 된다. */
+@AiTest
+class TestSupportSmokeAiTest(
+    private val context: ApplicationContext,
+) {
+    @Test
+    fun `컨텍스트가 testcontainer 인프라로 올라온다`() {
+        assertThat(context.beanDefinitionCount).isPositive()
+    }
+}

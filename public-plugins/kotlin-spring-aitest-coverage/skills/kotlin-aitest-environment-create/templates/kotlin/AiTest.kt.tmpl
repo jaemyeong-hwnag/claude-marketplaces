@@ -1,0 +1,25 @@
+package {{PACKAGE}}
+
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Import
+{{#HAS_PROFILE}}import org.springframework.test.context.ActiveProfiles
+{{/HAS_PROFILE}}import org.springframework.test.context.TestConstructor
+{{#HAS_DB}}import org.springframework.transaction.annotation.Transactional
+{{/HAS_DB}}
+/** 통합 테스트 — 실제 Spring 컨텍스트 + testcontainer 인프라. src/aiTest/kotlin 에 두고 ./gradlew :<module>:aiTest 로 돌린다. */
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+@MustBeDocumented
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.NONE,
+    properties = [
+        "spring.main.allow-bean-definition-overriding=true",
+{{#HAS_DB}}        "spring.jpa.hibernate.ddl-auto=update",
+{{/HAS_DB}}        "spring.batch.job.enabled=false",
+    ],
+)
+@Import(AiTestContainers::class)
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
+{{#HAS_PROFILE}}@ActiveProfiles("{{PROFILE}}")
+{{/HAS_PROFILE}}{{#HAS_DB}}@Transactional
+{{/HAS_DB}}annotation class AiTest

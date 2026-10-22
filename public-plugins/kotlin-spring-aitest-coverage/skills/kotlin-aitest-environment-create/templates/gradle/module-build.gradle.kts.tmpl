@@ -1,0 +1,34 @@
+plugins {
+    {{KOTLIN_JVM_PLUGIN}}
+    `java-library`
+}
+
+// @AiTest 지원 라이브러리 — 프로젝트 내부 모듈에 의존하지 않는다. 버전은 Spring Boot BOM 으로 맞춘다.
+{{#NEED_REPOS}}repositories {
+    mavenCentral()
+}
+
+{{/NEED_REPOS}}kotlin {
+    jvmToolchain({{JDK_VERSION}})
+}
+
+dependencies {
+    api(platform("org.springframework.boot:spring-boot-dependencies:{{BOOT_VERSION}}"))
+    api("org.springframework.boot:spring-boot-starter-test")
+    api("org.springframework.boot:spring-boot-testcontainers")
+    // Gradle 9 부터 JUnit Platform launcher 를 테스트 런타임에 직접 둬야 한다
+    api("org.junit.platform:junit-platform-launcher")
+    api("org.springframework:spring-tx")
+    api("org.testcontainers:testcontainers")
+{{#MYSQL}}    api("org.testcontainers:{{#TC2}}testcontainers-{{/TC2}}mysql")
+{{/MYSQL}}{{#POSTGRESQL}}    api("org.testcontainers:{{#TC2}}testcontainers-{{/TC2}}postgresql")
+{{/POSTGRESQL}}{{#RABBITMQ}}    api("org.testcontainers:{{#TC2}}testcontainers-{{/TC2}}rabbitmq")
+{{/RABBITMQ}}{{#BOOT4}}{{#HAS_WEB}}    // Boot 4 부터 MockMvc 자동 구성이 별도 모듈이다
+    api("org.springframework.boot:spring-boot-webmvc-test")
+{{/HAS_WEB}}{{/BOOT4}}{{#ADD_MOCKK}}    api("com.ninja-squad:springmockk:{{SPRINGMOCKK_VERSION}}")
+{{/ADD_MOCKK}}{{#COROUTINES}}    api("org.jetbrains.kotlinx:kotlinx-coroutines-test")
+{{/COROUTINES}}}
+
+// 루트가 spring-boot 플러그인을 켜도 라이브러리로 빌드되게 한다
+tasks.matching { it.name == "bootJar" }.configureEach { enabled = false }
+tasks.matching { it.name == "jar" }.configureEach { enabled = true }
