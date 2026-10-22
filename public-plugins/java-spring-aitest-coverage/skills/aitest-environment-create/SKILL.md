@@ -43,7 +43,7 @@ description: @AiTest 환경이 없는 Spring Boot(Gradle Groovy) 프로젝트에
 
 ## 2. 사용자 확인 (필수)
 
-생성 전에 보여주고 확인받는다 — 만들 파일 목록 · 고칠 `settings.gradle` · 루트 `build.gradle` · `aiTestModules` · `libraryModules` · 패키지(`<base_package>.test.support`) · 컨테이너 인프라 · 컨테이너 값으로 덮을 설정 키 · Boot · Testcontainers · JDK 버전. 사용자가 고친 값으로 3절을 한다.
+생성 전에 보여주고 확인받는다 — 만들 파일 목록 · 고칠 `settings.gradle` · 루트 `build.gradle` · `aiTestModules` · `libraryModules` · 패키지(`<base_package>.test.support`) · 컨테이너 인프라 · 컨테이너 값으로 덮을 설정 키 · Boot · Testcontainers · JDK 버전 · 4절에서 Docker 준비 스크립트를 돌릴 때 바뀌는 사용자 전역 상태(데몬이 응답하지 않을 때만: Colima 기동 또는 Docker Desktop 실행 · `docker context use colima` · 홈의 `~/.testcontainers.properties` 에 `testcontainers.reuse.enable=true` 추가). 사용자가 고친 값으로 3절을 한다.
 
 ## 3. 생성 (Write · Edit)
 
@@ -87,7 +87,7 @@ description: @AiTest 환경이 없는 Spring Boot(Gradle Groovy) 프로젝트에
 
 1. JDK 를 프로젝트에 맞춘다 (macOS: `export JAVA_HOME=$(/usr/libexec/java_home -v <버전>)`)
 2. `./gradlew :<앱모듈>:compileAiTestJava` (단일 모듈은 `./gradlew compileAiTestJava`)
-3. `./gradlew :<앱모듈>:aiTestFast --tests '*TestSupportSmokeAiTest*' -PskipAiTestCoverage` — Docker 가 없으면 `./scripts/ensure-docker-for-aitest.sh` 먼저
+3. `./gradlew :<앱모듈>:aiTestFast --tests '*TestSupportSmokeAiTest*' -PskipAiTestCoverage` — Docker 데몬이 응답하지 않으면 2절에서 확인받은 경우에만 `./scripts/ensure-docker-for-aitest.sh` 먼저
 4. 실패하면 원인별로 고치고 3 을 다시 한다. 고치는 곳은 지원 모듈 · `gradle/ai-test.gradle` · 생성 블록 안뿐이다
    - 원격 호스트 접속 · `UnknownHost` → 그 설정 키가 initializer 에 없다. 해당 `*TestcontainerInitializer` 의 `TestPropertyValues` 에 더한다
    - 프로파일 설정이 안 읽힘 → `@AiTest` · `@AiWebTest` 의 `@ActiveProfiles` 와 `gradle/ai-test.gradle` 의 `spring.profiles.active` 를 맞춘다
