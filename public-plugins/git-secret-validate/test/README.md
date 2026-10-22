@@ -49,7 +49,7 @@ test/validate-git-secret.test.sh TC-S3    # ID 접두사로 필터
 | TC-S34 | git commit -am 은 바뀐 추적 파일을 본다 |
 | TC-S35 | 스테이징된 .env 는 막는다 (GS-02) |
 | TC-S36 | git add -f 로 ignore 된 파일을 넣으면 막는다 (GS-02) |
-| TC-S37 | cd <저장소> && · git -C <저장소> 를 따라간다 |
+| TC-S37 | cd <저장소> && · git -C <저장소> 를 따라가고, 상대 경로 `cd sub &&` · `git -C sub` 는 같은 저장소로 본다 (깨끗하면 통과) |
 | TC-S38 | 시크릿을 지우는 커밋은 통과한다 (추가된 줄만 본다) |
 | TC-S39 | 첫 커밋(HEAD 없음)도 본다 |
 | TC-S40 | git push 는 원격에 없는 커밋의 시크릿을 막고, 푸시된 뒤에는 통과한다 |
@@ -62,6 +62,10 @@ test/validate-git-secret.test.sh TC-S3    # ID 접두사로 필터
 | TC-S47 | git add <경로> 는 그 경로만 보고 (상관없는 .env 로 막지 않는다), . · -A · -u · 경로 없는 · 변수 경로 git add 는 바뀐 파일 전체를 본다 |
 | TC-S48 | -C · -c 값이 따옴표 문자열이어도 commit 으로 알아본다 |
 | TC-S49 | `/usr/bin/git` 처럼 경로로 부른 git 도 commit 으로 알아보고, jq 가 없으면 commit · push 를 막는다 (exit 1 은 통과된다) |
+| TC-S58 | 명령 중간 · 서브셸 · `bash -c` 의 cd 와 `~` 로 시작하는 cd · git -C 도 따라간다 (cwd 가 다른 저장소 · 저장소 아님) |
+| TC-S59 | cd · git -C 대상에 변수 · 명령 치환이 있으면 commit · push 를 막고, commit · push 가 없거나 뒤의 -C 가 절대 경로면 막지 않는다 |
+| TC-S60 | 서브셸이 끝나면 cd 를 되돌리고, 명령 안 commit 마다 그 저장소를 본다 |
+| TC-S61 | `cd "$(git [-C 경로] rev-parse --show-toplevel)"` 는 그 저장소 루트로 풀어 본다 (스테이징된 키면 막고, 깨끗하면 통과) |
 
 ### C. 훅 — Write · Edit
 

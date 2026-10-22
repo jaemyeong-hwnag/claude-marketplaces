@@ -234,6 +234,48 @@ tc TC-S37 "cd <저장소> && · git -C <저장소> 를 따라간다"
 r="$(repo)"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py
 run_stdin "$(payload_bash "$TMP" "cd $r && git commit -m x")"; expect_code 2; expect_out "c.py"
 run_stdin "$(payload_bash "$TMP" "git -C $r commit -m x")"; expect_code 2; expect_out "c.py"
+mkdir -p "$r/sub"
+for c in 'cd sub && git commit -m x' 'git -C sub commit -m x' 'cd sub; git -C .. status && git commit -m x'; do
+  run_stdin "$(payload_bash "$r" "$c")"; expect_code 2; expect_out "[GS-01] c.py"
+done
+r="$(repo)"; mkdir -p "$r/sub"
+run_stdin "$(payload_bash "$r" 'cd sub && git commit -m x')"; expect_code 0; expect_no_out
+run_stdin "$(payload_bash "$r" 'git -C sub commit -m x')"; expect_code 0; expect_no_out
+
+tc TC-S58 "명령 중간 · 서브셸 · bash -c 의 cd 와 ~ 로 시작하는 cd · git -C 도 따라간다"
+r="$TMP/home/my repo"; mkdir -p "$r"; git init -q -b work "$r"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py
+o="$(repo)"
+for c in "git status && cd \"$r\" && git commit -m x" "cd /tmp && cd \"$r\" && git commit -m x" "(cd \"$r\" && git commit -m x)" \
+  "bash -c 'cd \"$r\" && git commit -m x'" "git -C ~/'my repo' commit -m x" "cd ~/'my repo' && git commit -m x"; do
+  OUT="$(payload_bash "$o" "$c" | HOME="$TMP/home" "$SCRIPT" 2>&1)"; CODE=$?; expect_code 2; expect_out "[GS-01] c.py"
+done
+OUT="$(payload_bash "$TMP" "git -C ~/'my repo' commit -m x" | HOME="$TMP/home" "$SCRIPT" 2>&1)"; CODE=$?; expect_code 2; expect_out "[GS-01] c.py"
+
+tc TC-S59 "cd · git -C 대상에 변수 · 명령 치환이 있으면 commit · push 를 막는다"
+r="$(repo)"
+for c in "R=$r; cd \"\$R\" && git commit -m x" 'git -C "$(pwd)" commit -m x' 'cd `pwd` && git push' 'cd - && git commit -m x'; do
+  run_stdin "$(payload_bash "$TMP" "$c")"; expect_code 2; expect_out "대상 저장소를 알 수 없어"
+done
+run_stdin "$(payload_bash "$TMP" 'cd "$R" && git status')"; expect_code 0; expect_no_out
+run_stdin "$(payload_bash "$TMP" "cd \"\$R\" && git -C $r commit -m x")"; expect_code 0; expect_no_out
+
+tc TC-S60 "서브셸이 끝나면 cd 를 되돌리고, 명령 안 commit 마다 그 저장소를 본다"
+r="$(repo)"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py
+o="$(repo)"; printf 'x = 1\n' > "$o/a.py"; git -C "$o" add a.py
+run_stdin "$(payload_bash "$o" "(cd $r && git status); git commit -m x")"; expect_code 0; expect_no_out
+for c in "git -C $o commit -m x && git -C $r commit -m y" "git -C $r commit -m y && git -C $o commit -m x"; do
+  run_stdin "$(payload_bash "$TMP" "$c")"; expect_code 2; expect_out "[GS-01] c.py"; expect_not "a.py"
+done
+
+tc TC-S61 "cd \"\$(git [-C 경로] rev-parse --show-toplevel)\" 는 그 저장소 루트로 풀어 본다"
+r="$(repo)"; mkdir -p "$r/sub"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py
+for c in 'cd "$(git rev-parse --show-toplevel)" && git commit -m x' 'cd $(git rev-parse --show-toplevel) && git commit -m x'; do
+  run_stdin "$(payload_bash "$r/sub" "$c")"; expect_code 2; expect_out "[GS-01] c.py"
+done
+run_stdin "$(payload_bash "$TMP" "cd \"\$(git -C '$r/sub' rev-parse --show-toplevel)\" && git commit -m x")"; expect_code 2; expect_out "[GS-01] c.py"
+r="$(repo)"; mkdir -p "$r/sub"
+run_stdin "$(payload_bash "$r/sub" 'cd "$(git rev-parse --show-toplevel)" && git commit -m x')"; expect_code 0; expect_no_out
+run_stdin "$(payload_bash "$TMP" "cd \"\$(git -C $r rev-parse --show-toplevel)\" && git commit -m x")"; expect_code 0; expect_no_out
 
 tc TC-S38 "시크릿을 지우는 커밋은 통과한다 (추가된 줄만 본다)"
 r="$(repo)"; printf 'key = "%s"  # gitleaks:allow\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py && git -C "$r" commit -qm k
