@@ -33,6 +33,7 @@ WARNINGS=()
 # 스크립트가 정량 판정할 수 없어 AI 에게 넘기는 항목
 JUDGMENTS=()
 MODE=cli
+PATH_BASE=""
 
 die() { echo "validate-naming: $*" >&2; exit 1; }
 command -v jq >/dev/null 2>&1 || die "jq 가 필요합니다"
@@ -227,12 +228,29 @@ validate_name() {
   done
 }
 
+# $1=절대 경로 → 그 경로가 속한 git 작업 트리 기준 상대 경로 (git 밖이면 실패)
+worktree_relative() {
+  local p="$1" d prefix rest
+  case "$p" in /*) ;; *) return 1 ;; esac
+  d="$p"
+  while [ ! -d "$d" ]; do d="$(dirname "$d")"; done
+  # --show-prefix 는 심링크(/tmp → /private/tmp)가 섞여도 작업 트리 안 위치만 낸다
+  prefix="$(git -C "$d" rev-parse --show-prefix 2>/dev/null)" || return 1
+  rest="${p#"$d"}"
+  printf '%s%s' "$prefix" "${rest#/}"
+}
+
 # 경로에서 검증 대상 이름을 뽑는다
 validate_path() {
-  local orig="${1%/}" path
+  local orig="${1%/}" path wt
   local matched=0 name
   # 프로젝트 안이면 프로젝트 기준 상대 경로로 본다 — 저장소를 둔 상위 폴더 이름(~/my-plugins/, ~/skills/)이 판정에 끼지 않게
   path="${orig#"${PROJECT_DIR%/}"/}"
+  # 파일이 속한 작업 트리가 더 깊으면 그 기준으로 본다 — 메인 체크아웃 세션에서 워크트리 slug(13-x-plugins)를 플러그인 위치로 읽지 않게
+  if wt="$(worktree_relative "$orig")" && [ "${#wt}" -lt "${#path}" ] && [ "${orig%/"$wt"}" != "$orig" ]; then
+    path="$wt"
+  fi
+  PATH_BASE="${orig%"$path"}"
   # 앞의 (.*/)? 가 탐욕적이라 가장 오른쪽 일치를 고른다. 가장 왼쪽을 고르면
   # .claude/worktrees/13-x-plugins/public-plugins/… 에서 'public-plugins' 를 플러그인 이름으로 읽는다 (#24)
   # 이름이 plugins 로 끝나는 디렉터리(plugins/, public-plugins/, internal-plugins/ …)를 플러그인 위치로 본다
@@ -256,13 +274,13 @@ validate_path() {
 }
 
 # 훅 모드에서는 새 이름만 판단을 요청한다 — 기존 파일을 고칠 때마다 이름 재검토로 번지지 않게.
-# $1=원래 경로 $2=프로젝트 기준 경로 $3=이름이 가리키는 대상(디렉터리 · 파일) → 1 판단 요청 / 0 생략
+# $1=원래 경로 $2=프로젝트 · 작업 트리 기준 경로 $3=이름이 가리키는 대상(디렉터리 · 파일) → 1 판단 요청 / 0 생략
 judge_flag() {
   local target="$3"
   [ "$MODE" = hook ] || { echo 1; return; }
   case "$target" in
     /*) ;;
-    *) [ "$1" != "$2" ] && target="${PROJECT_DIR%/}/$target" ;;
+    *) [ "$1" != "$2" ] && target="$PATH_BASE$target" ;;
   esac
   if [ -e "$target" ]; then echo 0; else echo 1; fi
 }

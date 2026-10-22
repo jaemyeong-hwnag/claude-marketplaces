@@ -14,7 +14,7 @@ VERBOSE=1 test/validate-naming.test.sh  # 통과 케이스의 출력까지 표�
 
 종료 코드 0 이면 전체 통과다. 세션 없이 돌아가므로 커밋 전 검증에 그대로 쓴다.
 
-## 자동 TC (101건)
+## 자동 TC (117건)
 
 ### A. 형식 (kebab-case)
 
@@ -107,6 +107,8 @@ VERBOSE=1 test/validate-naming.test.sh  # 통과 케이스의 출력까지 표�
 | TC-068 | 편집 경로의 git 최상위 사전을 쓴다 — 워크트리에서 등록한 단어 (#86) | 통과 (0) | 사본 사전에 `zap` 을 더한 git 저장소의 `public-plugins/order-zap/README.md` |
 | TC-068b | 그 사전이 없는 경로는 기본 사전으로 막는다 (#86) | 차단 (2) | `끝 단어 'zap' 이 사전에 없습니다` |
 | TC-068c | `NAMING_GLOSSARY` 가 git 최상위 사전보다 앞선다 (#86) | 차단 (2) | `끝 단어 'zap' 이 사전에 없습니다` |
+| TC-140 | 메인 체크아웃 세션에서 slug 가 plugins 로 끝나는 워크트리의 루트 파일은 통과시킨다 (#121) | 통과 (0) | `CLAUDE.md` · `test/` · `.github/` · `.claude/hooks/` 출력 없음 |
+| TC-141 | 그 워크트리 안의 플러그인 이름 위반은 여전히 막는다 (#121) | 차단 (2) | `plugin 'java'`, slug 를 이름으로 보지 않음 |
 | TC-069 | `--all` 은 루트의 git 최상위 사전을 쓴다 (#86) | 통과 (0) | `'zap'` 없음 |
 | TC-063 | PostToolUse 정상 glossary 는 통과시킨다 | 통과 (0) | - |
 | TC-064 | PostToolUse 깨진 glossary 는 잡는다 | 차단 (2) | 메시지: `glossary:` |

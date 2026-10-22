@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.11.2
+
+### Fixed
+- 메인 체크아웃 세션에서 slug 가 `plugins` 로 끝나는 워크트리(`13-language-naming-plugins`)의 루트 파일(`CLAUDE.md` · `test/` · `.github/` …)을 그 slug 를 플러그인 이름으로 읽어 막던 것 (#121). 경로를 파일이 속한 git 작업 트리 기준으로 상대화한다
+
 ## 0.11.1
 
 ### Fixed
