@@ -42,14 +42,16 @@ claude plugin install domain-document-sync@jaemyeong-hwnag-plugins --scope proje
 | 스크립트 | 이벤트 | 동작 |
 |---|---|---|
 | domain-document-sync.sh session | SessionStart | 문서 루트가 있으면 카탈로그 위치 · 도메인 목록 · 읽기 순서를 **주입**. 7일 지난 상태 파일 정리 |
-| domain-document-sync.sh snapshot | UserPromptSubmit | 요청 시작 때 도메인별 코드 지문을 저장하고 지난 면제를 지운다 |
+| domain-document-sync.sh snapshot | UserPromptSubmit | 요청 시작 때 도메인별 코드 · 문서 지문을 저장하고 지난 면제를 지운다 |
 | domain-document-sync.sh pre-edit | PreToolUse (Edit\|Write\|MultiEdit) | 문서 루트를 고칠 때 3계층 규약을 **주입** (카탈로그 · 메타 · concept · 새 도메인별) |
 | domain-document-sync.sh post-edit | PostToolUse (Edit\|Write\|MultiEdit) | concept 이 300줄을 넘거나(`D-07`) `_meta` 파트 표에 없으면(`D-05`) **알림** |
 | domain-document-sync.sh stop | Stop | 이번 요청에서 코드가 바뀐 도메인에 문서 변경이 없으면 완료를 **차단** (`S-01`). 한 번 되돌린 뒤에는 경고만 |
 
 ## 주의
 
-- `S-01` 은 요청 시작 때의 HEAD 대비 작업 트리(변경 + untracked)로 판정한다. 요청 안에서 커밋해도 잡고, 질문만 한 요청은 막지 않는다
+- `S-01` 은 요청 시작 때의 HEAD 대비 작업 트리(변경 + untracked)로 판정한다. 요청 안에서 커밋해도 잡고, 질문만 한 요청은 막지 않는다. 문서도 이번 요청에서 바뀌어야 한다
+- 프로젝트 아래 워크트리(`.claude/worktrees/{x}` 등)도 그 작업 트리 기준으로 판정한다
+- 상태 · 면제 파일은 프로젝트 `.claude/domain-document-sync/` 에 둔다 — 스스로 ignore 하고, Bash 샌드박스 안에서도 쓸 수 있다
 - 도메인 지식이 그대로인 변경(리팩터 · 테스트 · 포맷)은 사용자에게 알린 뒤 면제한다 — 차단 메시지에 면제 파일 경로가 나온다. 면제는 그 요청에만 유효하다
 - `code:` 를 넓게 쓰면(`src/**`) 모든 변경이 그 도메인 문서를 요구한다. `map` 으로 걸리는 파일 수를 보고 좁힌다
 - 경로는 한글 · 공백이 있어도 된다. 심볼릭 링크로 들어온 프로젝트 경로도 알아본다
