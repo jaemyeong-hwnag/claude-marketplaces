@@ -37,7 +37,7 @@
 - **검증**: `golangci-lint run`
 - **CI**:
   ```yaml
-  - uses: golangci/golangci-lint-action@v6
+  - uses: golangci/golangci-lint-action@55c2c1448f86e01eaae002a5a3a9624417608d84 # v6.5.2
     with: { version: latest }
   ```
 - **롤백**: `.golangci.yml` 삭제
@@ -56,7 +56,7 @@
 - **CI**:
   ```yaml
   - run: go test ./... -race -coverprofile=coverage.out -covermode=atomic
-  - uses: codecov/codecov-action@v4
+  - uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4.6.0
     with: { files: ./coverage.out }
   ```
 - **롤백**: CI step 삭제
@@ -72,7 +72,7 @@
 - **검증**: `govulncheck ./...`
 - **CI**:
   ```yaml
-  - uses: golang/govulncheck-action@v1
+  - uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
     with: { go-version-input: '1.23' }
   ```
 - **롤백**: step 삭제

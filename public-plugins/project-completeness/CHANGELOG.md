@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.1.4
+
+### Fixed
+- `ops.postmortem` 이 빈 파일 · `# TODO` 만 있는 템플릿 · 이름만 닮은 코드 파일(`src/lib/postMortem.ts`)로도 통과하던 것 — `ops.oncall-runbook` 과 같이 제목 · 주석 말고 내용이 있는 문서여야 통과한다 (#120). 두 판정 모두 코드 확장자 파일은 세지 않는다
+- 레시피의 서드파티 CI 액션(osv-scanner · scorecard · codecov · size-limit · golangci-lint · govulncheck · pre-commit)이 태그로만 적혀 규칙(SHA 고정)과 어긋나던 것 — `@<커밋 SHA> # vX.Y.Z` 로 고정했다 (#120)
+
 ## 0.1.3
 
 ### Fixed

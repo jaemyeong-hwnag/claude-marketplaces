@@ -59,6 +59,10 @@ test/project-completeness.test.sh TC-D     # ID 접두사로 필터
 | TC-D44 | 빈 런북 파일은 ops.oncall-runbook 미통과 |
 | TC-D45 | 제목만 있는 런북은 미통과 |
 | TC-D46 | 내용이 있는 런북이면 통과 |
+| TC-D47 | 빈 포스트모템 파일은 ops.postmortem 미통과 |
+| TC-D48 | 주석 · 제목만 있는 포스트모템 템플릿은 미통과 |
+| TC-D49 | 이름만 닮은 코드 파일은 미통과 |
+| TC-D50 | 내용이 있는 포스트모템이면 통과 |
 
 ## detect: 흔적
 
@@ -135,6 +139,7 @@ test/project-completeness.test.sh TC-D     # ID 접두사로 필터
 | TC-X02 | 레시피가 메운다고 한 id 가 모두 체크리스트에 있다 |
 | TC-X03 | 모든 레시피에 메우는 항목 · 검증 · 롤백이 있다 |
 | TC-X04 | 규칙 원본의 핵심 항목 = 체크리스트의 critical |
+| TC-X05 | 레시피의 서드파티 CI 액션은 SHA 로 고정하고 태그를 주석으로 단다 |
 
 ## 수동 확인
 

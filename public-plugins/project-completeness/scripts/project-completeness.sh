@@ -216,16 +216,19 @@ $(cat "$root/$f")"; done
   # ops
   judge ops.tracing "OpenTelemetry 의존성" dep 'opentelemetry'
   judge ops.slo "SLO 정의 파일 (openslo · sloth)" has '(openslo|sloth|slo)\.ya?ml$|(^|/)slos?/'
-  # 빈 파일 · 제목만 있는 파일은 런북이 아니다
-  local oncall=false
-  while IFS= read -r f; do
-    grep -Ev '^[[:space:]]*(#|$)' "$root/$f" 2>/dev/null | grep '[^[:space:]]' >/dev/null && { oncall=true; break; }
-  done < <(grep -Ei 'runbook|alertmanager|oncall|on-call' "$tmp/files")
-  judge ops.oncall-runbook "런북 · alertmanager (제목 · 주석 말고 내용이 있는 파일)" test "$oncall" = true
+  # 빈 파일 · 제목만 있는 파일은 문서가 아니고, 코드 파일은 이름만 닮았다
+  doc_with_body() { # $1=경로 패턴 → 0 내용 있는 문서가 있음
+    local f
+    while IFS= read -r f; do
+      grep -Ev '^[[:space:]]*(#|$)' "$root/$f" 2>/dev/null | grep '[^[:space:]]' >/dev/null && return 0
+    done < <(grep -Ei "$1" "$tmp/files" | grep -Eiv '\.(m?[jt]sx?|cjs|py|go|java|kt|rb|rs|php|cs|swift|scala)$')
+    return 1
+  }
+  judge ops.oncall-runbook "런북 · alertmanager (제목 · 주석 말고 내용이 있는 파일)" doc_with_body 'runbook|alertmanager|oncall|on-call'
   judge ops.synthetic-monitoring "Checkly · 합성 모니터링" eval 'dep checkly || has "(^|/)__checks__/"'
   judge ops.rollback "피처 플래그 SDK 또는 롤백 워크플로" \
     eval 'dep "growthbook|unleash|launchdarkly|flagsmith|statsig|openfeature|togglz|ff4j" || in_ci rollback'
-  judge ops.postmortem "포스트모템 기록" eval 'grep -Eiq "post-?mortem|incident-review" "$tmp/files"'
+  judge ops.postmortem "포스트모템 기록 (제목 · 주석 말고 내용이 있는 문서)" doc_with_body 'post-?mortem|incident-review'
 
   # service — 저장소 밖에 있을 수 있는 것은 흔적만 낸다 (판정이 아니다)
   hint service.payment-failure "결제 실패 · 환불 · 해지 경로" 'refund|환불|cancel_?subscription|payment_?failed|card_?expired|past_due'
