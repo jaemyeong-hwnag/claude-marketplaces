@@ -8,6 +8,7 @@ PLUGIN_ROOT="$(cd "$TEST_DIR/.." && pwd)"
 M="$PLUGIN_ROOT/scripts/method-coverage-get.sh"
 D="$PLUGIN_ROOT/scripts/diff-coverage-validate.sh"
 H="$PLUGIN_ROOT/scripts/aitest-coverage-validate.sh"
+E_TMPL="$PLUGIN_ROOT/skills/aitest-environment-create/templates/scripts/ensure-docker-for-aitest.sh.tmpl"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/aitest-tc.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 export TMPDIR="$TMP/tmpdir"; mkdir -p "$TMPDIR"
@@ -100,6 +101,16 @@ aitest_for() { # $1=경로 $2=본문에 넣을 단어
 fresh_report() { sleep 1; jacoco_xml "$@"; }                 # mtime 이 소스보다 확실히 뒤가 되게
 
 hook_in() { printf '{"session_id":"%s","stop_hook_active":%s}' "$1" "${2:-false}"; }
+# jq 만 뺀 PATH — PATH 의 각 디렉터리를 앞에서부터 링크해 같은 이름은 먼저 것이 이긴다
+nojq_path() {
+  local d nj="$TMP/nojq"
+  if [ ! -d "$nj" ]; then
+    mkdir -p "$nj"
+    local IFS=:; for d in $PATH; do [ -d "$d" ] && ln -s "$d"/* "$nj"/ 2>/dev/null; done
+    rm -f "$nj/jq"
+  fi
+  echo "$nj"
+}
 
 flush_tc; echo "== method-coverage-get.sh"
 
@@ -576,6 +587,55 @@ if on; then
   CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h24)" "$H" snapshot
   git -C "$R" merge -q --no-edit origin/main
   CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h24)" "$H"; expect_code 0; expect_empty
+fi
+
+tc TC-H25 "jq 가 없어도 막는다"
+if on; then
+  R="$(repo h25)"; NJ="$(nojq_path)"; PATH="$NJ" command -v jq >/dev/null && fail_tc "PATH 에 jq 가 남아 있음"
+  PATH="$NJ" CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h25)" "$H" snapshot
+  change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  PATH="$NJ" CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h25)" "$H"; expect_code 2; expect_out "완료 보류(java-spring-aitest-coverage)"
+fi
+
+tc TC-H26 "jq 가 없어도 stop_hook_active 를 읽고 systemMessage 를 올바른 JSON 으로 낸다 (C-08)"
+if on; then
+  R="$(repo h26)"; NJ="$(nojq_path)"; change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  PATH="$NJ" CLAUDE_PROJECT_DIR="$R" run_in '{ "session_id" : "h26", "stop_hook_active" : true }' "$H"; expect_code 0
+  printf '%s' "$OUT" | jq -er .systemMessage | grep -qF "트랩 방지" || fail_tc "systemMessage JSON 이 아니거나 내용이 다름"
+  rm -f "$R/gradle/ai-test.gradle"; ( cd "$R" && git add -A gradle && git commit -qm noenv ) >/dev/null
+  PATH="$NJ" CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h26)" "$H"; expect_code 0
+  printf '%s' "$OUT" | jq -er .systemMessage | grep -qF '"AiTest 환경 만들어줘"' || fail_tc "환경 없음 systemMessage 의 따옴표가 깨짐"
+fi
+
+flush_tc; echo "== ensure-docker-for-aitest.sh (템플릿)"
+
+# 템플릿을 채우고 docker · colima · open 을 호출만 남기는 스텁으로 바꾼다. $1=이름 $2=데몬이 처음부터 떠 있으면 1 → 디렉터리 출력
+ensure_env() {
+  local e="$TMP/$1"
+  rm -rf "$e"; mkdir -p "$e/bin" "$e/home"
+  sed 's/{{IMAGES}}/  "mysql:8.0"/' "$E_TMPL" > "$e/ensure.sh"; chmod +x "$e/ensure.sh"
+  [ "${2:-0}" = 1 ] && : > "$e/up"
+  printf '#!/bin/sh\necho "docker $*" >> "%s/calls"\ncase "$1" in info) [ -f "%s/up" ];; *) exit 0;; esac\n' "$e" "$e" > "$e/bin/docker"
+  printf '#!/bin/sh\necho "colima $*" >> "%s/calls"\ncase "$1" in status) exit 1;; start) : > "%s/up";; esac\n' "$e" "$e" > "$e/bin/colima"
+  printf '#!/bin/sh\necho "open $*" >> "%s/calls"\n' "$e" > "$e/bin/open"
+  chmod +x "$e/bin/"*
+  echo "$e"
+}
+
+tc TC-E01 "데몬이 이미 응답하면 기동 · context 변경 · ~/.testcontainers.properties 수정을 하지 않는다"
+if on; then
+  E="$(ensure_env e01 1)"
+  HOME="$E/home" PATH="$E/bin:$PATH" AITEST_DOCKER_WAIT_SEC=4 run "$E/ensure.sh"; expect_code 0
+  OUT="$(cat "$E/calls")"; expect_not "colima start"; expect_not "docker context"; expect_not "open "; expect_out "docker run --rm hello-world"
+  [ -e "$E/home/.testcontainers.properties" ] && fail_tc "~/.testcontainers.properties 가 생겼음"
+fi
+
+tc TC-E02 "데몬이 없으면 colima 를 띄우고 reuse 설정을 만든다"
+if on; then
+  E="$(ensure_env e02 0)"
+  HOME="$E/home" PATH="$E/bin:$PATH" AITEST_DOCKER_WAIT_SEC=4 run "$E/ensure.sh"; expect_code 0
+  grep -q 'reuse.enable=true' "$E/home/.testcontainers.properties" 2>/dev/null || fail_tc "reuse 설정이 없음"
+  OUT="$(cat "$E/calls")"; expect_out "colima start"; expect_out "docker context use colima"
 fi
 
 flush_tc

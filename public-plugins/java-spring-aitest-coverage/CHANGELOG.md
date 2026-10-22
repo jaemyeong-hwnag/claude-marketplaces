@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.1.4
+
+### Fixed
+- `jq` 가 없으면 Stop 게이트가 경고만 남기고 꺼지던 것 — 훅 입력 파싱과 `systemMessage` 출력을 bash 로 한다 (#119)
+- Docker 준비 스크립트가 데몬이 이미 응답해도 Colima 를 띄우고 `docker context use colima` 로 컨텍스트를 바꾸고 `~/.testcontainers.properties` 를 고치던 것 — 데몬이 응답하면 셋 다 하지 않는다. `aitest-environment-create` 의 확인 목록에 이 변경을 넣었다 (#119)
+
 ## 0.1.3
 
 ### Fixed

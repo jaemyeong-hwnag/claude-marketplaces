@@ -15,16 +15,21 @@
 # 꺼짐: @AiTest 환경(gradle/ai-test.gradle 또는 @interface AiTest)이 없는 저장소 — 세션당 한 번 알린다.
 set -uo pipefail
 
-if ! command -v jq >/dev/null 2>&1; then
-  echo "경고(java-spring-aitest-coverage): jq 가 없어 @AiTest 게이트를 건너뜁니다." >&2
-  exit 0
-fi
+# jq 없이 돈다 — jq 가 없는 환경에서 게이트가 꺼지지 않게
+json_str() { # $1 → JSON 문자열 리터럴
+  local s b='\' q='"'
+  s="$(printf '%s' "$1" | LC_ALL=C tr -d '\001-\010\013\014\016-\037')"
+  s=${s//"$b"/"$b$b"}; s=${s//"$q"/"$b$q"}; s=${s//$'\t'/"${b}t"}; s=${s//$'\r'/"${b}r"}; s=${s//$'\n'/"${b}n"}
+  printf '"%s"' "$s"
+}
+system_message() { printf '{"systemMessage":%s}\n' "$(json_str "$1")"; }
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MODE="${1:-stop}"
 INPUT="$(cat 2>/dev/null || true)"
-SID="$(printf '%s' "$INPUT" | jq -r '.session_id // "nosession"' 2>/dev/null || echo nosession)"
-ACTIVE="$(printf '%s' "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null || echo false)"
+SID=nosession; ACTIVE=false
+[[ "$INPUT" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([^\"]*)\" ]] && SID="${BASH_REMATCH[1]}"
+[[ "$INPUT" =~ \"stop_hook_active\"[[:space:]]*:[[:space:]]*true ]] && ACTIVE=true
 SAFE="$(printf '%s' "$SID" | tr -c 'A-Za-z0-9_.-' '_')"
 STATE="${TMPDIR:-/tmp}/claude-aitest-${SAFE}"
 ACK="${TMPDIR:-/tmp}/claude-aitest-${SAFE}.ack"
@@ -99,7 +104,7 @@ if [ ! -f gradle/ai-test.gradle ] && [ ! -f "$GRADLE_ROOT/gradle/ai-test.gradle"
   # 환경이 없는 저장소는 막지 않는다 — 설치만 한 저장소의 완료를 깨지 않게. 세션당 한 번만 알린다.
   if [ ! -f "${STATE}.noenv" ]; then
     : > "${STATE}.noenv" 2>/dev/null || true
-    jq -cn '{ systemMessage: "java-spring-aitest-coverage: @AiTest 환경(gradle/ai-test.gradle)이 없어 커버리지 게이트가 꺼져 있습니다. \"AiTest 환경 만들어줘\" 로 aitest-environment-create 를 쓸 수 있습니다." }'
+    system_message 'java-spring-aitest-coverage: @AiTest 환경(gradle/ai-test.gradle)이 없어 커버리지 게이트가 꺼져 있습니다. "AiTest 환경 만들어줘" 로 aitest-environment-create 를 쓸 수 있습니다.'
   fi
   exit 0
 fi
@@ -124,7 +129,7 @@ fi
 if [ "$ACTIVE" = "true" ]; then
   msg="java-spring-aitest-coverage: @AiTest 커버리지가 미충족인 채 작업이 끝났습니다(트랩 방지로 1회 강제 후 허용) — 확인 필요:
 $(printf '%s\n' "$viol" | sed 's/^/  - /')"
-  jq -cn --arg m "$msg" '{ systemMessage: $m }'
+  system_message "$msg"
   exit 0
 fi
 

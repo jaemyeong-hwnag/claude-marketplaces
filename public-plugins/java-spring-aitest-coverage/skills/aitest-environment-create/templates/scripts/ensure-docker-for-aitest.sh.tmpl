@@ -165,10 +165,14 @@ smoke_test_container() {
 main() {
   log "시작 (AUTO_INSTALL=${AUTO_INSTALL}, WAIT=${MAX_WAIT_SEC}s)"
   ensure_docker_cli
-  try_start_colima || true
-  try_start_docker_desktop_mac || true
-  wait_for_docker_daemon
-  ensure_testcontainers_reuse
+  if docker info >/dev/null 2>&1; then
+    log "Docker 데몬 연결 OK — 기동 · context · ~/.testcontainers.properties 는 그대로 둔다"
+    grep -qE '^[[:space:]]*testcontainers\.reuse\.enable[[:space:]]*=[[:space:]]*true' "${HOME}/.testcontainers.properties" 2>/dev/null ||
+      warn "~/.testcontainers.properties 에 testcontainers.reuse.enable=true 가 없어 컨테이너를 재사용하지 않는다"
+  else
+    wait_for_docker_daemon
+    ensure_testcontainers_reuse
+  fi
   pull_images
   smoke_test_container
   log "준비 완료 — ./gradlew :<module>:aiTest 실행 가능"

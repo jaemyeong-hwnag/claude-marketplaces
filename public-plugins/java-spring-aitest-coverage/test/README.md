@@ -1,6 +1,6 @@
 # java-spring-aitest-coverage 테스트
 
-`method-coverage-get.sh` · `diff-coverage-validate.sh` · `aitest-coverage-validate.sh`(훅)의 회귀 테스트.
+`method-coverage-get.sh` · `diff-coverage-validate.sh` · `aitest-coverage-validate.sh`(훅) · `ensure-docker-for-aitest.sh.tmpl` 의 회귀 테스트.
 
 ## 실행
 
@@ -13,7 +13,7 @@ test/diff-coverage-validate.test.sh TC-H     # ID 접두사로 필터
 
 Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아래 "수동 확인" 을 본다.
 
-## 자동 TC (59건)
+## 자동 TC (63건)
 
 ### A. 메서드 커버리지 (method-coverage-get.sh)
 
@@ -88,6 +88,17 @@ Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아�
 | TC-H22 | 요청 전 Controller 커밋을 amend 하며 대상 밖 파일만 더하면 막지 않는다 (C-05) |
 | TC-H23 | 요청 전 받아둔 원격 위로 요청 안에서 리베이스하면 원격 변경도 이전 커밋도 막지 않는다 (C-05) |
 | TC-H24 | 요청 전 받아둔 원격을 요청 안에서 merge 커밋으로 합쳐도 원격 변경은 막지 않는다 (C-05) |
+| TC-H25 | jq 가 없어도 막는다 |
+| TC-H26 | jq 가 없어도 stop_hook_active 를 읽고 systemMessage 를 올바른 JSON 으로 낸다 (C-08) |
+
+### D. Docker 준비 템플릿 (ensure-docker-for-aitest.sh.tmpl)
+
+`docker` · `colima` · `open` 은 호출만 남기는 스텁, `HOME` 은 임시 디렉터리다.
+
+| ID | 케이스 |
+|---|---|
+| TC-E01 | 데몬이 이미 응답하면 기동 · context 변경 · ~/.testcontainers.properties 수정을 하지 않는다 |
+| TC-E02 | 데몬이 없으면 colima 를 띄우고 reuse 설정을 만든다 |
 
 ## 수동 확인 — 실제 Gradle · testcontainer
 

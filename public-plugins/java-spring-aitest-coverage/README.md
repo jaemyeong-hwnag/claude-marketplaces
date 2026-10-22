@@ -13,7 +13,7 @@ claude plugin install java-spring-aitest-coverage@jaemyeong-hwnag-plugins --scop
 
 설치한 뒤 `@AiTest` 환경이 없으면 "AiTest 환경 만들어줘" 로 `aitest-environment-create` 를 부른다. 환경이 생기기 전에는 게이트가 꺼져 있다.
 
-필요한 것: `git`, `jq`, JDK, Docker(testcontainer), Gradle Wrapper(`./gradlew`).
+필요한 것: `git`, JDK, Docker(testcontainer), Gradle Wrapper(`./gradlew`). 설정 파일(`.claude/java-spring-aitest-coverage.json`)을 쓰면 `jq` 도 필요하다.
 
 ## 의존성
 
