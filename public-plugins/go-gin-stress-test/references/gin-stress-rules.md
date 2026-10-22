@@ -4,7 +4,7 @@ Go · Gin 서버를 부하 측정할 때 **측정을 무효로 만드는 설정*
 부하 모델 · 지표 · 통계 판정 · 대상 호스트 안전은 `common-stress-test` 의 `stress-test-rules.md` (`ST-xx`) 가 맡는다.
 
 기계 검증: [`scripts/gin-stress-config-validate.sh`](../scripts/gin-stress-config-validate.sh) — CLI 는 차단 조항이 있으면 종료 2, 훅은 부하 도구 실행 전에 **경고만** 한다.
-훅이 보는 부하 명령은 `common-stress-test` 의 `ST-01` 과 같은 규칙으로 판별한다 — `uv run` · `poetry run` · `python -m` · `timeout` · `sh -c` 같은 래퍼와 한 줄 `for … do` · `if … then` 안도 보고, heredoc 본문은 보지 않는다.
+훅이 보는 부하 명령은 `common-stress-test` 의 `ST-01` 과 같은 규칙으로 판별한다 — `uv run` · `poetry run` · `python -m` · `timeout` · `nice` · `ionice` · `stdbuf` · `xargs` · `watch` · `caffeinate` · `sh -c` 같은 래퍼와 한 줄 `for … do` · `if … then` 안도 보고, heredoc 본문은 보지 않는다.
 확인 버전: Go 1.25.14 · Gin v1.12.0 · prometheus/client_golang v1.24.1 · k6 v2.3.0.
 
 ## 1. 기계 판정 조항

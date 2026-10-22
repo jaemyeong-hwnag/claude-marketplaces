@@ -31,8 +31,8 @@ Node.js · Express 앱의 부하 측정을 준비한다 — prom-client 지연 �
 
 ## 주의
 
-- `package.json` 에 `express` 가 없는 디렉터리는 보지 않는다
-- 운영 기동 설정만 본다 — `package.json` 의 `start` · `start:prod` · `prod` · `serve`, `Dockerfile`, `compose*.yml`, `Procfile`, PM2 `ecosystem.config.*`. 이름에 `dev` · `local` · `test` 가 든 파일과 `.env` 는 보지 않는다
+- `package.json` 에 `express` 가 없는 디렉터리는 보지 않는다. 훅은 명령이 도는 디렉터리(`cd` 포함)부터 위로 가장 가까운 express 앱을 본다
+- 운영 기동 설정만 본다 — `package.json` 의 `start` · `start:prod` · `prod` · `serve`, `Dockerfile`, `compose*.yml`, `Procfile`, PM2 `ecosystem.config.*`. 이름에 단어로 `dev` · `local` · `test` 가 든 파일(`loadtest` · `perftest` 는 본다)과 `.env` 는 보지 않는다
 - 쿠버네티스 매니페스트 · systemd 유닛에서 넣는 환경 변수는 보지 못한다. 그래서 `NODE_ENV=production` 누락(`NEX-02`)은 경고다
 - 줄 단위 grep 이다. 여러 줄에 걸친 명령 · 변수로 조립한 명령은 놓친다
 - `NODE_ENV` 는 Express 코어에서 뷰 캐시와 오류 응답만 바꾼다. JSON API 는 실측 차이가 노이즈 안이었고, pug 렌더링은 production 이 3~4배 빨랐다 (순차 요청 중앙값)

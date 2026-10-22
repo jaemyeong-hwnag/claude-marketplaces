@@ -11,7 +11,7 @@ test/fastapi-stress-config-validate.test.sh TC-F0    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. `jq` 가 필요하다.
 
-## 자동 TC (38건)
+## 자동 TC (40건)
 
 픽스처는 **규칙을 지키는 FastAPI 프로젝트**(`fastapi run --workers 1` · instrumentator in-flight 켬 · `def` 엔드포인트의 `time.sleep`)이고, TC 마다 한 곳만 깨뜨린다. 조항마다 과잉 탐지를 막는 TC 를 둔다.
 
@@ -62,3 +62,5 @@ test/fastapi-stress-config-validate.test.sh TC-F0    # ID 접두사로 필터
 | TC-F37 | CLAUDE_PROJECT_DIR 가 없으면 입력의 cwd 를 검사한다 |
 | TC-F38 | 래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 알린다 |
 | TC-F39 | 래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 명령은 조용히 통과한다 |
+| TC-F40 | 래퍼 nice · ionice · stdbuf · xargs · watch · caffeinate 뒤의 부하 명령도 알린다 — 값을 받는 옵션은 값까지 건너뛴다 |
+| TC-F41 | 래퍼 뒤가 부하 도구가 아니면 조용히 통과한다 |

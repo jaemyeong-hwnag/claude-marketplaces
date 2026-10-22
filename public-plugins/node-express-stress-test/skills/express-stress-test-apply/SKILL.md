@@ -66,5 +66,5 @@ description: Express 서버에 부하·스트레스 테스트를 걸기 전에 �
 ## 5. 넘긴다
 
 - 부하 스크립트(open 모델 · 단계 · 시간): `stress-test-create`
-- 결과 CSV(`load,throughput,p50_ms,p95_ms,p99_ms,max_ms,error_rate,inflight`) 판정: `stress-result-review`
+- 결과 CSV(`load,throughput,avg_ms,p50_ms,p95_ms,p99_ms,max_ms,error_rate,dropped,inflight` — `stress-step-generate.sh --header`) 판정: `stress-result-review`
 - 부하 명령(k6 · wrk · autocannon …)을 실행하면 이 플러그인의 훅이 1절 검사를 다시 돌려 알린다. 막지는 않는다

@@ -308,6 +308,17 @@ for c in 'uv run pytest' 'poetry run python manage.py migrate' 'python -m http.s
   run_stdin_in "$BAD" "$(payload_bash "$c")"; expect_code 0; expect_no_out
 done
 
+tc TC-S107 "래퍼 nice · ionice · stdbuf · xargs · watch · caffeinate 뒤의 부하 명령도 알린다 — 값을 받는 옵션은 값까지 건너뛴다"
+for c in 'nice k6 run s.js' 'nice -n 10 k6 run s.js' 'ionice -c 2 -n 7 k6 run s.js' 'stdbuf -oL k6 run s.js' 'stdbuf -o L k6 run s.js' \
+         'echo s.js | xargs -n1 k6 run' 'xargs -I {} k6 run {} < list.txt' "watch -n 5 'hey http://localhost:8080/'" 'caffeinate -i -t 600 k6 run s.js'; do
+  run_stdin_in "$BAD" "$(payload_bash "$c")"; expect_code 0; expect_out "GIN-01"
+done
+
+tc TC-S108 "래퍼 뒤가 부하 도구가 아니면 조용히 통과한다"
+for c in 'nice -n 10 make build' 'ionice -c 3 du -sh .' 'stdbuf -oL tail -f app.log' 'echo a | xargs -n1 rm' 'watch -n 5 kubectl get pods' 'caffeinate -t 60 sleep 60'; do
+  run_stdin_in "$BAD" "$(payload_bash "$c")"; expect_code 0; expect_no_out
+done
+
 flush_tc
 echo
 echo "결과: PASS $PASS · FAIL $FAIL · SKIP $SKIP"

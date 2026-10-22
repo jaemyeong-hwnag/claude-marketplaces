@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.1.3
+
+### Fixed
+- `SPR-02` 가 `application-loadtest` · `perftest` · `stresstest` 프로필 파일을 건너뛰던 것 — 파일도 문서 단위 판정과 같이 프로필 이름이 단어로 dev · local · test 일 때만 뺀다 (#124)
+- 훅이 `nice` · `ionice` · `stdbuf` · `xargs` · `watch` · `caffeinate` 로 감싼 부하 명령을 알아보지 못하던 것 — 값을 받는 옵션(`nice -n 10` · `xargs -I {}`)은 값까지 건너뛴다 (#124)
+
 ## 0.1.2
 
 ### Fixed

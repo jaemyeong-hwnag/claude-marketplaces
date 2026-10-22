@@ -190,7 +190,7 @@ strip_heredoc() {
 
 # 부하 도구를 실행하는 구간인가 — 구간의 첫 단어(환경 변수 대입 · 래퍼 제외)나 docker 이미지로 판단한다. 도구 이름은 TOOL 에 남긴다
 is_load_segment() {
-  local seg="$1" w first="" rest
+  local seg="$1" w first="" rest opts
   TOOL=""
   # shellcheck disable=SC2086
   set -f; set -- $seg; set +f
@@ -214,6 +214,23 @@ is_load_segment() {
           esac
         done
         [ "$#" -gt 0 ] && shift ;;
+      nice|ionice|stdbuf|xargs|watch|caffeinate)
+        # 값을 받는 옵션 — 값까지 건너뛰어야 다음 단어가 실행할 명령이다
+        case "$w" in
+          nice) opts=" -n --adjustment " ;;
+          ionice) opts=" -c -n -p -P -u --class --classdata " ;;
+          stdbuf) opts=" -i -o -e --input --output --error " ;;
+          xargs) opts=" -n -L -P -I -J -R -S -d -E -s -a " ;;
+          watch) opts=" -n --interval " ;;
+          caffeinate) opts=" -t -w " ;;
+        esac
+        shift
+        while [ "$#" -gt 0 ]; do
+          case "$1" in
+            -*) case "$opts" in *" $1 "*) shift ;; esac; shift ;;
+            *) break ;;
+          esac
+        done ;;
       sh|bash|zsh|dash|ksh)
         shift
         while [ "$#" -gt 0 ]; do

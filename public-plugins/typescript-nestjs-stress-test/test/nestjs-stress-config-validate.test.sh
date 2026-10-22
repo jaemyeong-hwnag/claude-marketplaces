@@ -192,6 +192,16 @@ run "$P"; expect_no_out
 tc TC-N25 "디렉터리가 아니면 오류 (종료 1)"
 run "$TMP/none"; expect_code 1
 
+tc TC-N26 "loadtest · perftest 처럼 단어 안에 dev · local · test 가 든 compose · Dockerfile 은 본다 (NST-01)"
+project; put docker-compose.loadtest.yml 'services:\n  api:\n    command: npx nest start --watch\n'
+put Dockerfile.perftest 'FROM node:22-slim\nCMD ["npm", "run", "start:dev"]\n'; put docker-compose.local-db.yml 'services:\n  api:\n    command: npx nest start --watch\n'
+run "$P"; expect_code 2; expect_out "NST-01 docker-compose.loadtest.yml:3"; expect_out "NST-01 Dockerfile.perftest:2"; expect_not "local-db"
+
+tc TC-N27 "compose · Dockerfile 의 빈칸 없는 exec 형식 배열도 읽는다 (NST-01)"
+project; put docker-compose.yml 'services:\n  api:\n    command: ["nest","start","--watch"]\n'; run "$P"; expect_code 2; expect_out "NST-01 docker-compose.yml:3"
+project; put Dockerfile 'FROM node:22-slim\nCMD ["npm","run","start:dev"]\n'; run "$P"; expect_code 2; expect_out "NST-01 Dockerfile:2"
+project; put Dockerfile 'FROM node:22-slim\nCMD ["node","dist/main"]\n'; run "$P"; expect_code 0; expect_no_out
+
 # --- B. 훅 -------------------------------------------------------------------
 tc TC-N30 "k6 run 이면 프로젝트를 검사해 additionalContext 로 알리고 막지 않는다"
 project; put Dockerfile 'CMD ["npm", "run", "start:dev"]\n'
@@ -231,6 +241,26 @@ project; put Dockerfile 'CMD ["npm", "run", "start:dev"]\n'
 for c in 'uv run pytest' 'poetry run python manage.py migrate' 'python -m http.server' 'timeout 5 curl http://x' "sh -c 'echo k6 run'" "$(printf 'cat > note.md <<EOF\nk6 run s.js\nEOF')"; do
   run_hook "$P" "$(hook_bash "$c")"; expect_code 0; expect_no_out
 done
+
+tc TC-N37 "래퍼 nice · ionice · stdbuf · xargs · watch · caffeinate 뒤의 부하 명령도 알린다 — 값을 받는 옵션은 값까지 건너뛴다"
+project; put Dockerfile 'CMD ["npm", "run", "start:dev"]\n'
+for c in 'nice k6 run s.js' 'nice -n 10 k6 run s.js' 'ionice -c 2 -n 7 k6 run s.js' 'stdbuf -oL k6 run s.js' 'stdbuf -o L k6 run s.js' \
+         'echo s.js | xargs -n1 k6 run' 'xargs -I {} k6 run {} < list.txt' "watch -n 5 'hey http://localhost:8080/'" 'caffeinate -i -t 600 k6 run s.js'; do
+  run_hook "$P" "$(hook_bash "$c")"; expect_code 0; expect_out "NST-01"
+done
+
+tc TC-N38 "래퍼 뒤가 부하 도구가 아니면 조용히 통과한다"
+project; put Dockerfile 'CMD ["npm", "run", "start:dev"]\n'
+for c in 'nice -n 10 make build' 'ionice -c 3 du -sh .' 'stdbuf -oL tail -f app.log' 'echo a | xargs -n1 rm' 'watch -n 5 kubectl get pods' 'caffeinate -t 60 sleep 60'; do
+  run_hook "$P" "$(hook_bash "$c")"; expect_code 0; expect_no_out
+done
+
+tc TC-N39 "워크스페이스 루트에서도 명령이 도는 하위 앱(cwd · 앞머리 cd)부터 위로 가장 가까운 @nestjs/core 프로젝트를 본다"
+project; put Dockerfile 'CMD ["npm", "run", "start:dev"]\n'
+M="$TMP/mono"; mkdir -p "$M/apps"; printf '{"private":true,"workspaces":["apps/*"]}\n' > "$M/package.json"; mv "$P" "$M/apps/api"
+run_hook "$M" "$(hook_bash 'cd apps/api && k6 run s.js')"; expect_code 0; expect_out "NST-01"
+run_hook "$M" "$(jq -n --arg d "$M/apps/api/load" '{hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: {command: "k6 run s.js"}, cwd: $d}')"; expect_out "NST-01"
+run_hook "$M" "$(hook_bash 'k6 run s.js')"; expect_code 0; expect_no_out
 
 flush_tc
 echo
