@@ -46,19 +46,27 @@ case "$TOOL" in
   k6)
     command -v jq >/dev/null 2>&1 || die "jq 가 필요하다"
     # summary-export 는 값이 지표 바로 아래, handleSummary 는 .values 아래에 있다
+    # 분위수는 성공 요청만(ST-32), avg 는 Little 검사가 전체 처리량과 맞춰 보므로 전체 요청 기준
     ROW="$(jq -r '
       def v($m): (.metrics[$m].values // .metrics[$m]);
+      def ok: (if .metrics["http_req_duration{expected_response:true}"] then v("http_req_duration{expected_response:true}") else v("http_req_duration") end);
       [ (v("http_reqs").rate),
         (v("http_req_duration").avg),
-        (v("http_req_duration")["p(50)"] // v("http_req_duration").med),
-        (v("http_req_duration")["p(95)"]),
-        (v("http_req_duration")["p(99)"]),
-        (v("http_req_duration").max),
+        (ok["p(50)"] // ok.med),
+        (ok["p(95)"]),
+        (ok["p(99)"]),
+        (ok.max),
         (v("http_req_failed").rate // v("http_req_failed").value),
         ((v("dropped_iterations").count) // 0)
       ] | map(if . == null then "" else tostring end) | join(",")' "$FILE")" || die "k6 JSON 을 읽지 못했다"
     ;;
   locust)
+    miss=""
+    HDR="$(head -1 "$FILE" | tr -d '\r')"
+    for c in "Request Count" "Failure Count" "Requests/s" "Average Response Time" "50%" "95%" "99%" "Max Response Time"; do
+      case ",$HDR," in *",$c,"*) ;; *) miss="$miss $c" ;; esac
+    done
+    [ -z "$miss" ] || die "Locust stats.csv 에 열이 없다:$miss"
     ROW="$(awk -F, '
       NR==1 { for (i=1;i<=NF;i++) h[$i]=i; next }
       $2=="Aggregated" {

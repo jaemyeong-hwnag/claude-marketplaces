@@ -42,7 +42,7 @@ check_file() {
         printf '%s' "$body" | grep -qE '(^|[^.a-zA-Z_])sleep\(' && echo "ST-06 arrival-rate 에 sleep() 이 있다 — 도착률은 executor 가 정한다. sleep 은 VU 만 묶어 dropped_iterations 를 늘린다"
       fi
       printf '%s' "$body" | grep -q 'thresholds' || echo "ST-03 thresholds 가 없다 — 합격 기준 없이 돌면 종료 코드가 늘 0 이다. 예: http_req_duration: ['p(99)<300'], http_req_failed: ['rate<0.01']"
-      printf '%s' "$body" | grep -q 'p(99' || echo "ST-04 p(99) 가 없다 — k6 기본 요약은 avg,min,med,max,p(90),p(95) 뿐이다. summaryTrendStats 나 thresholds 에 p(99) 를 넣는다"
+      printf '%s' "$body" | grep -q 'p(99' || echo "ST-04 p(99) 가 없다 — k6 기본 요약은 avg,min,med,max,p(90),p(95) 뿐이다. summaryTrendStats 에 p(99) 를 넣는다 (요약 · --summary-export 의 분위수는 이 목록에서만 나온다)"
       ;;
     gatling)
       if printf '%s' "$body" | grep -qE 'constantConcurrentUsers|rampConcurrentUsers|injectClosed'; then

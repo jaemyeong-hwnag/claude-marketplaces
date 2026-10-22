@@ -42,7 +42,7 @@ strip_heredoc() {
 
 # 부하 도구를 실행하는 구간인가 — 구간의 첫 단어(환경 변수 대입 · 래퍼 제외)나 docker 이미지로 판단한다. 도구 이름은 TOOL 에 남긴다
 is_load_segment() {
-  local seg="$1" w first="" rest
+  local seg="$1" w first="" rest opts
   TOOL=""
   # shellcheck disable=SC2086
   set -f; set -- $seg; set +f
@@ -56,6 +56,23 @@ is_load_segment() {
       python|python3|python3.*)
         [ "${2:-}" = -m ] || { first="$w"; shift; break; }
         shift 2 ;;
+      nice|ionice|stdbuf|xargs|watch|caffeinate)
+        # 값을 받는 옵션 — 값까지 건너뛰어야 다음 단어가 실행할 명령이다
+        case "$w" in
+          nice) opts=" -n --adjustment " ;;
+          ionice) opts=" -c -n -p -P -u --class --classdata " ;;
+          stdbuf) opts=" -i -o -e --input --output --error " ;;
+          xargs) opts=" -n -L -P -I -J -R -S -d -E -s -a " ;;
+          watch) opts=" -n --interval " ;;
+          caffeinate) opts=" -t -w " ;;
+        esac
+        shift
+        while [ "$#" -gt 0 ]; do
+          case "$1" in
+            -*) case "$opts" in *" $1 "*) shift ;; esac; shift ;;
+            *) break ;;
+          esac
+        done ;;
       timeout)
         shift
         while [ "$#" -gt 0 ]; do
@@ -170,7 +187,13 @@ hosts_from_text() {
 }
 # 스킴 없는 값 → 호스트 (host:port/path · user@host)
 bare_host() { sed -E 's/^["'"'"']//; s/["'"'"']$//; s#^[a-zA-Z][a-zA-Z0-9+.-]*://##; s#^[^@/]*@##; s#[/?\#].*$##; s#:[0-9]+$##' | grep -vE '^$|\$' || true; }
-HOSTS="$(printf '%s\n' "$LOAD_TXT" "$BODY_TXT" | hosts_from_text)"
+# 스크립트 파일 — 줄 끝 주석(앞이 공백인 // · #)을 지운다. URL 의 :// 와 #fragment 는 앞이 공백이 아니라 남는다
+strip_comments() { sed -E 's/[[:space:]]+(\/\/|#).*$//'; }
+# k6 의 __ENV.BASE_URL || 'host' 기본값 — 스킴 없이 쓰면 URL 검사에 안 걸린다
+env_defaults() { strip_comments | grep -vE '^[[:space:]]*(//|#)' | grep -oE '__ENV\.[A-Za-z0-9_]*(URL|HOST|url|host)[A-Za-z0-9_]*[[:space:]]*(\|\||\?\?)[[:space:]]*['"'"'"`][^'"'"'"`]+' | sed -E 's/^[^|?]*(\|\||\?\?)[[:space:]]*.//' | bare_host; }
+HOSTS="$(printf '%s\n' "$LOAD_TXT" | hosts_from_text)
+$(printf '%s\n' "$BODY_TXT" | strip_comments | hosts_from_text)
+$(printf '%s\n' "$BODY_TXT" | env_defaults)"
 # -H 는 locust 에서만 호스트다 (hey · wrk · ab · oha · autocannon 은 헤더)
 HOSTS="$HOSTS
 $(printf '%s\n' "$LOAD_TXT" | grep -oE '\-\-host[= ][^ ]+' | sed -E 's/^--host[= ]//' | bare_host)
@@ -189,7 +212,8 @@ $BASE/locustfile.py"; }; }
 while IFS= read -r f; do
   [ -n "$f" ] || continue
   HOSTS="$HOSTS
-$(hosts_from_text < "$f")"
+$(strip_comments < "$f" | hosts_from_text)
+$(env_defaults < "$f")"
   case "$f" in *.jmx) HOSTS="$HOSTS
 $(grep -oE 'HTTPSampler\.domain">[^<]+' "$f" | sed 's/.*">//' | grep -vE '\$\{' || true)" ;; esac
 done <<< "$FILES"

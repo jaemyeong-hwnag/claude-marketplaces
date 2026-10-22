@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 0.1.3
+
+### Fixed
+- `stress-report-generate.sh` 가 `--slo-p99` 를 줬는데 p99 가 빈 단계를 합격으로 보던 것 — 판정할 수 없어 불합격(`p99?`)으로 보고 `--target` 은 exit 2 (#123)
+- `ST-04` 안내가 thresholds 의 `p(99)` 로도 된다고 하던 것 — 요약의 분위수는 `summaryTrendStats` 에서만 나온다 (#123)
+- `stress-step-generate.sh` 가 k6 단계 분위수에 실패 요청 지연을 섞던 것 (`ST-32`) — `http_req_duration{expected_response:true}` 가 있으면 p50 · p95 · p99 · max 를 그것으로 읽는다 (#123)
+- `stress-step-generate.sh` 가 Locust CSV 에 `99%` 등 열이 없으면 "Aggregated 줄이 없다" 로 잘못 알리던 것 — 없는 열 이름을 알린다 (#123)
+- `ST-01` 이 `nice` · `ionice` · `stdbuf` · `xargs` · `watch` · `caffeinate` 로 감싼 부하 명령을 보지 않던 것 — 래퍼와 그 옵션을 건너뛴다 (#123)
+- `ST-01` 이 스크립트 파일의 줄 끝 주석 URL 을 대상으로 보고 막던 것, 스킴 없는 기본값 `__ENV.BASE_URL || 'api.example.com'` 을 보지 않던 것 (#123)
+
 ## 0.1.2
 
 ### Fixed

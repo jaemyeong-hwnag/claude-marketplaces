@@ -116,13 +116,20 @@ expect_code 0; expect_no_out
 run_stdin stress-target-validate.sh '{"hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":"x"}}'
 expect_code 0; expect_no_out
 
-tc TC-S13 "래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 본다"
+tc TC-S13 "래퍼(uv run · poetry run · python -m · timeout · sh -c · nice · xargs …) · 한 줄 루프 · if 안의 부하 명령도 본다"
 target_codes 2 'uv run locust -H https://prod.example.com' 'poetry run locust --host https://prod.example.com' \
   'python -m locust -H https://prod.example.com' 'timeout 60 k6 run -e BASE_URL=http://prod.example.com s.js' \
   'timeout -s KILL 60 k6 run -e BASE_URL=http://prod.example.com s.js' "sh -c 'k6 run -e BASE_URL=https://prod.example.com s.js'" \
   'bash -lc "uv run locust -H https://prod.example.com"' 'for r in 50 100; do k6 run -e BASE_URL=https://prod.example.com s.js; done' \
   'if true; then k6 run -e BASE_URL=https://prod.example.com s.js; fi'
-target_codes 0 'uv run locust -H http://localhost:8000' 'timeout 60 k6 run -e BASE_URL=http://app:8080 s.js' \
+target_codes 2 'nice k6 run -e BASE_URL=https://prod.example.com s.js' 'nice -n 10 k6 run -e BASE_URL=https://prod.example.com s.js' \
+  'ionice -c 2 -n 7 k6 run -e BASE_URL=https://prod.example.com s.js' 'stdbuf -oL k6 run -e BASE_URL=https://prod.example.com s.js' \
+  'echo s.js | xargs -n 1 k6 run -e BASE_URL=https://prod.example.com' 'xargs -I{} k6 run -e BASE_URL=https://prod.example.com {} < list.txt' \
+  "watch -n 5 'hey https://prod.example.com/'" 'caffeinate -i -t 600 k6 run -e BASE_URL=https://prod.example.com s.js' \
+  'nice -n 5 timeout 60 k6 run -e BASE_URL=https://prod.example.com s.js' 'nice --adjustment 5 stdbuf --output L k6 run -e BASE_URL=https://prod.example.com s.js'
+target_codes 0 'nice -n 10 k6 run -e BASE_URL=http://localhost:8080 s.js' 'nice -n 5 make https://api.example.com' \
+  'xargs -n 1 curl https://api.example.com' 'watch -n 1 curl https://api.example.com/health' \
+'uv run locust -H http://localhost:8000' 'timeout 60 k6 run -e BASE_URL=http://app:8080 s.js' \
   'for r in 50 100; do k6 run -e BASE_URL=http://localhost:8080 s.js; done' \
   'uv run pytest https://api.example.com' 'python -m http.server https://api.example.com' 'sh run.sh https://api.example.com' 'timeout 5 curl https://api.example.com'
 
@@ -161,6 +168,20 @@ target_codes 2 'export BASE_URL=https://api.example.com && k6 run s.js' 'TARGET=
 target_codes 0 'export K6_INFLUXDB_ADDR=http://influx.example.com:8086 && k6 run s.js' 'export BASE_URL=http://localhost:8080 && k6 run s.js' \
   "$(printf "k6 run - <<'EOF'\nimport { x } from 'https://jslib.k6.io/x.js';\nexport default function () { http.get('http://app:8080/'); }\nEOF")"
 
+tc TC-S19 "스크립트 파일의 줄 끝 주석 URL 은 보지 않고, 스킴 없는 __ENV 기본값은 본다 · 템플릿은 통과"
+F1="$(put s/trail.js "import http from 'k6/http';\nexport const options = { thresholds: {} }; // https://grafana.com/docs/k6/\nexport default function () { http.get('http://app:8080/#top'); } # https://k6.io/docs\n")"
+F2="$(put s/bare.js "import http from 'k6/http';\nconst BASE = __ENV.BASE_URL || 'api.example.com';\nexport default function () { http.get(\`https://\${BASE}/\`); }\n")"
+F3="$(put s/bare-ok.js "// const OLD = __ENV.BASE_URL || 'old.example.com';\nconst BASE = __ENV.BASE_URL ?? \"localhost:8080\";\nconst T = __ENV.TYPE || 'load';\nconst R = __ENV.RATIO || '0.5';\n")"
+F4="$(put s/tail-bad.js "export default function () { http.get('https://api.example.com/'); } // local\n")"
+target_codes 0 "k6 run $F1" "k6 run $F3"
+target_codes 2 "k6 run $F2" "k6 run $F4" "$(printf "k6 run - <<'EOF'\nconst BASE = __ENV.BASE_URL || 'api.example.com';\nEOF")"
+if [ "$TC_ON" = 1 ]; then
+  sed -n '/^```javascript/,/^```/p' "$PLUGIN_ROOT/references/stress-test-templates.md" | sed '1d;$d' > "$TMP/s/tmpl.js"
+  sed "s/'localhost:8080'/'api.example.com'/" "$TMP/s/tmpl.js" > "$TMP/s/tmpl-bad.js"
+  target_codes 0 "k6 run $TMP/s/tmpl.js"
+  target_codes 2 "k6 run $TMP/s/tmpl-bad.js"
+fi
+
 echo "B. ST-02 ~ ST-06 부하 스크립트"
 tc TC-S20 "규칙을 지킨 k6 스크립트는 경고가 없다"
 F="$(put k/open.js "$K6_OPEN")"; run stress-script-validate.sh "$F"
@@ -168,7 +189,7 @@ expect_code 0; expect_out "부하 스크립트 1개, 경고 0건"
 
 tc TC-S21 "k6 closed 모델 · thresholds · p99 없음 · closed 표시 주석"
 F="$(put k/closed.js "$K6_CLOSED")"; run stress-script-validate.sh "$F"
-expect_out "ST-02"; expect_out "ST-03"; expect_out "ST-04"; expect_not "ST-06"
+expect_out "ST-02"; expect_out "ST-03"; expect_out "ST-04"; expect_out "summaryTrendStats 에 p(99)"; expect_not "ST-06"
 F="$(put k/closed-ok.js "// stress-test: closed-model\n$K6_CLOSED")"; run stress-script-validate.sh "$F"
 expect_not "ST-02"; expect_out "ST-03"
 
@@ -251,6 +272,19 @@ expect_code 1
 F="$(put r/x.json '{"a":1}')"; run stress-step-generate.sh --load 1 "$F"
 expect_code 1
 
+tc TC-S47 "k6 — 성공 요청 지연(expected_response:true)이 있으면 분위수를 그것으로, avg 는 전체"
+F="$(put r/sub.json '{"metrics":{"http_reqs":{"rate":200},"http_req_duration":{"avg":40,"med":5,"p(95)":200,"p(99)":250,"max":900},"http_req_duration{expected_response:true}":{"avg":180,"med":150,"p(95)":600,"p(99)":850,"max":880},"http_req_failed":{"value":0.3},"dropped_iterations":{"count":0}}}')"
+run stress-step-generate.sh --load 200 "$F"
+expect_code 0; expect_out "200,200,40,150,600,850,880,0.3,0,"
+F="$(put r/sub-hs.json '{"metrics":{"http_reqs":{"values":{"rate":200}},"http_req_duration":{"values":{"avg":40,"med":5,"p(95)":200,"p(99)":250,"max":900}},"http_req_duration{expected_response:true}":{"values":{"avg":180,"p(50)":150,"p(95)":600,"p(99)":850,"max":880}},"http_req_failed":{"values":{"rate":0.3}}}}')"
+run stress-step-generate.sh --load 200 "$F"
+expect_out "200,200,40,150,600,850,880,0.3,0,"
+
+tc TC-S48 "Locust — 필요한 열(99% 등)이 없으면 그 열 이름으로 오류(1)"
+F="$(put r/no99_stats.csv 'Type,Name,Request Count,Failure Count,Median Response Time,Average Response Time,Min Response Time,Max Response Time,Average Content Size,Requests/s,Failures/s,50%,95%,100%\n,Aggregated,1000,0,40,50,1,900,10,100,0,40,800,900\n')"
+run stress-step-generate.sh --load 100 "$F"
+expect_code 1; expect_out "열이 없다: 99%"; expect_not "Aggregated"; expect_not "awk"
+
 echo "D. 단계 판정"
 STEPS="$(put p/open.csv "$STEPS_OPEN")"
 tc TC-S50 "실측 open 7단계 — 용량 · 처리량 knee · p99 knee 가 180"
@@ -297,6 +331,16 @@ run stress-report-generate.sh --slo-p99 100 "$F"
 expect_code 0; expect_out "| 50 | 50.0 |"
 F="$(put p/bad.csv 'x,y\n1,2\n')"; run stress-report-generate.sh "$F"
 expect_code 1
+
+tc TC-S58 "--slo-p99 를 주면 p99 가 빈 단계 · p99 열이 없는 CSV 는 불합격(p99?)이다"
+F="$(put p/p99empty.csv 'load,throughput,avg_ms,p50_ms,p95_ms,p99_ms,max_ms,error_rate,dropped\n100,100,50,40,900,,1000,0,0\n200,199,60,45,950,,1200,0,0\n')"
+run stress-report-generate.sh --slo-p99 300 --target 200 "$F"
+expect_code 2; expect_out "❌ p99?"; expect_out "ST-04 p99 가 없는 단계"; expect_out "첫 단계부터 불합격"
+F="$(put p/nop99col.csv 'load,throughput,p95_ms,error_rate\n100,100,900,0\n')"
+run stress-report-generate.sh --slo-p99 300 --target 100 "$F"
+expect_code 2; expect_out "❌ p99?"
+run stress-report-generate.sh --target 100 "$F"
+expect_code 0; expect_not "p99?"
 
 echo "E. ST-20 회귀 판정"
 A="$(put m/a1 '101\n99\n103\n98\n100\n102\n97\n104\n')"; B="$(put m/b1 '108\n110\n107\n112\n109\n106\n111\n105\n')"
