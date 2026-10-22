@@ -65,6 +65,7 @@ test/validate-git-secret.test.sh TC-S3    # ID 접두사로 필터
 | TC-S58 | 명령 중간 · 서브셸 · `bash -c` 의 cd 와 `~` 로 시작하는 cd · git -C 도 따라간다 (cwd 가 다른 저장소 · 저장소 아님) |
 | TC-S59 | cd · git -C 대상에 변수 · 명령 치환이 있으면 commit · push 를 막고, commit · push 가 없거나 뒤의 -C 가 절대 경로면 막지 않는다 |
 | TC-S60 | 서브셸이 끝나면 cd 를 되돌리고, 명령 안 commit 마다 그 저장소를 본다 |
+| TC-S61 | `cd "$(git [-C 경로] rev-parse --show-toplevel)"` 는 그 저장소 루트로 풀어 본다 (스테이징된 키면 막고, 깨끗하면 통과) |
 
 ### C. 훅 — Write · Edit
 

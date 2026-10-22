@@ -267,6 +267,16 @@ for c in "git -C $o commit -m x && git -C $r commit -m y" "git -C $r commit -m y
   run_stdin "$(payload_bash "$TMP" "$c")"; expect_code 2; expect_out "[GS-01] c.py"; expect_not "a.py"
 done
 
+tc TC-S61 "cd \"\$(git [-C 경로] rev-parse --show-toplevel)\" 는 그 저장소 루트로 풀어 본다"
+r="$(repo)"; mkdir -p "$r/sub"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py
+for c in 'cd "$(git rev-parse --show-toplevel)" && git commit -m x' 'cd $(git rev-parse --show-toplevel) && git commit -m x'; do
+  run_stdin "$(payload_bash "$r/sub" "$c")"; expect_code 2; expect_out "[GS-01] c.py"
+done
+run_stdin "$(payload_bash "$TMP" "cd \"\$(git -C '$r/sub' rev-parse --show-toplevel)\" && git commit -m x")"; expect_code 2; expect_out "[GS-01] c.py"
+r="$(repo)"; mkdir -p "$r/sub"
+run_stdin "$(payload_bash "$r/sub" 'cd "$(git rev-parse --show-toplevel)" && git commit -m x')"; expect_code 0; expect_no_out
+run_stdin "$(payload_bash "$TMP" "cd \"\$(git -C $r rev-parse --show-toplevel)\" && git commit -m x")"; expect_code 0; expect_no_out
+
 tc TC-S38 "시크릿을 지우는 커밋은 통과한다 (추가된 줄만 본다)"
 r="$(repo)"; printf 'key = "%s"  # gitleaks:allow\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py && git -C "$r" commit -qm k
 printf 'key = os.environ["KEY"]\n' > "$r/c.py"; git -C "$r" add c.py

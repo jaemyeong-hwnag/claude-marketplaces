@@ -221,7 +221,7 @@ shell_words() { # $1=문자열 → 한 줄에 하나
   return 0
 }
 # 셸 명령을 단순 명령 단위로 자른다 — 한 줄에 한 명령, 토큰마다 \037 로 끝난다. 토큰 안의 줄바꿈은 \036.
-# 변수 · 명령 치환 자리는 \034 로 남기고, 서브셸 ( ) · $( ) 의 앞뒤에 \035( · \035) 줄을 낸다.
+# 변수 · 명령 치환 자리는 \034 로 남기고(명령 치환은 뒤에 \033<원문>\033), 서브셸 ( ) · $( ) 의 앞뒤에 \035( · \035) 줄을 낸다.
 read -r -d '' LEX <<'AWK'
 function emit() { if (CMD != "") print CMD; CMD = "" }
 function endtok() { if (INTOK) { gsub(/\n/, "\036", TOK); CMD = CMD TOK SEP }; TOK = ""; INTOK = 0 }
@@ -253,7 +253,7 @@ function squote(   s) { s = ""; while (P <= N && ch(0) != "'") { s = s ch(0); P+
 function ansi(   s) { s = ""; while (P <= N && ch(0) != "'") { if (ch(0) == "\\") { s = s ch(1); P += 2 } else { s = s ch(0); P++ } }; P++; return s }
 function arith(   d) { d = 0; while (P <= N) { if (ch(0) == "(") d++; else if (ch(0) == ")") { d--; if (d == 0) { P++; return } }; P++ } }
 function braces(   d, s) { d = 0; s = ""; while (P <= N) { s = s ch(0); if (ch(0) == "{") d++; else if (ch(0) == "}") { d--; if (d == 0) { P++; return s } }; P++ }; return s }
-function nested(stop,   sc, st, si) { sc = CMD; st = TOK; si = INTOK; CMD = ""; TOK = ""; INTOK = 0; print "\035("; lex(stop); print "\035)"; CMD = sc; TOK = st "\034"; INTOK = 1 }
+function nested(stop,   sc, st, si, p0) { sc = CMD; st = TOK; si = INTOK; CMD = ""; TOK = ""; INTOK = 0; p0 = P; print "\035("; lex(stop); print "\035)"; CMD = sc; TOK = st "\034\033" substr(S, p0, P - 1 - p0) "\033"; INTOK = 1 }
 function dquote(   c, c2) {
   while (P <= N) {
     c = ch(0)
@@ -305,11 +305,32 @@ AWK
 
 # cd · -C 의 대상 → 디렉터리. 변수 · 명령 치환이 있거나 모르는 기준에서의 상대 경로는 "" (모름). $1=기준 디렉터리 $2=경로
 target_dir() {
-  local to="$2"
-  case "$to" in *$'\034'*) return 0 ;; esac
+  local to="$2" in
+  # $(git [-C 경로] rev-parse --show-toplevel) 하나뿐이면 그 저장소 루트로 푼다
+  case "$to" in
+    $'\034\033'*$'\033')
+      in="${to#$'\034\033'}"; in="${in%$'\033'}"
+      case "$in" in *$'\033'*|*$'\034'*) return 0 ;; esac
+      toplevel_of "$1" "${in//$'\036'/$'\n'}"; return 0 ;;
+    *$'\034'*) return 0 ;;
+  esac
   case "$to" in "~") to="$HOME" ;; "~/"*) to="$HOME/${to#"~/"}" ;; esac
   case "$to" in /*) ;; *) [ -n "$1" ] || return 0; to="$1/$to" ;; esac
   printf '%s' "$to"
+}
+toplevel_of() { # $1=기준 디렉터리 $2=명령 치환 안의 명령 → 저장소 루트, 그 형태가 아니면 ""
+  local dir="$1" line n=0 d
+  local -a toks
+  while IFS= read -r line; do
+    case "$line" in $'\035'*) continue ;; esac
+    n=$((n + 1)); IFS=$'\037' read -r -a toks <<< "$line"
+  done < <(printf '%s\n' "$2" | awk "$LEX")
+  [ "$n" = 1 ] || return 0
+  if [ "${#toks[@]}" = 5 ] && [ "${toks[1]}" = -C ]; then dir="$(target_dir "$dir" "${toks[2]}")"; toks=("${toks[0]}" "${toks[@]:3}"); fi
+  [ "${#toks[@]}" = 3 ] && [ "${toks[0]##*/}" = git ] && [ "${toks[1]}" = rev-parse ] && [ "${toks[2]}" = --show-toplevel ] || return 0
+  [ -n "$dir" ] || return 0
+  d="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" && printf '%s' "$d"
+  return 0
 }
 git_target() { # $1=디렉터리, 나머지=git 뒤 토큰 → commit · push 면 TARGETS 에 더한다
   local dir="$1"; shift
