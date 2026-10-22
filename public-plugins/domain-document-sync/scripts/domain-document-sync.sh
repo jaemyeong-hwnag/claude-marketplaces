@@ -2,7 +2,7 @@
 # domain-document-sync.sh — 3계층 도메인 문서(<루트>/_index.md → <slug>/_meta.md → concept)의 훅 겸 CLI.
 #
 #   session              SessionStart — 문서 루트가 있으면 카탈로그 위치와 읽기 순서를 알린다
-#   snapshot             UserPromptSubmit — 요청 시작 때 도메인별 코드 지문을 저장하고 면제를 비운다
+#   snapshot             UserPromptSubmit — 요청 시작 때 도메인별 코드 · 문서 지문을 저장하고 면제를 비운다
 #   stop                 Stop — 이번 요청에서 코드가 바뀐 도메인에 문서 diff 가 없으면 exit 2 (S-01)
 #   pre-edit             PreToolUse(Edit|Write|MultiEdit) — 문서 루트를 고칠 때 프로토콜을 주입한다
 #   post-edit            PostToolUse(Edit|Write|MultiEdit) — concept 크기 · _meta 등재를 알린다
@@ -163,33 +163,69 @@ hook_init() {
   PROJ_REAL="$(pwd -P)"
   SID="$(printf '%s' "$INPUT" | jq -r '.session_id // "nosession"' 2>/dev/null || echo nosession)"
   SAFE="$(printf '%s' "$SID" | tr -c 'A-Za-z0-9_.-' '_')"
-  STATE="${TMPDIR:-/tmp}/domain-document-sync-${SAFE}.turn"
-  ACK="${TMPDIR:-/tmp}/domain-document-sync-${SAFE}.ack"
-  BASE_FILE="${TMPDIR:-/tmp}/domain-document-sync-${SAFE}.base"
+  # 상태는 프로젝트 안에 둔다 — Bash 샌드박스 안의 Claude 가 면제 파일에 쓸 수 있어야 한다
+  STATE_DIR="$PROJ/.claude/domain-document-sync"
+  ACK="$STATE_DIR/$SAFE.ack"
 }
 
-# 훅 입력의 file_path 를 프로젝트 기준 상대 경로로
-input_rel_path() {
-  local fp
+state_init() { # 스스로 ignore 해서 git status 를 더럽히지 않는다
+  mkdir -p "$STATE_DIR" 2>/dev/null || return 1
+  [ -f "$STATE_DIR/.gitignore" ] || printf '*\n' > "$STATE_DIR/.gitignore"
+}
+
+# 작업 트리 $1(프로젝트 기준 상대 경로, 프로젝트 자신은 빈 값)의 상태 파일 접두사
+unit_state() { printf '%s/%s%s' "$STATE_DIR" "$SAFE" "${1:+.$(printf '%s' "$1" | tr -c 'A-Za-z0-9_.-' '_')}"; }
+
+# 판정 단위 — 프로젝트 자신(빈 줄)과 프로젝트 아래 다른 작업 트리(워크트리)의 상대 경로.
+# 프로젝트가 저장소 하위 디렉터리면 워크트리에서도 같은 하위 디렉터리를 본다
+units() {
+  local prefix wt d
+  echo
+  prefix="$(git rev-parse --show-prefix 2>/dev/null)" || return 0
+  git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | while IFS= read -r wt; do
+    d="$(cd "$wt/$prefix" 2>/dev/null && pwd -P)" || continue
+    case "$d/" in "$PROJ_REAL"/?*) printf '%s\n' "${d#"$PROJ_REAL"/}" ;; esac
+  done
+}
+
+# 훅 입력의 file_path 를 그 파일이 속한 작업 트리 기준 상대 경로 FP 로 두고 그 작업 트리로 들어간다
+input_locate() {
+  local fp d rest u best=""
   fp="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)"
+  FP=""; [ -n "$fp" ] || return 0
   case "$fp" in
-    "$PROJ"/*) fp="${fp#"$PROJ"/}" ;;
-    "$PROJ_REAL"/*) fp="${fp#"$PROJ_REAL"/}" ;;
-    ./*) fp="${fp#./}" ;;
+    "$PROJ"/*) fp="$PROJ_REAL/${fp#"$PROJ"/}" ;;
+    /*) ;;
+    *) fp="$PROJ_REAL/${fp#./}" ;;
   esac
-  printf '%s' "$fp"
+  d="$(dirname "$fp")"; rest="$(basename "$fp")"
+  while [ ! -d "$d" ]; do rest="$(basename "$d")/$rest"; d="$(dirname "$d")"; done
+  d="$(cd "$d" && pwd -P)"
+  fp="$d/$rest"
+  case "$fp" in "$PROJ_REAL"/*) ;; *) FP="$fp"; return 0 ;; esac
+  while IFS= read -r u; do
+    [ -n "$u" ] || continue
+    case "$fp" in "$PROJ_REAL/$u"/*) [ "${#u}" -gt "${#best}" ] && best="$u" ;; esac
+  done <<EOF
+$(units)
+EOF
+  if [ -n "$best" ]; then cd "$PROJ_REAL/$best" 2>/dev/null || exit 0; FP="${fp#"$PROJ_REAL/$best"/}"
+  else FP="${fp#"$PROJ_REAL"/}"; fi
 }
 
 add_context() { # $1=이벤트 $2=메시지
   jq -cn --arg e "$1" --arg m "$2" '{ hookSpecificOutput: { hookEventName: $e, additionalContext: $m } }'
 }
 
+# stdin 파일 목록 중 도메인 $1 의 문서
+domain_doc_files() { grep -E "^$(printf '%s/%s/' "$ROOT" "$1" | re_escape)"; }
+
 # --- 모드 --------------------------------------------------------------------
 
 mode_session() {
   hook_init
   # 지난 세션의 상태 파일을 치운다 (7일)
-  find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'domain-document-sync-*' -type f -mtime +7 -delete 2>/dev/null
+  find "$STATE_DIR" -maxdepth 1 -type f ! -name .gitignore -mtime +7 -delete 2>/dev/null
   [ -f "$ROOT/_index.md" ] || exit 0
   local slugs n
   slugs="$(domain_slugs)"
@@ -200,19 +236,62 @@ mode_session() {
   exit 0
 }
 
+# 작업 트리 $1 의 요청 시작 상태 — HEAD · 원격, 도메인마다 "slug 코드지문 문서지문"
+unit_snapshot() {
+  local st changed slug head
+  cd "$PROJ_REAL${1:+/$1}" 2>/dev/null || return 0
+  [ -d "$ROOT" ] || return 0
+  git rev-parse --git-dir >/dev/null 2>&1 || return 0
+  state_init || return 0
+  st="$(unit_state "$1")"
+  head="$(git rev-parse -q --verify HEAD 2>/dev/null)"
+  if [ -n "$head" ]; then printf '%s\n%s\n' "$head" "$(remote_head)" > "$st.base"; else rm -f "$st.base"; fi
+  changed="$(changed_files)"
+  domain_slugs | while IFS= read -r slug; do
+    printf '%s %s %s\n' "$slug" "$(printf '%s\n' "$changed" | domain_code_files "$slug" | fingerprint)" \
+      "$(printf '%s\n' "$changed" | domain_doc_files "$slug" | fingerprint)"
+  done > "$st.turn" 2>/dev/null
+}
+
 mode_snapshot() {
   hook_init
   rm -f "$ACK" 2>/dev/null
-  [ -d "$ROOT" ] || exit 0
-  git rev-parse --git-dir >/dev/null 2>&1 || exit 0
-  local changed slug head
-  head="$(git rev-parse -q --verify HEAD 2>/dev/null)"
-  if [ -n "$head" ]; then printf '%s\n%s\n' "$head" "$(remote_head)" > "$BASE_FILE"; else rm -f "$BASE_FILE"; fi
-  changed="$(changed_files)"
-  domain_slugs | while IFS= read -r slug; do
-    printf '%s %s\n' "$slug" "$(printf '%s\n' "$changed" | domain_code_files "$slug" | fingerprint)"
-  done > "$STATE" 2>/dev/null
+  local u
+  while IFS= read -r u; do ( unit_snapshot "$u" ); done <<EOF
+$(units)
+EOF
   exit 0
+}
+
+# 작업 트리 $1 에서 S-01 을 어긴 도메인 — "slug: 파일 …" 한 줄씩. 경로는 프로젝트 기준
+unit_violations() {
+  local st where changed slug code docs now prev prevdoc
+  cd "$PROJ_REAL${1:+/$1}" 2>/dev/null || return 0
+  [ -d "$ROOT" ] || return 0
+  git rev-parse --git-dir >/dev/null 2>&1 || return 0
+  st="$(unit_state "$1")"; where="${1:+$1/}"
+  changed="$(turn_changed_files "$st.base")"
+  [ -z "$changed" ] && return 0
+
+  while IFS= read -r slug; do
+    [ -z "$slug" ] && continue
+    code="$(printf '%s\n' "$changed" | domain_code_files "$slug")"
+    [ -z "$code" ] && continue
+    # 이번 요청에서 이 도메인 코드가 바뀌지 않았으면 보지 않는다 — 질문 · 조회 응답은 막지 않는다
+    now="$(printf '%s\n' "$code" | fingerprint)"
+    prev="$(awk -v s="$slug" '$1 == s { print $2 }' "$st.turn" 2>/dev/null)"
+    [ -n "$prev" ] && [ "$prev" = "$now" ] && continue
+    # 문서도 지문으로 본다 — 요청 전부터 있던 문서 변경으로는 통과시키지 않는다
+    docs="$(printf '%s\n' "$changed" | domain_doc_files "$slug")"
+    prevdoc="$(awk -v s="$slug" '$1 == s { print $3 }' "$st.turn" 2>/dev/null)"
+    if [ -n "$prevdoc" ]; then [ "$(printf '%s\n' "$docs" | fingerprint)" != "$prevdoc" ] && continue
+    else [ -n "$docs" ] && continue; fi
+    printf '%s\n' "$acks" | grep -Eq "^n/a([[:space:]]+${slug})?[[:space:]]*$" && continue
+    printf '%s: %s%s\n' "$slug" "$(printf '%s\n' "$code" | head -5 | sed "s#^#$where#" | tr '\n' ' ')" \
+      "$([ "$(printf '%s\n' "$code" | wc -l)" -gt 5 ] && printf '…')"
+  done <<EOF
+$(domain_slugs)
+EOF
 }
 
 mode_stop() {
@@ -221,29 +300,16 @@ mode_stop() {
     exit 0
   fi
   hook_init
-  [ -d "$ROOT" ] || exit 0
-  git rev-parse --git-dir >/dev/null 2>&1 || exit 0
-  local active changed slug code now prev acks viol=""
+  local active acks u viol=""
   active="$(printf '%s' "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null || echo false)"
-  changed="$(turn_changed_files "$BASE_FILE")"
-  [ -z "$changed" ] && exit 0
   acks="$(cat "$ACK" 2>/dev/null || true)"
-
-  while IFS= read -r slug; do
-    [ -z "$slug" ] && continue
-    code="$(printf '%s\n' "$changed" | domain_code_files "$slug")"
-    [ -z "$code" ] && continue
-    # 이번 요청에서 이 도메인 코드가 바뀌지 않았으면 보지 않는다 — 질문 · 조회 응답은 막지 않는다
-    now="$(printf '%s\n' "$code" | fingerprint)"
-    prev="$(awk -v s="$slug" '$1 == s { print $2 }' "$STATE" 2>/dev/null)"
-    [ -n "$prev" ] && [ "$prev" = "$now" ] && continue
-    printf '%s\n' "$changed" | grep -q "^$ROOT/$slug/" && continue
-    printf '%s\n' "$acks" | grep -Eq "^n/a([[:space:]]+${slug})?[[:space:]]*$" && continue
-    viol="${viol}${viol:+
-}${slug}: $(printf '%s' "$code" | head -5 | tr '\n' ' ')$([ "$(printf '%s\n' "$code" | wc -l)" -gt 5 ] && printf '…')"
+  while IFS= read -r u; do
+    viol="${viol}$( unit_violations "$u" )
+"
   done <<EOF
-$(domain_slugs)
+$(units)
 EOF
+  viol="$(printf '%s' "$viol" | awk 'NF')"
 
   [ -z "$viol" ] && exit 0
 
@@ -253,11 +319,12 @@ $(printf '%s\n' "$viol" | sed 's/^/  - /')" '{ systemMessage: $m }'
     exit 0
   fi
 
+  state_init
   {
     echo "완료 보류(domain-document-sync S-01): 이번 요청에서 코드가 바뀐 도메인에 $ROOT 문서 변경이 없습니다."
     printf '%s\n' "$viol" | sed 's/^/  - /'
     echo "조치 (도메인마다 하나):"
-    echo "  1) domain-document-update 스킬대로 $ROOT/<slug>/ concept 를 고친다 (파트·트리거가 바뀌었으면 _meta · _index 도)"
+    echo "  1) domain-document-update 스킬대로 코드가 있는 작업 트리의 $ROOT/<slug>/ concept 를 고친다 (파트·트리거가 바뀌었으면 _meta · _index 도)"
     echo "  2) 도메인 지식이 그대로인 변경(내부 리팩터 · 오타 · 테스트)이면 사용자에게 알린 뒤 면제한다:"
     echo "     echo 'n/a <slug>' >> \"$ACK\"    # 모든 도메인이면 'n/a'"
   } >&2
@@ -266,8 +333,8 @@ $(printf '%s\n' "$viol" | sed 's/^/  - /')" '{ systemMessage: $m }'
 
 mode_pre_edit() {
   hook_init
-  local fp rest slug note=""
-  fp="$(input_rel_path)"
+  local fp rest slug note="" FP
+  input_locate; fp="$FP"
   case "$fp" in "$ROOT"/*) ;; *) exit 0 ;; esac
   rest="${fp#"$ROOT"/}"
   case "$rest" in
@@ -288,8 +355,8 @@ mode_pre_edit() {
 
 mode_post_edit() {
   hook_init
-  local fp rest slug base lines msg=""
-  fp="$(input_rel_path)"
+  local fp rest slug base lines msg="" FP
+  input_locate; fp="$FP"
   case "$fp" in "$ROOT"/*/*.md) ;; *) exit 0 ;; esac
   rest="${fp#"$ROOT"/}"; slug="${rest%%/*}"; base="${rest#*/}"
   case "$base" in _*|*/*) exit 0 ;; esac

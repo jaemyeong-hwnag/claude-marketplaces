@@ -39,7 +39,7 @@ expect_no_out() { [ "$TC_ON" = 1 ] || return 0; [ -z "$OUT" ] || fail_tc "출력
 # --- 픽스처: 모든 규칙을 지키는 저장소 — 언어가 셋 섞여 있다 --------------------
 S='{"session_id":"tc"}'
 ACTIVE='{"session_id":"tc","stop_hook_active":true}'
-ACK_FILE="$TMPDIR/domain-document-sync-tc.ack"
+ACK_FILE="$TMP/repo/.claude/domain-document-sync/tc.ack"
 
 make_repo() {
   REPO="$TMP/repo"; rm -rf "$REPO"; mkdir -p "$REPO"; cd "$REPO" || exit 1
@@ -83,7 +83,9 @@ EOF
   printf -- "---\ncode: ['services/billing/**']\n---\n\n# 결제 (billing)\n\n작은 도메인은 메타 하나로 끝난다.\n" > docs/domain/billing/_meta.md
   printf '# 용어 (glossary)\n\n코드 없는 도메인.\n' > docs/domain/glossary/_meta.md
   git add -A && git commit -qm init
-  rm -f "$TMPDIR"/domain-document-sync-tc.*
+}
+make_worktree() { # 메인 체크아웃 아래 .claude/worktrees/1-w — 세션 루트는 그대로 메인
+  git worktree add -q .claude/worktrees/1-w -b wt 2>/dev/null; WT="$REPO/.claude/worktrees/1-w"
 }
 
 make_repo
@@ -298,6 +300,37 @@ git update-ref refs/remotes/origin/main HEAD; git checkout -q feat
 hook snapshot "$S"; [ "$TC_ON" = 1 ] && git rebase -q origin/main
 echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java; hook stop "$S"; expect_code 2; expect_out "order: src/main/java/com/shop/order/Order.java"; expect_not "billing"
 
+tc TC-C33 "메인 체크아웃 세션에서 워크트리의 도메인 코드를 고치면 막는다"
+make_repo; make_worktree; hook snapshot "$S"; echo 'class Order { int a; }' > "$WT/src/main/java/com/shop/order/Order.java"
+hook stop "$S"; expect_code 2; expect_out "order: .claude/worktrees/1-w/src/main/java/com/shop/order/Order.java"
+
+tc TC-C34 "워크트리에서 코드와 그 워크트리 문서를 함께 고치면 통과한다"
+make_repo; make_worktree; hook snapshot "$S"; echo 'class Order { int a; }' > "$WT/src/main/java/com/shop/order/Order.java"
+echo '- a 추가' >> "$WT/docs/domain/order/entities.md"; hook stop "$S"; expect_code 0
+
+tc TC-C35 "워크트리 코드를 고치고 메인 체크아웃 문서만 고치면 막는다"
+make_repo; make_worktree; hook snapshot "$S"; echo 'class Order { int a; }' > "$WT/src/main/java/com/shop/order/Order.java"
+echo '- a 추가' >> docs/domain/order/entities.md; hook stop "$S"; expect_code 2; expect_out "order: .claude/worktrees/1-w/"
+
+tc TC-C36 "프로젝트 밖 워크트리의 변경은 보지 않는다"
+make_repo; git worktree add -q "$TMP/outside" -b out 2>/dev/null; hook snapshot "$S"
+echo 'class Order { int a; }' > "$TMP/outside/src/main/java/com/shop/order/Order.java"; hook stop "$S"; expect_code 0; expect_no_out
+[ "$TC_ON" = 1 ] && git worktree remove --force "$TMP/outside"
+
+tc TC-C37 "요청 전부터 있던 미커밋 문서 변경으로는 이번 요청의 코드 변경을 통과시키지 않는다"
+make_repo; hook snapshot "$S"; echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java
+echo '- a 추가' >> docs/domain/order/entities.md; hook stop "$S"; expect_code 0
+hook snapshot "$S"; echo 'class Order { int b; }' > src/main/java/com/shop/order/Order.java; hook stop "$S"; expect_code 2; expect_out "order:"
+
+tc TC-C38 "요청 전부터 있던 문서 변경을 이번 요청에서 또 고치면 통과한다"
+make_repo; echo '- a 추가' >> docs/domain/order/entities.md; hook snapshot "$S"
+echo 'class Order { int b; }' > src/main/java/com/shop/order/Order.java; echo '- b 추가' >> docs/domain/order/entities.md; hook stop "$S"; expect_code 0
+
+tc TC-C39 "상태 · 면제 파일은 프로젝트 .claude/domain-document-sync/ 에 두고 git status 에 나오지 않는다"
+make_repo; hook snapshot "$S"
+[ "$TC_ON" = 1 ] && { [ -f "$REPO/.claude/domain-document-sync/tc.turn" ] || fail_tc "상태 파일이 프로젝트 안에 없다"
+  [ -z "$(git status --porcelain)" ] || fail_tc "git status 가 더러워졌다: $(git status --porcelain)"; }
+
 tc TC-C18 "문서 루트가 없는 저장소에서는 아무것도 하지 않는다"
 make_repo; rm -rf docs; hook snapshot "$S"; echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java
 hook stop "$S"; expect_code 0; expect_no_out
@@ -361,6 +394,13 @@ REAL="$(cd "$REPO" && pwd -P)"; mkdir -p "$TMP/link"; ln -sfn "$REPO" "$TMP/link
 OUT="$(printf '%s' "{\"tool_input\":{\"file_path\":\"$REAL/docs/domain/_index.md\"}}" | CLAUDE_PROJECT_DIR="$TMP/link/repo" "$SCRIPT" pre-edit 2>&1)"; CODE=$?
 expect_code 0; expect_out "카탈로그 편집"
 
+tc TC-D10 "워크트리의 문서 루트 편집에도 규약을 주입한다"
+make_repo; make_worktree; hook pre-edit "{\"tool_input\":{\"file_path\":\"$WT/docs/domain/stock/items.md\"}}"; expect_out "새 도메인 'stock'"
+
+tc TC-D11 "워크트리의 concept 편집 뒤 그 워크트리 _meta 기준으로 알린다 (D-05)"
+echo '# f' > "$WT/docs/domain/order/flows.md"
+hook post-edit "{\"tool_input\":{\"file_path\":\"$WT/docs/domain/order/flows.md\"}}"; expect_out "D-05: flows.md"
+
 section "E. 세션 시작 (session)"
 
 tc TC-E01 "문서 루트가 있으면 카탈로그 위치 · 도메인 목록 · 읽기 순서를 알린다"
@@ -370,9 +410,9 @@ tc TC-E02 "문서 루트가 없으면 아무것도 하지 않는다"
 rm -rf docs; hook session "$S"; expect_code 0; expect_no_out
 
 tc TC-E03 "7일 지난 상태 파일을 치우고 최근 것은 남긴다"
-touch "$TMPDIR/domain-document-sync-new.turn"; touch -t 202001010000 "$TMPDIR/domain-document-sync-old.turn"
+SD="$REPO/.claude/domain-document-sync"; mkdir -p "$SD"; touch "$SD/new.turn"; touch -t 202001010000 "$SD/old.turn" "$SD/.gitignore"
 hook session "$S"
-[ "$TC_ON" = 1 ] && { [ -e "$TMPDIR/domain-document-sync-old.turn" ] && fail_tc "오래된 파일이 남았다"; [ -e "$TMPDIR/domain-document-sync-new.turn" ] || fail_tc "최근 파일이 지워졌다"; }
+[ "$TC_ON" = 1 ] && { [ -e "$SD/old.turn" ] && fail_tc "오래된 파일이 남았다"; [ -e "$SD/new.turn" ] || fail_tc "최근 파일이 지워졌다"; [ -e "$SD/.gitignore" ] || fail_tc ".gitignore 가 지워졌다"; }
 
 flush_tc
 echo

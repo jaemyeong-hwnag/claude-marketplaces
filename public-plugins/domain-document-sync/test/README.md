@@ -11,7 +11,7 @@ test/domain-document-sync.test.sh TC-C     # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. 필요한 것: `git`, `jq`.
 
-## 자동 TC (67건)
+## 자동 TC (76건)
 
 픽스처는 **모든 규칙을 지키는 저장소**다 — Java(`src/main/java/**/order/**`) · TypeScript(`web/src/features/order/`) · Python(`services/billing/**`) 세 언어, 블록 목록 · 인라인 목록 · `!` 제외, concept 이 있는 도메인 · `_meta.md` 만 있는 도메인 · `code:` 가 없는 도메인. TC 마다 한 곳만 깨뜨린다.
 
@@ -84,6 +84,13 @@ test/domain-document-sync.test.sh TC-C     # ID 접두사로 필터
 | TC-C30 | 요청 시작 때 있던 원격 위로 리베이스해도 다시 얹힌 내 커밋은 이번 변경이 아니다 |
 | TC-C31 | 요청 시작 때 있던 원격을 merge 커밋으로 합쳐도 이번 변경이 아니다 |
 | TC-C32 | 리베이스한 뒤 도메인 코드를 고치면 막는다 |
+| TC-C33 | 메인 체크아웃 세션에서 워크트리의 도메인 코드를 고치면 막는다 |
+| TC-C34 | 워크트리에서 코드와 그 워크트리 문서를 함께 고치면 통과한다 |
+| TC-C35 | 워크트리 코드를 고치고 메인 체크아웃 문서만 고치면 막는다 |
+| TC-C36 | 프로젝트 밖 워크트리의 변경은 보지 않는다 |
+| TC-C37 | 요청 전부터 있던 미커밋 문서 변경으로는 이번 요청의 코드 변경을 통과시키지 않는다 |
+| TC-C38 | 요청 전부터 있던 문서 변경을 이번 요청에서 또 고치면 통과한다 |
+| TC-C39 | 상태 · 면제 파일은 프로젝트 `.claude/domain-document-sync/` 에 두고 `git status` 에 나오지 않는다 |
 
 ### D. 편집 훅 (pre-edit · post-edit)
 
@@ -98,6 +105,8 @@ test/domain-document-sync.test.sh TC-C     # ID 접두사로 필터
 | TC-D07 | `_meta` · `_index` 편집 뒤에는 알리지 않는다 |
 | TC-D08 | `jq` 가 없으면 훅은 조용히 통과한다 (fail-open) |
 | TC-D09 | 심볼릭 링크로 들어온 프로젝트 경로(`/var` → `/private/var`)도 문서 루트로 알아본다 |
+| TC-D10 | 워크트리의 문서 루트 편집에도 규약을 주입한다 |
+| TC-D11 | 워크트리의 concept 편집 뒤 그 워크트리 `_meta` 기준으로 알린다 (D-05) |
 
 ### E. 세션 시작 (session)
 
@@ -105,7 +114,7 @@ test/domain-document-sync.test.sh TC-C     # ID 접두사로 필터
 |---|---|
 | TC-E01 | 문서 루트가 있으면 카탈로그 위치 · 도메인 목록 · 읽기 순서를 알린다 |
 | TC-E02 | 문서 루트가 없으면 아무것도 하지 않는다 |
-| TC-E03 | 7일 지난 상태 파일을 치우고 최근 것은 남긴다 |
+| TC-E03 | 7일 지난 상태 파일을 치우고 최근 것 · `.gitignore` 는 남긴다 |
 
 ## eval
 
