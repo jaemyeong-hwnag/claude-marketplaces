@@ -220,14 +220,149 @@ shell_words() { # $1=문자열 → 한 줄에 하나
   [ "$on" = 1 ] && printf '%s\n' "$w"
   return 0
 }
-# 명령이 작업할 디렉터리 — 앞쪽 cd X && 와 git -C X 를 따른다
-command_dir() { # $1=명령 $2=훅 cwd
-  local d="$2" c x
-  c="$(printf '%s' "$1" | sed -nE 's/^[[:space:]]*cd[[:space:]]+("([^"]+)"|'"'"'([^'"'"']+)'"'"'|([^[:space:];&|]+)).*/\2\3\4/p' | head -1)"
-  if [ -n "$c" ]; then case "$c" in /*) d="$c" ;; "~"*) d="$HOME${c#\~}" ;; *) d="$d/$c" ;; esac; fi
-  x="$(printf '%s' "$1" | sed -nE 's/.*git[[:space:]]+-C[[:space:]]+("([^"]+)"|'"'"'([^'"'"']+)'"'"'|([^[:space:]]+)).*/\2\3\4/p' | head -1)"
-  if [ -n "$x" ]; then case "$x" in /*) d="$x" ;; *) d="$d/$x" ;; esac; fi
-  printf '%s' "$d"
+# 셸 명령을 단순 명령 단위로 자른다 — 한 줄에 한 명령, 토큰마다 \037 로 끝난다. 토큰 안의 줄바꿈은 \036.
+# 변수 · 명령 치환 자리는 \034 로 남기고, 서브셸 ( ) · $( ) 의 앞뒤에 \035( · \035) 줄을 낸다.
+read -r -d '' LEX <<'AWK'
+function emit() { if (CMD != "") print CMD; CMD = "" }
+function endtok() { if (INTOK) { gsub(/\n/, "\036", TOK); CMD = CMD TOK SEP }; TOK = ""; INTOK = 0 }
+function ch(o) { return substr(S, P + o, 1) }
+function blanks() { while (P <= N && (ch(0) == " " || ch(0) == "\t")) P++ }
+function heredocs(   i, e, line, cmp) {
+  for (i = 1; i <= HD; i++) {
+    while (P <= N) {
+      e = index(substr(S, P), "\n")
+      if (e == 0) { line = substr(S, P); P = N + 1 } else { line = substr(S, P, e - 1); P += e }
+      cmp = line; if (HDTAB[i]) sub(/^\t+/, "", cmp)
+      if (cmp == HDEND[i]) break
+    }
+  }
+  HD = 0
+}
+function word(   w, c) {
+  w = ""
+  while (P <= N) {
+    c = ch(0)
+    if (c ~ /[ \t\n;&|()<>]/) break
+    if (c == "\\") { w = w ch(1); P += 2; continue }
+    if (c == "'" || c == "\"") { P++; while (P <= N && ch(0) != c) { w = w ch(0); P++ }; P++; continue }
+    w = w c; P++
+  }
+  return w
+}
+function squote(   s) { s = ""; while (P <= N && ch(0) != "'") { s = s ch(0); P++ }; P++; return s }
+function ansi(   s) { s = ""; while (P <= N && ch(0) != "'") { if (ch(0) == "\\") { s = s ch(1); P += 2 } else { s = s ch(0); P++ } }; P++; return s }
+function arith(   d) { d = 0; while (P <= N) { if (ch(0) == "(") d++; else if (ch(0) == ")") { d--; if (d == 0) { P++; return } }; P++ } }
+function braces(   d, s) { d = 0; s = ""; while (P <= N) { s = s ch(0); if (ch(0) == "{") d++; else if (ch(0) == "}") { d--; if (d == 0) { P++; return s } }; P++ }; return s }
+function nested(stop,   sc, st, si) { sc = CMD; st = TOK; si = INTOK; CMD = ""; TOK = ""; INTOK = 0; print "\035("; lex(stop); print "\035)"; CMD = sc; TOK = st "\034"; INTOK = 1 }
+function dquote(   c, c2) {
+  while (P <= N) {
+    c = ch(0)
+    if (c == "\"") { P++; return }
+    if (c == "\\") { c2 = ch(1); if (c2 == "\n") { P += 2; continue }; if (c2 !~ /[$`"\\]/) TOK = TOK c; TOK = TOK c2; P += 2; continue }
+    if (c == "$" && ch(1) == "(") { if (ch(2) == "(") { P++; arith(); TOK = TOK "\034"; continue }; P += 2; nested(")"); continue }
+    if (c == "$" && ch(1) == "{") { P++; TOK = TOK "\034" braces(); continue }
+    if (c == "$" && ch(1) ~ /[A-Za-z0-9_@*#?$!-]/) { TOK = TOK "\034"; P++; continue }
+    if (c == "`") { P++; nested("`"); continue }
+    TOK = TOK c; P++
+  }
+}
+function lex(stop,   c, c2) {
+  while (P <= N) {
+    c = ch(0)
+    if (stop != "" && c == stop) { P++; endtok(); emit(); return }
+    if (c == "\\") { if (ch(1) != "\n") { TOK = TOK ch(1); INTOK = 1 }; P += 2; continue }
+    if (c == "'") { P++; TOK = TOK squote(); INTOK = 1; continue }
+    if (c == "\"") { P++; INTOK = 1; dquote(); continue }
+    if (c == "$") {
+      c2 = ch(1)
+      if (c2 == "(") { INTOK = 1; if (ch(2) == "(") { P++; arith(); TOK = TOK "\034"; continue }; P += 2; nested(")"); continue }
+      if (c2 == "{") { P++; TOK = TOK "\034" braces(); INTOK = 1; continue }
+      if (c2 == "'") { P += 2; TOK = TOK ansi(); INTOK = 1; continue }
+      if (c2 ~ /[A-Za-z0-9_@*#?$!-]/) { TOK = TOK "\034"; INTOK = 1; P++; continue }
+      TOK = TOK c; INTOK = 1; P++; continue
+    }
+    if (c == "`") { P++; INTOK = 1; nested("`"); continue }
+    if (c == " " || c == "\t") { endtok(); P++; continue }
+    if (c == "\n") { endtok(); emit(); P++; heredocs(); continue }
+    if (c == "#" && !INTOK) { while (P <= N && ch(0) != "\n") P++; continue }
+    if (c == "&" && ch(1) == ">") { endtok(); P += 2; if (ch(0) == ">") P++; blanks(); word(); continue }
+    if (c == ">" || c == "<") {
+      if (INTOK && TOK ~ /^[0-9]+$/) { TOK = ""; INTOK = 0 } else endtok()
+      if (substr(S, P, 3) == "<<<") { P += 3; blanks(); word(); continue }
+      if (substr(S, P, 2) == "<<") { P += 2; HD++; HDTAB[HD] = 0; if (ch(0) == "-") { HDTAB[HD] = 1; P++ }; blanks(); HDEND[HD] = word(); continue }
+      P++; while (P <= N && ch(0) ~ /[>&|]/) P++
+      blanks(); word(); continue
+    }
+    if (c == "(" || c == ")") { endtok(); emit(); print "\035" c; P++; continue }
+    if (c ~ /[;&|]/) { endtok(); emit(); P++; continue }
+    TOK = TOK c; INTOK = 1; P++
+  }
+  endtok(); emit()
+}
+{ S = (NR == 1) ? $0 : S "\n" $0 }
+END { SEP = "\037"; N = length(S); P = 1; CMD = ""; TOK = ""; INTOK = 0; HD = 0; lex("") }
+AWK
+
+# cd · -C 의 대상 → 디렉터리. 변수 · 명령 치환이 있거나 모르는 기준에서의 상대 경로는 "" (모름). $1=기준 디렉터리 $2=경로
+target_dir() {
+  local to="$2"
+  case "$to" in *$'\034'*) return 0 ;; esac
+  case "$to" in "~") to="$HOME" ;; "~/"*) to="$HOME/${to#"~/"}" ;; esac
+  case "$to" in /*) ;; *) [ -n "$1" ] || return 0; to="$1/$to" ;; esac
+  printf '%s' "$to"
+}
+git_target() { # $1=디렉터리, 나머지=git 뒤 토큰 → commit · push 면 TARGETS 에 더한다
+  local dir="$1"; shift
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      -C) dir="$(target_dir "$dir" "${2:-.}")"; shift; [ "$#" -gt 0 ] && shift ;;
+      -c) shift; [ "$#" -gt 0 ] && shift ;;
+      -*) shift ;;
+      *) break ;;
+    esac
+  done
+  case "${1:-}" in commit|push) TARGETS+=("$1"$'\037'"$dir") ;; esac
+  return 0
+}
+# 단순 명령을 차례로 보며 cd 를 따라간다. 서브셸이 끝나면 디렉터리를 되돌리고, bash -c · eval 의 문자열은 다시 자른다
+find_targets() { # $1=명령 $2=시작 디렉터리 → TARGETS 에 "하위 명령\037디렉터리"
+  local dir="$2" line i s wrap
+  local -a toks stack
+  stack=()
+  while IFS= read -r line; do
+    case "$line" in
+      $'\035(') stack+=("$dir"); continue ;;
+      $'\035)') if [ "${#stack[@]}" -gt 0 ]; then i=$((${#stack[@]} - 1)); dir="${stack[$i]}"; unset "stack[$i]"; fi; continue ;;
+    esac
+    IFS=$'\037' read -r -a toks <<< "$line"
+    wrap=0
+    while [ "${#toks[@]}" -gt 0 ]; do
+      case "${toks[0]}" in
+        '{'|'}'|'!'|if|then|else|elif|do|while|until) ;;
+        time|command|builtin|exec|nohup|sudo|env) wrap=1 ;;
+        -*) [ "$wrap" = 1 ] || break ;;
+        *) [[ "${toks[0]}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || break ;;
+      esac
+      toks=("${toks[@]:1}")
+    done
+    [ "${#toks[@]}" -gt 0 ] || continue
+    case "${toks[0]##*/}" in
+      cd|pushd)
+        i=1; while [ "$i" -lt "${#toks[@]}" ] && [[ "${toks[$i]}" == -?* ]]; do [ "${toks[$i]}" = -- ] && { i=$((i+1)); break; }; i=$((i+1)); done
+        if [ "${toks[$i]:-}" = - ]; then dir=""; else dir="$(target_dir "$dir" "${toks[$i]:-$HOME}")"; fi ;;
+      popd) dir="" ;;
+      git) git_target "$dir" "${toks[@]:1}" ;;
+      eval) s="${toks[*]:1}"; find_targets "${s//$'\036'/$'\n'}" "$dir" ;;
+      bash|sh|zsh|dash|ksh)
+        for ((i = 1; i < ${#toks[@]}; i++)); do
+          case "${toks[$i]}" in
+            -c|-[a-z]*c) s="${toks[$((i+1))]:-}"; [ -n "$s" ] && find_targets "${s//$'\036'/$'\n'}" "$dir"; break ;;
+            -*) ;;
+            *) break ;;
+          esac
+        done ;;
+    esac
+  done < <(printf '%s\n' "$1" | awk "$LEX")
 }
 
 # git commit 의 경로 인자 — 따옴표 값(메시지)과 값을 받는 옵션의 값은 뺀다
@@ -276,8 +411,8 @@ parse_git_add() { # $1=명령
   return 0
 }
 
-hook_commit() { # $1=저장소 $2=명령
-  local repo="$1" cmd="$2" scan="$TMP/commit" paths="$TMP/commit-paths" commit_args worktree=0 has_head=1 tok
+hook_commit() { # $1=저장소 $2=명령 $3=번호(대상마다 따로 모은다)
+  local repo="$1" cmd="$2" scan="$TMP/commit${3:-}" paths="$TMP/commit-paths" commit_args worktree=0 has_head=1 tok
   mkdir -p "$scan"; : > "$paths"
   g -C "$repo" rev-parse -q --verify HEAD >/dev/null 2>&1 || has_head=0
   commit_args="$(git_sub_args "$cmd" commit)"
@@ -340,8 +475,8 @@ hook_commit() { # $1=저장소 $2=명령
   collect_sensitive "$repo" "$paths"
 }
 
-hook_push() { # $1=저장소
-  local repo="$1" scan="$TMP/push"
+hook_push() { # $1=저장소 $2=번호
+  local repo="$1" scan="$TMP/push${2:-}"
   mkdir -p "$scan"
   g -C "$repo" rev-parse -q --verify HEAD >/dev/null 2>&1 || return 0
   # 아직 어떤 원격에도 없는 커밋
@@ -354,7 +489,7 @@ hook_push() { # $1=저장소
 }
 
 hook_bash() { # $1=payload
-  local cmd cwd repo what=""
+  local cmd cwd repo what="" t sub n=0 seen=$'\n'
   cmd="$(printf '%s' "$1" | jq -r '.tool_input.command // ""' 2>/dev/null)"
   [ -n "$cmd" ] || exit 0
   has_git_sub "$cmd" commit && what="commit"
@@ -362,10 +497,23 @@ hook_bash() { # $1=payload
   [ -n "$what" ] || exit 0
   cwd="$(printf '%s' "$1" | jq -r '.cwd // ""' 2>/dev/null)"
   [ -n "$cwd" ] || cwd="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-  CMD_DIR="$(command_dir "$cmd" "$cwd")"
-  repo="$(g -C "$CMD_DIR" rev-parse --show-toplevel 2>/dev/null)" || exit 0
-  case "$what" in *commit*) hook_commit "$repo" "$cmd" ;; esac
-  case "$what" in *push*) hook_push "$repo" ;; esac
+  TARGETS=()
+  find_targets "$cmd" "$cwd"
+  # 렉서가 git 명령으로 보지 못한 형태는 cwd 를 본다
+  if [ "${#TARGETS[@]}" = 0 ]; then for t in $what; do TARGETS+=("$t"$'\037'"$cwd"); done; fi
+  for t in "${TARGETS[@]}"; do
+    [ -n "${t#*$'\037'}" ] && continue
+    echo "❌ git ${t%%$'\037'*} 의 대상 저장소를 알 수 없어 막는다 ($LABEL) — cd · git -C 의 대상에 변수 · 명령 치환이 있다." >&2
+    echo "경로를 그대로 적어 다시 실행한다 (예: git -C /abs/repo commit …). 규칙: $RULES" >&2
+    exit 2
+  done
+  for t in "${TARGETS[@]}"; do
+    sub="${t%%$'\037'*}"; CMD_DIR="${t#*$'\037'}"
+    repo="$(g -C "$CMD_DIR" rev-parse --show-toplevel 2>/dev/null)" || continue
+    case "$seen" in *$'\n'"$sub $repo"$'\n'*) continue ;; esac
+    seen="$seen$sub $repo"$'\n'; n=$((n + 1))
+    case "$sub" in commit) hook_commit "$repo" "$cmd" "$n" ;; push) hook_push "$repo" "$n" ;; esac
+  done
 
   if [ "${#ERRORS[@]}" -gt 0 ]; then
     local e
