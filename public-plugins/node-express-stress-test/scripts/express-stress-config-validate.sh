@@ -2,7 +2,7 @@
 # Express 프로젝트에서 부하 측정을 무효로 만드는 실행 설정을 찾는다 (references/express-stress-rules.md NEX-01 ~ NEX-09).
 #
 # CLI 모드 : express-stress-config-validate.sh [디렉터리]   (기본: 현재 디렉터리)
-# 훅 모드  : stdin 에 훅 JSON. PreToolUse(Bash) 의 command 가 부하 도구 실행일 때만 $CLAUDE_PROJECT_DIR 를 검사해
+# 훅 모드  : stdin 에 훅 JSON. PreToolUse(Bash) 의 command 가 부하 도구 실행일 때만 명령이 도는 디렉터리의 앱을 검사해
 #            additionalContext 로 알린다. 막지 않는다.
 #
 # 종료 코드: 0 통과(경고만 있어도) / 2 위반 / 1 실행 오류
@@ -25,7 +25,8 @@ run_config_files() { # $1=루트
            "$1"/compose*.yml "$1"/compose*.yaml "$1"/Procfile "$1"/ecosystem.config.js "$1"/ecosystem.config.cjs \
            "$1"/ecosystem.config.json; do
     [ -f "$f" ] || continue
-    case "${f##*/}" in *dev*|*local*|*test*) continue ;; esac  # 개발 · 테스트용 변형은 운영 기동이 아니다
+    # 개발 · 테스트용 변형은 운영 기동이 아니다. loadtest · perftest 처럼 단어 안에 든 것은 본다
+    printf '%s\n' "${f##*/}" | tr 'A-Z' 'a-z' | grep -qE '(^|[._-])(dev|develop|development|local|test|tests|testing)([._-]|$)' && continue
     printf '%s\n' "$f"
   done
 }
@@ -53,12 +54,15 @@ debug_hits_express() { # $1=줄
     | grep -qE '^(express(:.*)?|router(:.*)?|\*)$'
 }
 
+uses_framework() { # $1=package.json
+  [ -f "$1" ] && jq -e '((.dependencies // {}) + (.devDependencies // {})) | has("express")' "$1" >/dev/null 2>&1
+}
+
 # ---- 검사 --------------------------------------------------------------------
 check_project() { # $1=루트
   ROOT="$1"
   local pkg="$ROOT/package.json"
-  [ -f "$pkg" ] || return 0
-  jq -e '((.dependencies // {}) + (.devDependencies // {})) | has("express")' "$pkg" >/dev/null 2>&1 || return 0
+  uses_framework "$pkg" || return 0
 
   local cfgs=() line f
   while IFS= read -r f; do cfgs+=("$f"); done < <(run_config_files "$ROOT")
@@ -182,7 +186,7 @@ strip_heredoc() {
 
 # 부하 도구를 실행하는 구간인가 — 구간의 첫 단어(환경 변수 대입 · 래퍼 제외)나 docker 이미지로 판단한다. 도구 이름은 TOOL 에 남긴다
 is_load_segment() {
-  local seg="$1" w first="" rest
+  local seg="$1" w first="" rest opts
   TOOL=""
   # shellcheck disable=SC2086
   set -f; set -- $seg; set +f
@@ -206,6 +210,23 @@ is_load_segment() {
           esac
         done
         [ "$#" -gt 0 ] && shift ;;
+      nice|ionice|stdbuf|xargs|watch|caffeinate)
+        # 값을 받는 옵션 — 값까지 건너뛰어야 다음 단어가 실행할 명령이다
+        case "$w" in
+          nice) opts=" -n --adjustment " ;;
+          ionice) opts=" -c -n -p -P -u --class --classdata " ;;
+          stdbuf) opts=" -i -o -e --input --output --error " ;;
+          xargs) opts=" -n -L -P -I -J -R -S -d -E -s -a " ;;
+          watch) opts=" -n --interval " ;;
+          caffeinate) opts=" -t -w " ;;
+        esac
+        shift
+        while [ "$#" -gt 0 ]; do
+          case "$1" in
+            -*) case "$opts" in *" $1 "*) shift ;; esac; shift ;;
+            *) break ;;
+          esac
+        done ;;
       sh|bash|zsh|dash|ksh)
         shift
         while [ "$#" -gt 0 ]; do
@@ -246,6 +267,28 @@ is_load_command() { # $1=명령
   return 1
 }
 
+# 명령이 도는 디렉터리 — 입력의 cwd(없으면 프로젝트)에 앞머리 cd 를 적용한다
+target_dir() { # $1=입력 JSON $2=명령
+  local base d
+  base="$(printf '%s' "$1" | jq -r '.cwd // empty' 2>/dev/null)"
+  [ -n "$base" ] || base="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+  d="$(printf '%s\n' "$2" | sed -nE '1s/^[[:space:]]*cd[[:space:]]+([^;&|[:space:]]+).*/\1/p' | tr -d "\"'")"
+  case "$d" in '') d="$base" ;; /*) ;; *) d="$base/$d" ;; esac
+  [ -d "$d" ] && d="$(cd "$d" && pwd)"
+  printf '%s' "$d"
+}
+
+# 워크스페이스 하위 앱 — 대상 디렉터리부터 위로 express 를 쓰는 가장 가까운 package.json. 없으면 그대로 둔다
+app_root() { # $1=디렉터리
+  local d="$1"
+  while [ -n "$d" ]; do
+    uses_framework "$d/package.json" && { printf '%s' "$d"; return 0; }
+    [ "$d" = / ] && break
+    d="$(dirname "$d")"
+  done
+  printf '%s' "$1"
+}
+
 hook_mode() { # $1=입력 JSON
   local event tool cmd
   event="$(printf '%s' "$1" | jq -r '.hook_event_name // empty' 2>/dev/null)"
@@ -253,7 +296,7 @@ hook_mode() { # $1=입력 JSON
   cmd="$(printf '%s' "$1" | jq -r '.tool_input.command // empty' 2>/dev/null)"
   [ "$event" = PreToolUse ] && [ "$tool" = Bash ] && [ -n "$cmd" ] || return 0
   is_load_command "$cmd" || return 0
-  check_project "${CLAUDE_PROJECT_DIR:-$(pwd)}"
+  check_project "$(app_root "$(target_dir "$1" "$cmd")")"
   [ $((${#ERRORS[@]} + ${#WARNINGS[@]})) -gt 0 ] || return 0
   local body x
   body="[$LABEL] 부하 측정 전에 대상 Express 앱의 실행 설정을 확인하세요 — 이대로 잰 수치는 운영을 대표하지 않을 수 있습니다."

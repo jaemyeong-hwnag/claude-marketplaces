@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.1.3
+
+### Fixed
+- `docker-compose.loadtest.yml` · `Dockerfile.perftest` 를 개발용으로 보고 건너뛰던 것 — 이름에 단어로 dev · local · test 가 든 파일만 뺀다 (#124)
+- `NST-01` 이 빈칸 없는 exec 형식 `command: ["nest","start","--watch"]` · `["npm","run","start:dev"]` 를 놓치던 것 (#124)
+- 훅이 루트 `package.json` 만 봐서 워크스페이스 하위 앱(`cd apps/api && k6 run …`)을 놓치던 것 — 명령이 도는 디렉터리(입력의 `cwd` · 앞머리 `cd`)부터 위로 가장 가까운 `@nestjs/core` 앱을 본다 (#124)
+- 훅이 `nice` · `ionice` · `stdbuf` · `xargs` · `watch` · `caffeinate` 로 감싼 부하 명령을 알아보지 못하던 것 — 값을 받는 옵션(`nice -n 10` · `xargs -I {}`)은 값까지 건너뛴다 (#124)
+
 ## 0.1.2
 
 ### Fixed

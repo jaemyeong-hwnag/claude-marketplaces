@@ -4,7 +4,7 @@ Node.js · Express 앱을 부하 측정할 때 **그 프레임워크에만 해�
 부하 모델 · 지표 정의 · 통계 판정 · 대상 호스트 안전은 `common-stress-test` 가 맡는다.
 
 기계 검증: [`scripts/express-stress-config-validate.sh`](../scripts/express-stress-config-validate.sh) — `NEX-01` ~ `NEX-09`.
-훅이 보는 부하 명령은 `common-stress-test` 의 `ST-01` 과 같은 규칙으로 판별한다 — `uv run` · `poetry run` · `python -m` · `timeout` · `sh -c` 같은 래퍼와 한 줄 `for … do` · `if … then` 안도 보고, heredoc 본문은 보지 않는다.
+훅이 보는 부하 명령은 `common-stress-test` 의 `ST-01` 과 같은 규칙으로 판별한다 — `uv run` · `poetry run` · `python -m` · `timeout` · `nice` · `ionice` · `stdbuf` · `xargs` · `watch` · `caffeinate` · `sh -c` 같은 래퍼와 한 줄 `for … do` · `if … then` 안도 보고, heredoc 본문은 보지 않는다.
 계측 코드: [`express-instrumentation.md`](express-instrumentation.md) · 마이크로벤치마크: [`node-microbenchmark.md`](node-microbenchmark.md).
 
 확인 버전: Node.js 22.23 · Express 5.2.1 (4.x 소스도 대조) · prom-client 15.1.3 · tinybench 4.1.0 · mitata 1.0.34.
@@ -23,8 +23,8 @@ Node.js · Express 앱을 부하 측정할 때 **그 프레임워크에만 해�
 | `NEX-08` | `prom-client` 를 쓰는 파일에서 `new Summary(` | 경고 | Prometheus 문서 "Histograms and summaries" — 분위수는 합칠 수 없다 · prom-client README "Summaries calculate percentiles" |
 | `NEX-09` | 라우트를 정의한 파일에서 `*Sync(` 호출 | 경고 | Express 성능 문서 "Don't use synchronous functions" — 기동 시 1회는 무관하므로 경고 |
 
-- 검사 대상은 `package.json` 에 `express` 가 있는 디렉터리다. 없으면 조용히 통과한다
-- `*dev*` · `*local*` · `*test*` 가 이름에 든 compose · Dockerfile 은 운영 기동이 아니므로 보지 않는다. `package.json` 의 `dev` 스크립트도 보지 않는다
+- 검사 대상은 `package.json` 에 `express` 가 있는 디렉터리다. 없으면 조용히 통과한다. 훅은 명령이 도는 디렉터리(입력의 `cwd` 와 앞머리 `cd`)부터 위로 가장 가까운 그 디렉터리를 본다
+- 이름에 단어로 `dev` · `local` · `test` 가 든 compose · Dockerfile(`docker-compose.dev.yml`)은 운영 기동이 아니므로 보지 않는다. `loadtest` · `perftest` 처럼 단어 안에 든 것은 본다. `package.json` 의 `dev` 스크립트도 보지 않는다
 - `.env` 는 보지 않는다 — 개발용인 경우가 많다. 실제 기동 환경 변수는 배포 설정(쿠버네티스 매니페스트 · systemd `Environment=`)에 있을 수 있으므로 `NEX-02` 는 경고다
 - PM2 `ecosystem.config.*` 는 `env` · `env_production` 을 나눠 쓰므로 `NODE_ENV` 값으로 위반을 내지 않는다 (`production` 이 있으면 `NEX-02` 만 해소)
 

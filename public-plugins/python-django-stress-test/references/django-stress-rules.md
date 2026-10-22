@@ -10,7 +10,7 @@ Django 서버를 부하 측정할 때 **측정을 무효로 만드는 설정**�
 ## 1. 조항
 
 판정 — **차단**: CLI 종료 코드 `2`. 훅은 부하 명령을 막지 않고 `additionalContext` 로 알린다. **경고**: CLI `0` + 알림. **AI 판단**: 스크립트가 보지 않고 `django-stress-test-apply` 스킬이 본다.
-훅이 보는 부하 명령은 `common-stress-test` 의 `ST-01` 과 같은 규칙으로 판별한다 — `uv run` · `poetry run` · `python -m` · `timeout` · `sh -c` 같은 래퍼와 한 줄 `for … do` · `if … then` 안도 보고, heredoc 본문은 보지 않는다.
+훅이 보는 부하 명령은 `common-stress-test` 의 `ST-01` 과 같은 규칙으로 판별한다 — `uv run` · `poetry run` · `python -m` · `timeout` · `nice` · `ionice` · `stdbuf` · `xargs` · `watch` · `caffeinate` · `sh -c` 같은 래퍼와 한 줄 `for … do` · `if … then` 안도 보고, heredoc 본문은 보지 않는다.
 
 | 조항 | 내용 | 판정 | 근거 |
 |---|---|---|---|

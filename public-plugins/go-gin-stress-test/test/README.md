@@ -11,7 +11,7 @@ test/gin-stress-config-validate.test.sh TC-S1     # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. macOS 기본 bash 3.2 에서도 돈다.
 
-## 자동 TC (42건)
+## 자동 TC (44건)
 
 픽스처는 **규칙을 지키는 Gin 앱**(`main.go` · `go.mod` go 1.25 · `Dockerfile`)이고, TC 마다 새 디렉터리에 복사해 한 곳만 깨뜨린다. 과잉 탐지(잡으면 안 되는 것)를 막는 TC 를 조항마다 둔다.
 
@@ -66,3 +66,5 @@ test/gin-stress-config-validate.test.sh TC-S1     # ID 접두사로 필터
 | TC-S104 | 빈 입력 · PostToolUse · Bash 가 아닌 도구는 통과한다 |
 | TC-S105 | 래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 알린다 |
 | TC-S106 | 래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 명령은 조용히 통과한다 |
+| TC-S107 | 래퍼 nice · ionice · stdbuf · xargs · watch · caffeinate 뒤의 부하 명령도 알린다 — 값을 받는 옵션은 값까지 건너뛴다 |
+| TC-S108 | 래퍼 뒤가 부하 도구가 아니면 조용히 통과한다 |

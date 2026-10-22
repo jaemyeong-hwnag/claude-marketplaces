@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.3
+
+### Fixed
+- 훅이 `nice` · `ionice` · `stdbuf` · `xargs` · `watch` · `caffeinate` 로 감싼 부하 명령을 알아보지 못하던 것 — 값을 받는 옵션(`nice -n 10` · `xargs -I {}`)은 값까지 건너뛴다 (#124)
+
 ## 0.1.2
 
 ### Fixed

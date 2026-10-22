@@ -11,7 +11,7 @@ test/nestjs-stress-config-validate.test.sh TC-N1    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다.
 
-## 자동 TC (33건)
+## 자동 TC (38건)
 
 픽스처는 **규칙을 지키는 NestJS 프로젝트**(기본 스타터 스크립트 · `node dist/main` Dockerfile · logger 옵션 · 히스토그램 · 게이지)이고, TC 마다 한 곳만 깨뜨린다. 조항마다 과잉 탐지를 막는 TC 를 둔다.
 
@@ -45,6 +45,8 @@ test/nestjs-stress-config-validate.test.sh TC-N1    # ID 접두사로 필터
 | TC-N23 | @nestjs/core 가 없는 프로젝트는 보지 않는다 |
 | TC-N24 | node_modules · dist · *.spec.ts 는 보지 않는다 |
 | TC-N25 | 디렉터리가 아니면 오류 (종료 1) |
+| TC-N26 | loadtest · perftest 처럼 단어 안에 dev · local · test 가 든 compose · Dockerfile 은 본다 (NST-01) |
+| TC-N27 | compose · Dockerfile 의 빈칸 없는 exec 형식 배열도 읽는다 (NST-01) |
 
 ### B. 훅
 
@@ -57,3 +59,6 @@ test/nestjs-stress-config-validate.test.sh TC-N1    # ID 접두사로 필터
 | TC-N34 | 빈 입력 · Bash 가 아닌 도구 · PostToolUse 는 통과한다 |
 | TC-N35 | 래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 알린다 |
 | TC-N36 | 래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 명령은 조용히 통과한다 |
+| TC-N37 | 래퍼 nice · ionice · stdbuf · xargs · watch · caffeinate 뒤의 부하 명령도 알린다 — 값을 받는 옵션은 값까지 건너뛴다 |
+| TC-N38 | 래퍼 뒤가 부하 도구가 아니면 조용히 통과한다 |
+| TC-N39 | 워크스페이스 루트에서도 명령이 도는 하위 앱(cwd · 앞머리 cd)부터 위로 가장 가까운 @nestjs/core 프로젝트를 본다 |

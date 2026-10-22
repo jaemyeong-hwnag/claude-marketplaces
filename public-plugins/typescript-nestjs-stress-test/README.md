@@ -31,9 +31,9 @@ NestJS 서버 부하 측정을 준비한다 — prom-client 지연 히스토그�
 
 - 훅은 경고만 한다. 부하 대상 호스트를 막는 것은 `common-stress-test` 의 훅이다
 - 운영 기동 명령은 Dockerfile · compose · Procfile 에서 찾고, 없으면 `package.json` 의 `start:prod` (없으면 `start`) 를 본다. `npm run x` 는 한 단계 풀어 본다
-- 이름에 `dev` · `local` · `test` 가 들어간 Dockerfile · compose 는 보지 않는다
+- 이름에 단어로 `dev` · `local` · `test` 가 든 Dockerfile · compose 는 보지 않는다 (`loadtest` · `perftest` 는 본다)
 - 문법 분석기 없이 줄 단위로 본다. `logger` 옵션을 변수로 넘기면 값을 따라가지 않는다
-- `@nestjs/core` 가 `package.json` 에 없으면 아무것도 보지 않는다. 모노레포는 앱 디렉터리를 인자로 준다
+- `@nestjs/core` 가 `package.json` 에 없으면 아무것도 보지 않는다. 모노레포는 CLI 에 앱 디렉터리를 인자로 준다. 훅은 명령이 도는 디렉터리(`cd` 포함)부터 위로 가장 가까운 앱을 본다
 - `jq` 가 필요하다
 
 ## 규칙 요약

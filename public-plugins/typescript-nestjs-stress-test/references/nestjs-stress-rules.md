@@ -11,7 +11,7 @@ Node 런타임 공통(`NODE_ENV` · 이벤트 루프 · `UV_THREADPOOL_SIZE` · 
 ## 1. 조항
 
 판정 — **차단**: CLI 종료 코드 `2`. 훅은 부하 명령을 막지 않고 `additionalContext` 로 알린다. **경고**: CLI `0` + 알림. **AI 판단**: 스크립트가 보지 않고 `nestjs-stress-test-apply` 스킬이 본다.
-훅이 보는 부하 명령은 `common-stress-test` 의 `ST-01` 과 같은 규칙으로 판별한다 — `uv run` · `poetry run` · `python -m` · `timeout` · `sh -c` 같은 래퍼와 한 줄 `for … do` · `if … then` 안도 보고, heredoc 본문은 보지 않는다.
+훅이 보는 부하 명령은 `common-stress-test` 의 `ST-01` 과 같은 규칙으로 판별한다 — `uv run` · `poetry run` · `python -m` · `timeout` · `nice` · `ionice` · `stdbuf` · `xargs` · `watch` · `caffeinate` · `sh -c` 같은 래퍼와 한 줄 `for … do` · `if … then` 안도 보고, heredoc 본문은 보지 않는다.
 
 | 조항 | 내용 | 판정 | 근거 |
 |---|---|---|---|
@@ -35,12 +35,12 @@ Node 런타임 공통(`NODE_ENV` · 이벤트 루프 · `UV_THREADPOOL_SIZE` · 
 | 경우 | 이유 |
 |---|---|
 | `//` · `*` 로 시작하는 주석 줄 | 실행되지 않는다 |
-| 이름에 `dev` · `local` · `test` 가 있는 Dockerfile · compose | 운영 기동이 아니다 |
+| 이름에 단어로 `dev` · `local` · `test` 가 있는 Dockerfile · compose (`docker-compose.dev.yml`. `loadtest` · `perftest` 는 본다) | 운영 기동이 아니다 |
 | 배포 설정(Dockerfile · compose · Procfile)이 없을 때의 `start` · `start:dev` | 운영 기동은 `start:prod` 다. `start:prod` 가 없을 때만 `start` 를 본다 |
 | `node_modules/` · `dist/` · `build/` · `coverage/` · `test/` · `*.spec.*` · `*.test.*` · `*.d.ts` · 루트의 `.claude/` | 의존성 · 산출물 · 테스트다 |
 | `@opentelemetry/sdk-node` · `sdk-metrics` 를 쓰는 프로젝트 (`NST-07` · `NST-08`) | OTel HTTP 계측이 지연 히스토그램과 활성 요청 수를 따로 낸다 |
 | `durable: true` 인 요청 스코프, `Scope.TRANSIENT` (`NST-09`) | 요청마다 하위 트리를 다시 만들지 않는다 / 위로 번지지 않는다 |
-| `@nestjs/core` 가 `package.json` 에 없는 프로젝트 | 대상이 아니다 |
+| `@nestjs/core` 가 `package.json` 에 없는 프로젝트 | 대상이 아니다. 훅은 명령이 도는 디렉터리(입력의 `cwd` 와 앞머리 `cd`)부터 위로 가장 가까운 `@nestjs/core` 프로젝트를 본다 |
 
 ## 2. 실측 (Docker, 컨테이너 `--cpus=1`, k6)
 

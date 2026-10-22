@@ -234,6 +234,14 @@ run "$p"; expect_code 2; expect_out "❌ SPR-02 src/main/resources/application.p
 # --- B. 훅 -------------------------------------------------------------------
 BAD="$(proj hookbad)"; sed -i.bak 's/logging.level.root=INFO/logging.level.root=DEBUG/' "$(props "$BAD")"
 
+tc TC-S27 "프로필 이름에 dev · local · test 가 단어로 든 파일만 빼고 loadtest · perftest · stresstest 프로필 파일은 막는다 (SPR-02)"
+p="$(proj s27)"
+for n in loadtest perftest stresstest; do printf 'logging.level.root=DEBUG\n' > "$p/src/main/resources/application-$n.properties"; done
+printf 'logging.level.root=DEBUG\n' > "$p/src/main/resources/application-local-db.properties"
+printf 'logging:\n  level:\n    root: TRACE\n' > "$p/src/main/resources/application-Dev.yml"
+run "$p"; expect_code 2; expect_out "application-loadtest.properties"; expect_out "application-perftest.properties"
+expect_out "application-stresstest.properties"; expect_not "application-local-db"; expect_not "application-Dev"
+
 tc TC-S30 "k6 run 이면 위반을 additionalContext 로 알리고 통과한다"
 run_hook "$BAD" "$(bash_payload 'cd load && k6 run --summary-export out.json script.js')"; expect_code 0
 expect_out '"additionalContext"'; expect_out "SPR-02"; expect_out "java-spring-stress-test"
@@ -276,6 +284,17 @@ done
 
 tc TC-S38 "래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 명령은 조용히 통과한다"
 for c in 'uv run pytest' 'poetry run python manage.py migrate' 'python -m http.server' 'timeout 5 curl http://x' "sh -c 'echo k6 run'" "$(printf 'cat > note.md <<EOF\nk6 run s.js\nEOF')"; do
+  run_hook "$BAD" "$(bash_payload "$c")"; expect_code 0; expect_no_out
+done
+
+tc TC-S39 "래퍼 nice · ionice · stdbuf · xargs · watch · caffeinate 뒤의 부하 명령도 알린다 — 값을 받는 옵션은 값까지 건너뛴다"
+for c in 'nice k6 run s.js' 'nice -n 10 k6 run s.js' 'ionice -c 2 -n 7 k6 run s.js' 'stdbuf -oL k6 run s.js' 'stdbuf -o L k6 run s.js' \
+         'echo s.js | xargs -n1 k6 run' 'xargs -I {} k6 run {} < list.txt' "watch -n 5 'hey http://localhost:8080/'" 'caffeinate -i -t 600 k6 run s.js'; do
+  run_hook "$BAD" "$(bash_payload "$c")"; expect_code 0; expect_out "SPR-02"
+done
+
+tc TC-S40 "래퍼 뒤가 부하 도구가 아니면 조용히 통과한다"
+for c in 'nice -n 10 make build' 'ionice -c 3 du -sh .' 'stdbuf -oL tail -f app.log' 'echo a | xargs -n1 rm' 'watch -n 5 kubectl get pods' 'caffeinate -t 60 sleep 60'; do
   run_hook "$BAD" "$(bash_payload "$c")"; expect_code 0; expect_no_out
 done
 

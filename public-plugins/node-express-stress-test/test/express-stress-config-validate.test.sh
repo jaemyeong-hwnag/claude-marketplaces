@@ -161,6 +161,18 @@ tc TC-E23 "위반과 경고가 함께 있으면 둘 다 보고하고 2 로 끝�
 d="$(proj)"; set_json "$d" '.scripts.start = "nodemon --inspect src/server.js"'
 run "$d"; expect_code 2; expect_out "❌ NEX-03"; expect_out "⚠️  NEX-05"; expect_out "위반 1 · 경고 1"
 
+tc TC-E24 "loadtest · perftest 처럼 단어 안에 dev · local · test 가 든 compose · Dockerfile 은 본다 (NEX-01 · NEX-03)"
+d="$(proj)"; printf 'services:\n  api:\n    command: nodemon src/server.js\n' > "$d/docker-compose.loadtest.yml"
+printf 'FROM node:22\nENV NODE_ENV=development\n' > "$d/Dockerfile.perftest"
+printf 'services:\n  api:\n    command: nodemon src/server.js\n' > "$d/docker-compose.local-db.yml"
+run "$d"; expect_code 2; expect_out "NEX-03 docker-compose.loadtest.yml:3"; expect_out "NEX-01 Dockerfile.perftest:2"; expect_not "local-db"
+
+tc TC-E25 "스킬이 넘기는 결과 CSV 열이 common-stress-test 의 stress-step-generate.sh --header 와 같다"
+hdr="$(bash "$PLUGIN_ROOT/../common-stress-test/scripts/stress-step-generate.sh" --header 2>/dev/null)"
+OUT="$(grep -F '결과 CSV' "$PLUGIN_ROOT/skills/express-stress-test-apply/SKILL.md")"
+[ -n "$hdr" ] || fail_tc "stress-step-generate.sh --header 를 읽지 못함"
+expect_out "\`$hdr\`"
+
 # --- B. 훅 -------------------------------------------------------------------
 BAD="$(proj)"; set_json "$BAD" '.scripts.start = "nodemon src/server.js"'
 GOOD="$(proj)"
@@ -206,6 +218,24 @@ tc TC-E37 "래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 
 for c in 'uv run pytest' 'poetry run python manage.py migrate' 'python -m http.server' 'timeout 5 curl http://x' "sh -c 'echo k6 run'" "$(printf 'cat > note.md <<EOF\nk6 run s.js\nEOF')"; do
   run_hook "$BAD" "$(bash_payload "$c")"; expect_code 0; expect_no_out
 done
+
+tc TC-E38 "래퍼 nice · ionice · stdbuf · xargs · watch · caffeinate 뒤의 부하 명령도 알린다 — 값을 받는 옵션은 값까지 건너뛴다"
+for c in 'nice k6 run s.js' 'nice -n 10 k6 run s.js' 'ionice -c 2 -n 7 k6 run s.js' 'stdbuf -oL k6 run s.js' 'stdbuf -o L k6 run s.js' \
+         'echo s.js | xargs -n1 k6 run' 'xargs -I {} k6 run {} < list.txt' "watch -n 5 'hey http://localhost:8080/'" 'caffeinate -i -t 600 k6 run s.js'; do
+  run_hook "$BAD" "$(bash_payload "$c")"; expect_code 0; expect_out "NEX-03"
+done
+
+tc TC-E39 "래퍼 뒤가 부하 도구가 아니면 조용히 통과한다"
+for c in 'nice -n 10 make build' 'ionice -c 3 du -sh .' 'stdbuf -oL tail -f app.log' 'echo a | xargs -n1 rm' 'watch -n 5 kubectl get pods' 'caffeinate -t 60 sleep 60'; do
+  run_hook "$BAD" "$(bash_payload "$c")"; expect_code 0; expect_no_out
+done
+
+tc TC-E40 "워크스페이스 루트에서도 명령이 도는 하위 앱(cwd · 앞머리 cd)부터 위로 가장 가까운 express 프로젝트를 본다"
+M="$TMP/mono"; mkdir -p "$M/apps"; printf '{"private":true,"workspaces":["apps/*"]}\n' > "$M/package.json"
+A="$(proj)"; set_json "$A" '.scripts.start = "nodemon src/server.js"'; mv "$A" "$M/apps/api"
+run_hook "$M" "$(bash_payload 'cd apps/api && k6 run load.js')"; expect_code 0; expect_out "NEX-03"
+run_hook "$M" "$(jq -n --arg d "$M/apps/api/load" '{hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: {command: "k6 run s.js"}, cwd: $d}')"; expect_out "NEX-03"
+run_hook "$M" "$(bash_payload 'k6 run load.js')"; expect_code 0; expect_no_out
 
 flush_tc
 echo

@@ -11,7 +11,7 @@ test/express-stress-config-validate.test.sh TC-E1    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. macOS 기본 bash 3.2 에서도 돈다.
 
-## 자동 TC (31건)
+## 자동 TC (36건)
 
 픽스처는 **규칙을 지키는 Express 프로젝트**(`start` 는 `node`, Dockerfile `ENV NODE_ENV=production`, prom-client Histogram)이고, TC 마다 한 곳만 깨뜨린다. 조항마다 과잉 탐지를 막는 TC 를 둔다.
 
@@ -42,6 +42,8 @@ test/express-stress-config-validate.test.sh TC-E1    # ID 접두사로 필터
 | TC-E21 | 라우트 파일의 *Sync 호출을 경고한다 (NEX-09) |
 | TC-E22 | 라우트가 없는 파일 · 테스트 · node_modules 의 *Sync 는 보지 않는다 (NEX-09 과잉 탐지 방지) |
 | TC-E23 | 위반과 경고가 함께 있으면 둘 다 보고하고 2 로 끝난다 |
+| TC-E24 | loadtest · perftest 처럼 단어 안에 dev · local · test 가 든 compose · Dockerfile 은 본다 (NEX-01 · NEX-03) |
+| TC-E25 | 스킬이 넘기는 결과 CSV 열이 common-stress-test 의 stress-step-generate.sh --header 와 같다 |
 
 ### B. 훅 (PreToolUse Bash)
 
@@ -55,3 +57,6 @@ test/express-stress-config-validate.test.sh TC-E1    # ID 접두사로 필터
 | TC-E35 | 경고만 있는 프로젝트도 알린다 |
 | TC-E36 | 래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 알린다 |
 | TC-E37 | 래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 명령은 조용히 통과한다 |
+| TC-E38 | 래퍼 nice · ionice · stdbuf · xargs · watch · caffeinate 뒤의 부하 명령도 알린다 — 값을 받는 옵션은 값까지 건너뛴다 |
+| TC-E39 | 래퍼 뒤가 부하 도구가 아니면 조용히 통과한다 |
+| TC-E40 | 워크스페이스 루트에서도 명령이 도는 하위 앱(cwd · 앞머리 cd)부터 위로 가장 가까운 express 프로젝트를 본다 |
