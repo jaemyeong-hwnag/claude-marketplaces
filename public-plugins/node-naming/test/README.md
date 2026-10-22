@@ -11,7 +11,7 @@ test/validate-node-naming.test.sh TC-N3    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다.
 
-## 자동 TC (40건)
+## 자동 TC (43건)
 
 픽스처는 **규칙을 지키는 파일**(`order-service.js` · `package.json`)이고, TC 마다 한 곳만 깨뜨린다. 과잉 차단(막으면 안 되는 것)을 막는 TC 를 조항마다 둔다.
 
@@ -43,6 +43,9 @@ test/validate-node-naming.test.sh TC-N3    # ID 접두사로 필터
 | TC-N22 | 디렉터리를 주면 하위 파일을 보고 node_modules · dist · *.min.js 는 건너뛴다 |
 | TC-N23 | 루트가 .claude/worktrees 안이어도 검사한다 (제외는 루트 기준) |
 | TC-N24 | --all 은 루트의 .claude/worktrees 를 건너뛴다 |
+| TC-N25 | Windows 가 정한 환경 변수 이름은 통과하고 비슷한 이름은 막는다 (ND-03 과잉 차단 방지, #116) |
+| TC-N26 | JSX 글의 class 단어는 클래스로 읽지 않고, `{` · `extends` 가 다음 줄에 와도 선언은 막는다 (ND-04, #116) |
+| TC-N27 | Expo Router 의 `export const unstable_settings` 는 통과하고 export 가 아니면 막는다 (ND-05, #116) |
 
 ### B. 훅
 

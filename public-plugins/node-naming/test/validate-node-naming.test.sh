@@ -150,6 +150,21 @@ run --all "$TMP/r/.claude/worktrees/w"; expect_code 2; expect_out "bad_three"
 tc TC-N24 "--all 은 루트의 .claude/worktrees 를 건너뛴다"
 run --all "$TMP/r"; expect_code 0
 
+tc TC-N25 "Windows 가 정한 환경 변수 이름은 통과하고 비슷한 이름은 막는다 (ND-03 과잉 차단 방지, #116)"
+f="$(put win.js "const a = process.env.SystemRoot + process.env.ProgramFiles + process.env.ComSpec + process.env.windir;\nconst b = process.env['ProgramFiles(x86)'] || process.env.CommonProgramFiles;\n")"
+run "$f"; expect_code 0; expect_no_out
+f="$(put win2.js 'const a = process.env.systemRoot;\nconst b = process.env.ProgramFilesDir;\n')"; run "$f"; expect_code 2
+expect_out "'SYSTEM_ROOT'"; expect_out "'PROGRAM_FILES_DIR'"
+
+tc TC-N26 "JSX 글의 class 단어는 클래스로 읽지 않고, { · extends 가 다음 줄에 와도 선언은 막는다 (ND-04, #116)"
+f="$(put Card.jsx 'export function Card() {\n  return <span>First class shipping included</span>;\n}\nconst t = <p>Pick a class</p>;\n')"; run "$f"; expect_code 0; expect_no_out
+f="$(put b.js 'class bad_one\n{\n}\nclass bad_two\n\n  extends Base {}\nclass bad_three {}\n')"; run "$f"; expect_code 2
+expect_out "b.js:1:"; expect_out "'BadOne'"; expect_out "b.js:4:"; expect_out "'BadTwo'"; expect_out "'BadThree'"
+
+tc TC-N27 "Expo Router 의 export const unstable_settings 는 통과하고 export 가 아니면 막는다 (ND-05, #116)"
+f="$(put app/_layout.js 'export const unstable_settings = { initialRouteName: \"index\" };\n')"; run "$f"; expect_code 0; expect_no_out
+f="$(put app/other.js 'const unstable_settings = {};\n')"; run "$f"; expect_code 2; expect_out "'unstableSettings'"
+
 # --- B. 훅 -------------------------------------------------------------------
 tc TC-N30 "Write 로 name 이 틀린 package.json 을 새로 만들면 막는다"
 rm -rf "$SRC"; mkdir -p "$SRC"

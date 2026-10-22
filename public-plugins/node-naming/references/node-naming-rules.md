@@ -55,7 +55,10 @@ function findOrders(userId) { }                     // ND-05
 | `ND-03` — `npm_*` (`npm_package_version`, `npm_config_…`, `npm_lifecycle_event`) | npm 이 넣는 이름이다 |
 | `ND-03` — `http_proxy` · `https_proxy` · `no_proxy` · `all_proxy` | 관례상 소문자다 (도구마다 소문자를 먼저 읽는다) |
 | `ND-03` — `process.env.hasOwnProperty(…)` 같은 메서드 호출 | 환경 변수 이름이 아니다 |
+| `ND-03` — Windows 가 정한 이름(`SystemRoot` · `SystemDrive` · `windir` · `ComSpec` · `Path` · `PSModulePath` · `DriverData` · `ProgramData` · `ProgramFiles` · `ProgramFiles(x86)` · `ProgramW6432` · `CommonProgramFiles` · `CommonProgramFiles(x86)` · `CommonProgramW6432`) | Windows 가 정한 이름이다. 밑줄을 넣으면(`SYSTEM_ROOT`) 다른 변수가 된다 |
 | `ND-04` — 이름 없는 클래스 표현식(`class extends Base`) | 이름이 없다 |
+| `ND-04` — 뒤에 `{` · `extends` 가 오지 않는 `class 단어`(JSX 글 `First class shipping`). 줄 끝이면 다음 줄을 본다 | 선언이 아니다 |
+| `ND-05` — `export const unstable_settings` | Expo Router 가 읽는 이름이다 |
 | `ND-05` — UPPER_SNAKE_CASE 상수(`MAX_RETRY_COUNT`), PascalCase(`OrderCard` — 컴포넌트 · 생성자) | Airbnb 가이드가 허용한다 |
 | `ND-05` — 앞뒤 밑줄(`_private`, `__dirname`) | 앞 밑줄은 관례상 "내부용" 표시다. 밑줄 사이의 snake_case(`_cache_map`)는 막는다 |
 | `ND-05` — 구조 분해(`const { user_name } = row`) | 이름을 바깥(DB · API)이 정한다 |

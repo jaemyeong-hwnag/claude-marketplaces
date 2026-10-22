@@ -240,6 +240,9 @@ scan_source() { # $1=내용 파일 $2=파일명 $3=js|ts
     function check_env(n) {
       if (n !~ /[a-z]/) return
       if (n ~ /^npm_/ || n ~ /^(http_proxy|https_proxy|no_proxy|all_proxy)$/) return
+      # Windows 가 정한 이름 — 밑줄을 넣은 제안(SYSTEM_ROOT)은 다른 변수를 읽는다
+      if (n ~ /^(SystemRoot|SystemDrive|windir|ComSpec|Path|PSModulePath|DriverData|ProgramData|ProgramW6432|CommonProgramW6432)$/) return
+      if (n ~ /^(Common)?ProgramFiles(\(x86\))?$/) return
       emit("E", "ND-03", "환경 변수 \047" n "\047 는 UPPER_SNAKE_CASE 여야 한다 → \047" upper_snake(n) "\047")
     }
 
@@ -254,7 +257,11 @@ scan_source() { # $1=내용 파일 $2=파일명 $3=js|ts
       return lead lower_camel(core)
     }
 
-    BEGIN { st = "code"; tdepth = 0; prev = ""; prevword = "" }
+    function check_class(n, ln) {
+      if (n !~ /^[A-Z][A-Za-z0-9]*$/) emit_at("E", "ND-04", ln, "클래스 이름 \047" n "\047 는 PascalCase 여야 한다 → \047" upper_camel(n) "\047")
+    }
+
+    BEGIN { st = "code"; tdepth = 0; prev = ""; prevword = ""; cpend = "" }
     {
       raw = $0
       if (NR == 1 && raw ~ /^#!/) next
@@ -277,13 +284,18 @@ scan_source() { # $1=내용 파일 $2=파일명 $3=js|ts
       }
       if (mode != "js") next
 
-      # ND-04 클래스
+      # ND-04 클래스 — 뒤에 { · extends 가 와야 선언이다 (JSX 글 "First class shipping" 을 읽지 않게). 줄 끝이면 다음 줄을 본다
+      if (cpend != "") {
+        if (line ~ /^[ \t]*(\{|extends([^A-Za-z0-9_$]|$))/) check_class(cpend, cpendln)
+        cpend = ""
+      }
       rest = " " line
       while (match(rest, /[^A-Za-z0-9_$.]class[ \t]+[A-Za-z_$][A-Za-z0-9_$]*/)) {
         m = substr(rest, RSTART, RLENGTH); rest = substr(rest, RSTART + RLENGTH)
         n = ident_of(m)
         if (n == "extends" || n == "implements") continue
-        if (n !~ /^[A-Z][A-Za-z0-9]*$/) emit("E", "ND-04", "클래스 이름 \047" n "\047 는 PascalCase 여야 한다 → \047" upper_camel(n) "\047")
+        if (rest ~ /^[ \t]*$/) { cpend = n; cpendln = NR; continue }
+        if (rest ~ /^[ \t]*(\{|extends([^A-Za-z0-9_$]|$))/) check_class(n, NR)
       }
 
       # ND-05 변수 · 함수 — 구조 분해({ a_b } · [a_b])는 보지 않는다
@@ -292,6 +304,7 @@ scan_source() { # $1=내용 파일 $2=파일명 $3=js|ts
         m = substr(rest, RSTART, RLENGTH); rest = substr(rest, RSTART + RLENGTH)
         n = ident_of(m)
         kind = (m ~ /function/) ? "함수" : "변수"
+        if (n == "unstable_settings" && m ~ /const/ && line ~ /export[ \t]+const[ \t]+unstable_settings/) continue   # Expo Router 가 읽는 이름
         if (snake_mixed(n)) emit("E", "ND-05", kind " 이름 \047" n "\047 는 camelCase 여야 한다 (상수면 UPPER_SNAKE_CASE) → \047" camel_suggest(n) "\047")
       }
     }
