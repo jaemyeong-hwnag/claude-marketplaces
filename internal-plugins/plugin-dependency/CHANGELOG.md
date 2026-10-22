@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.4
+
+### Fixed
+- eval `cycle-notice` 가 trace 에서 훅 알림을 찾아 훅이 돌아도 실패하던 것 — PostToolUse 알림은 trace 에 남지 않으므로 `last_message` 로 본다 (#122)
+
 ## 0.1.3
 
 ### Fixed
