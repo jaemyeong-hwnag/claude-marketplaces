@@ -158,6 +158,16 @@ tc TC-T27 "tsx 의 닫는 태그 </ 를 정규식으로 읽지 않는다 — 같
 f="$(tsf Tag.tsx 'const el = <b>x</b>; let bad_four = 1;\n')"
 run "$f"; expect_code 2; expect_out "'bad_four'"
 
+tc TC-T28 "JSX 글이 class · interface + 단어로 끝나도 막지 않고, 다음 줄에 { · extends · < 가 오면 선언으로 막는다 (TS-01, #116)"
+f="$(tsf Yoga.tsx 'export function Yoga() {\n  return (\n    <p>\n      Join our weekly yoga class today\n      We rebuilt the user interface layer\n    </p>\n  );\n}\nexport const Tag = <b>First class today</b>;\n')"
+run "$f"; expect_code 0; expect_no_out
+f="$(tsf next.ts 'class bad_one\n{\n}\ninterface bad_two\n\n  extends Base {}\ninterface bad_three\n<T> {}\nenum bad_four\n{ A }\n')"; run "$f"; expect_code 2
+expect_out "next.ts:1:"; expect_out "'BadOne'"; expect_out "next.ts:4:"; expect_out "'BadTwo'"; expect_out "'BadThree'"; expect_out "'BadFour'"
+
+tc TC-T29 "Expo Router 의 export const unstable_settings 는 통과하고 export 가 아니면 막는다 (TS-03, #116)"
+f="$(tsf _layout.tsx 'export const unstable_settings = { initialRouteName: \"index\" };\n')"; run "$f"; expect_code 0; expect_no_out
+f="$(tsf other.ts 'const unstable_settings = {};\n')"; run "$f"; expect_code 2; expect_out "'unstableSettings'"
+
 # --- B. 훅 -------------------------------------------------------------------
 tc TC-T30 "Write 로 위반 파일을 새로 만들면 막는다"
 rm -rf "$SRC"; mkdir -p "$SRC"
@@ -217,6 +227,12 @@ mkdir -p "$TMP/build/proj"
 run_stdin_in "$TMP/build/proj" "$(jq -n --arg p "$TMP/build/proj/src/a.ts" --arg c "$(printf '%b' 'export class order_x {}\n')" \
   '{hook_event_name: "PreToolUse", tool_name: "Write", tool_input: {file_path: $p, content: $c}}')"
 expect_code 2; expect_out "TS-01"
+
+tc TC-T44 "__generated__/ 아래는 보지 않고, 제안이 원래 이름과 같으면 제안하지 않는다 (TS-01, #116)"
+run_stdin "$(payload_write "$TMP/p/src/__generated__/HomeQuery.graphql.ts" 'export type HomeQuery$data = {};\n')"; expect_code 0; expect_no_out
+rm -rf "$TMP/g"; mkdir -p "$TMP/g/src/__generated__"; printf 'export type HomeQuery$data = {};\n' > "$TMP/g/src/__generated__/HomeQuery.graphql.ts"
+run --all "$TMP/g"; expect_code 0
+f="$(tsf dollar.ts 'export type Home$data = {};\n')"; run "$f"; expect_code 2; expect_out "'Home\$data'"; expect_not "→"
 
 flush_tc
 echo

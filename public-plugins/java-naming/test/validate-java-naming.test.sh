@@ -146,6 +146,10 @@ printf 'package a;\npublic class Flow {\n    public void cancel_whenPaid_throws(
 printf 'package a;\npublic class OrderTests {\n    public void cancel_whenPaid_throws() {}\n}\n' > "$TMP/t/src/main/java/a/OrderTests.java"
 run --all "$TMP/t"; expect_code 0; expect_no_out
 
+tc TC-J29 "텍스트 블록 안의 글은 코드로 읽지 않고 블록 뒤의 위반은 막는다 (JN-02, #116)"
+f="$(java T.java 'package a;\npublic class T {\n    String s = """\n        This class handles your order. \\""" class still_text\n        """; class bad_one {}\n}\nclass bad_two {}\n')"
+run "$f"; expect_code 2; expect_not "'handles'"; expect_not "'still_text'"; expect_out "'bad_one'"; expect_out "'bad_two'"
+
 # --- B. 훅 -------------------------------------------------------------------
 tc TC-J30 "Write 로 위반 파일을 새로 만들면 막는다"
 rm -rf "$SRC"; mkdir -p "$SRC"

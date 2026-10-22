@@ -40,7 +40,7 @@ public class OrderCancelService {                // JN-02 · JN-03 (OrderCancelS
 | `package-info.java` · `module-info.java` | 파일 이름이 정해져 있다 |
 | `build/` · `target/` · `out/` · `.gradle/` · `generated/` · `node_modules/` · `vendor/` | 생성물 · 의존성이다 |
 
-주석과 문자열 리터럴 안의 단어는 코드로 읽지 않는다.
+주석과 문자열 리터럴 · 텍스트 블록(`"""`) 안의 단어는 코드로 읽지 않는다.
 
 ## 2. 새로 생긴 위반만 막는다
 

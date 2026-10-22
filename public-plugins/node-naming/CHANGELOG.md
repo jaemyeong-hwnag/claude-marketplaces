@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.1.2
+
+### Fixed
+- Windows 가 정한 환경 변수(`SystemRoot` · `ProgramFiles` · `ComSpec` 등)를 ND-03 로 막고 다른 변수가 되는 `SYSTEM_ROOT` 를 제안하던 것 (#116) — 예외로 둔다
+- JSX 글 `First class shipping included` 를 클래스 선언으로 읽어 ND-04 로 막던 것 (#116) — 뒤에 `{` · `extends` 가 올 때만 선언으로 본다. 줄 끝이면 다음 줄을 본다
+- Expo Router 가 읽는 `export const unstable_settings` 를 ND-05 로 막던 것 (#116)
+
 ## 0.1.1
 
 ### Changed

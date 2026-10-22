@@ -53,13 +53,14 @@ export class OrderService<TOrder extends Order> {   // TS-01 · TS-05
 | 앞뒤 밑줄 — `_unused`, `__dirname` | 쓰지 않는 값 · 런타임이 정한 이름이다. 밑줄을 뺀 나머지만 본다 |
 | 구조 분해 — `const { user_id } = body` | 이름이 API 페이로드에서 온다. 바꿔 받으려면 `{ user_id: userId }` — AI 가 판단한다 |
 | `declare const` · `declare function` | 밖에서 정해진 이름을 옮긴 것이다 |
+| `export const unstable_settings` | Expo Router 가 읽는 이름이다 |
 | interface · type 의 프로퍼티 — `{ created_at: string }` | API · DB 모양을 그대로 적는 일이 흔하다 |
 | 접근 제어자 · `readonly` 없는 class 멤버, 객체 리터럴 키, 매개변수 | 선언을 문법 없이 가려낼 수 없다. AI 가 판단한다 |
 | 여러 줄에 걸친 타입 매개변수 목록 · 한 선언의 두 번째 이후 변수(`let a = 1, b_c = 2`) | 줄 단위로 보기 때문이다 |
 | `*.d.ts` · `*.d.mts` · `*.d.cts` | 외부 선언을 그대로 옮긴다 |
-| `node_modules/` · `dist/` · `build/` · `out/` · `coverage/` · `.next/` · `generated/` · `.git/` | 생성물 · 의존성이다 |
+| `node_modules/` · `dist/` · `build/` · `out/` · `coverage/` · `.next/` · `generated/` · `__generated__/` · `.git/` | 생성물 · 의존성이다 |
 
-주석 · 문자열 · 템플릿 · 정규식 리터럴 안의 단어는 코드로 읽지 않는다. 정규식의 `/*` 를 블록 주석으로 읽지 않는다. JSX 본문의 글(`This class is …`)은 선언 모양(`class Name {`)이 아니면 읽지 않는다.
+주석 · 문자열 · 템플릿 · 정규식 리터럴 안의 단어는 코드로 읽지 않는다. 정규식의 `/*` 를 블록 주석으로 읽지 않는다. JSX 본문의 글(`This class is …`)은 선언 모양(`class Name {`)이 아니면 읽지 않는다. 줄 끝에서 멈춘 `class 단어` · `interface 단어` 는 다음 줄이 `{` · `extends` · `implements` · `<` 로 시작할 때만 선언으로 본다 (`.tsx` 에서는 `<` 를 JSX 태그로 본다).
 
 ## 2. 새로 생긴 위반만 막는다
 

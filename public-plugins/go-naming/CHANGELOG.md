@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.2
+
+### Fixed
+- eval `bad-name-blocked` 프롬프트에 "막히면 다시 쓰지 말고" 가 없어, 고친 이름으로 다시 쓰면 `not-created` 그레이더가 실패할 수 있던 것 (#116)
+
 ## 0.1.1
 
 ### Changed

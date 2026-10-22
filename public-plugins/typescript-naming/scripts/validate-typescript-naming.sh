@@ -36,7 +36,7 @@ is_target() { # $1=경로
     *) return 1 ;;
   esac
   case "/$1" in
-    */node_modules/*|*/dist/*|*/build/*|*/out/*|*/coverage/*|*/.next/*|*/generated/*|*/.git/*) return 1 ;;
+    */node_modules/*|*/dist/*|*/build/*|*/out/*|*/coverage/*|*/.next/*|*/generated/*|*/__generated__/*|*/.git/*) return 1 ;;
   esac
   return 0
 }
@@ -74,7 +74,8 @@ scan() {
     # 소문자가 섞인 snake_case 인가 — 앞뒤 밑줄(_unused · __dirname) 과 UPPER_SNAKE 는 아니다
     function snaky(s,   c) { c = s; sub(/^[_$]+/, "", c); sub(/_+$/, "", c); return (c ~ /_/ && c ~ /[a-z]/) }
     function is_pascal(s) { return s ~ /^[A-Z][A-Za-z0-9]*$/ }
-    function emit(kind, code, msg) { printf "%s\037%s\037%d\037%s\n", kind, code, NR, msg }
+    function emit_at(ln, kind, code, msg) { printf "%s\037%s\037%d\037%s\n", kind, code, ln, msg }
+    function emit(kind, code, msg) { emit_at(NR, kind, code, msg) }
 
     # ---- 주석 · 문자열 · 템플릿 · 정규식 리터럴을 비운다 (따옴표만 남긴다) ----
     function clean(s,   out, i, n, c, c2, q, inclass) {
@@ -152,8 +153,20 @@ scan() {
       emit("W", "TS-04", "enum 멤버 \047" s "\047 는 PascalCase 또는 UPPER_SNAKE_CASE 로 쓴다 → \047" pascal(s) "\047")
     }
 
+    # ---- TS-01 · TS-02 · TS-05 선언 하나 ($4=이름 뒤의 글) ----
+    function type_decl(kw, n, ln, a,   v) {
+      if (kw == "class") pend = "class"; else if (kw == "enum") pend = "enum"; else if (kw == "interface") pend = "iface"
+      if (!is_pascal(n)) {
+        v = pascal(n)
+        emit_at(ln, "E", "TS-01", kname[kw] " 이름 \047" n "\047 는 PascalCase 여야 한다" (v != n ? " → \047" v "\047" : ""))
+      }
+      else if (kw == "interface" && n ~ /^I[A-Z][a-z]/) emit_at(ln, "W", "TS-02", "인터페이스 \047" n "\047 에 I 접두사를 붙이지 않는다 → \047" substr(n, 2) "\047")
+      sub(/^[ \t]+/, "", a)
+      if (kw != "enum" && a ~ /^</) tparams(a)
+    }
+
     BEGIN {
-      st = ""; tdepth = 0; sp = 0; pend = ""; ebuf = ""; prev = ""; prevword = ""
+      st = ""; tdepth = 0; sp = 0; pend = ""; ebuf = ""; prev = ""; prevword = ""; dkw = ""
       kname["class"] = "클래스"; kname["interface"] = "인터페이스"; kname["type"] = "타입"
       kname["enum"] = "enum"; kname["namespace"] = "네임스페이스"; kname["module"] = "네임스페이스"
     }
@@ -162,23 +175,31 @@ scan() {
       top = (sp > 0) ? stack[sp] : ""
       if (line ~ /^[ \t]*$/) next
 
+      # 줄 끝에서 멈춘 선언 — 이 줄이 이어 받아야 선언이다 (JSX 글 "yoga class today" 를 읽지 않게).
+      # .tsx 에서는 다음 줄의 < 를 JSX 태그와 가를 수 없어 타입 매개변수로 보지 않는다
+      if (dkw != "") {
+        lt = (fname !~ /\.tsx$/ && line ~ /^[ \t]*<[^\/]/)
+        if (dkw == "class")          ok = (lt || line ~ /^[ \t]*(\{|(extends|implements)([^A-Za-z0-9_$]|$))/)
+        else if (dkw == "interface") ok = (lt || line ~ /^[ \t]*(\{|extends([^A-Za-z0-9_$]|$))/)
+        else                         ok = (line ~ /^[ \t]*\{/)
+        if (ok) type_decl(dkw, dname, dline, line)
+        dkw = ""
+      }
+
       # TS-01 선언 이름 · TS-02 I 접두사 · TS-05 타입 매개변수
       rest = " " line
       while (match(rest, /[^A-Za-z0-9_$.](class|interface|enum|namespace|module|type)[ \t]+[A-Za-z_$][A-Za-z0-9_$]*/)) {
         m = substr(rest, RSTART + 1, RLENGTH - 1); after = substr(rest, RSTART + RLENGTH); rest = after
         kw = m; sub(/[ \t].*$/, "", kw); n = m; sub(/^[a-z]+[ \t]+/, "", n)
         # 뒤따르는 문맥으로 선언인지 가린다 (JSX 본문 · 변수 이름 type 을 읽지 않게)
-        if (kw == "class")          ok = (after ~ /^[ \t]*($|[{<]|(extends|implements)([^A-Za-z0-9_$]|$))/)
-        else if (kw == "interface") ok = (after ~ /^[ \t]*($|[{<]|extends([^A-Za-z0-9_$]|$))/)
-        else if (kw == "enum")      ok = (after ~ /^[ \t]*($|\{)/)
+        if (kw == "class")          ok = (after ~ /^[ \t]*(\{|<[^\/]|(extends|implements)([^A-Za-z0-9_$]|$))/)
+        else if (kw == "interface") ok = (after ~ /^[ \t]*(\{|<[^\/]|extends([^A-Za-z0-9_$]|$))/)
+        else if (kw == "enum")      ok = (after ~ /^[ \t]*\{/)
         else if (kw == "type")      ok = (after ~ /^[ \t]*[=<]/)
-        else                        ok = (after ~ /^[ \t]*(\.[A-Za-z_$][A-Za-z0-9_$.]*)?[ \t]*($|\{)/)
+        else                        ok = (after ~ /^[ \t]*(\.[A-Za-z_$][A-Za-z0-9_$.]*)?[ \t]*\{/)
+        if (!ok && kw != "type" && after ~ /^(\.[A-Za-z_$][A-Za-z0-9_$.]*)?[ \t]*$/) { dkw = kw; dname = n; dline = NR; continue }
         if (!ok) continue
-        if (kw == "class") pend = "class"; else if (kw == "enum") pend = "enum"; else if (kw == "interface") pend = "iface"
-        if (!is_pascal(n)) emit("E", "TS-01", kname[kw] " 이름 \047" n "\047 는 PascalCase 여야 한다 → \047" pascal(n) "\047")
-        else if (kw == "interface" && n ~ /^I[A-Z][a-z]/) emit("W", "TS-02", "인터페이스 \047" n "\047 에 I 접두사를 붙이지 않는다 → \047" substr(n, 2) "\047")
-        a = after; sub(/^[ \t]+/, "", a)
-        if (kw != "enum" && a ~ /^</) tparams(a)
+        type_decl(kw, n, NR, after)
       }
       # 이름 없는 class 식 — 본문의 멤버를 보기 위해 표시만 한다
       if (line ~ /(^|[^A-Za-z0-9_$.])class[ \t]*(\{|extends[^A-Za-z0-9_$])/) pend = "class"
@@ -190,6 +211,7 @@ scan() {
           m = substr(rest, RSTART + 1, RLENGTH - 1); rest = substr(rest, RSTART + RLENGTH)
           n = m; sub(/^[a-z]+[ \t]+/, "", n)
           if (n == "enum") continue
+          if (n == "unstable_settings" && m ~ /^const/ && line ~ /export[ \t]+const[ \t]+unstable_settings/) continue   # Expo Router 가 읽는 이름
           if (snaky(n)) emit("E", "TS-03", value_msg("변수", n))
         }
         rest = " " line
@@ -327,7 +349,7 @@ check_tree() { # $1=루트 디렉터리
   while IFS= read -r f; do
     is_target "${f#"$root"/}" && check_file "$f"
   done < <(find "$root" \( -name .git -o -name node_modules -o -name dist -o -name build -o -name out -o -name coverage \
-                          -o -name .next -o -name generated -o -path "$root/.claude/worktrees" \) -prune -o -type f \
+                          -o -name .next -o -name generated -o -name __generated__ -o -path "$root/.claude/worktrees" \) -prune -o -type f \
                           \( -name '*.ts' -o -name '*.tsx' -o -name '*.mts' -o -name '*.cts' \) -print 2>/dev/null | sort)
 }
 
