@@ -1,0 +1,72 @@
+
+// >>> kotlin-spring-aitest-coverage
+// @AiTest 환경 — kotlin-spring-aitest-coverage:kotlin-aitest-environment-create 가 생성했다. 이 블록 안만 고친다.
+// 테스트 src/aiTest/kotlin · 실행 aiTest · 리포트 build/reports/jacoco/aiTestReport/aiTestReport.xml
+apply(plugin = "jacoco")
+extensions.configure<JacocoPluginExtension> {
+    // Kotlin inline · suspend · when 필터가 0.8.13 ~ 0.8.15 에 들어왔다
+    toolVersion = "0.8.15"
+}
+
+val aiTestRootDir: File = rootDir
+val aiTestMainSourceSet = the<SourceSetContainer>().named("main")
+val aiTestSkipCoverage = providers.gradleProperty("skipAiTestCoverage").isPresent
+val aiTestSkipDocker = providers.gradleProperty("skipDockerEnsure").isPresent
+
+val ensureDockerForAiTest = tasks.register<Exec>("ensureDockerForAiTest") {
+    group = "verification"
+    description = "@AiTest 전 Docker · 이미지 준비 (데몬이 응답하지 않을 때만)"
+    workingDir = aiTestRootDir
+    commandLine("bash", aiTestRootDir.resolve("scripts/ensure-docker-for-aitest.sh").path)
+    onlyIf {
+        !aiTestSkipDocker &&
+            ProcessBuilder("bash", "-c", "command -v docker >/dev/null && docker info >/dev/null 2>&1").start().waitFor() != 0
+    }
+}
+
+val aiTestReport = tasks.register<JacocoReport>("aiTestReport") {
+    group = "verification"
+    description = "aiTest JaCoCo 리포트 (XML · HTML)"
+    onlyIf { !aiTestSkipCoverage }
+    executionData(layout.buildDirectory.file("jacoco/aiTest.exec"))
+    sourceSets(aiTestMainSourceSet.get())
+{{#LIBRARIES}}    // 라이브러리 모듈의 클래스도 넣는다 — 라이브러리 변경을 이 모듈의 aiTest 로 잰다
+    listOf({{LIBRARY_DIRS_QUOTED}}).forEach { dir ->
+        classDirectories.from(aiTestRootDir.resolve("$dir/build/classes/kotlin/main"))
+        sourceDirectories.from(aiTestRootDir.resolve("$dir/src/main/kotlin"), aiTestRootDir.resolve("$dir/src/main/java"))
+    }
+{{/LIBRARIES}}    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+}
+
+extensions.configure<TestingExtension> {
+    suites.register<JvmTestSuite>("aiTest") {
+        useJUnitJupiter()
+        dependencies {
+            implementation(project())
+            implementation(project("{{SUPPORT_PROJECT}}"))
+        }
+        targets.all {
+            testTask.configure {
+                description = "@AiTest — testcontainer 인프라 (src/aiTest/kotlin)"
+                shouldRunAfter(tasks.named("test"))
+                dependsOn(ensureDockerForAiTest)
+                // 모듈의 @AiTest 가 한 JVM 에서 컨텍스트를 재사용한다 — 컨텍스트 캐시 누적에 대비해 힙을 넉넉히 준다
+                maxParallelForks = 1
+                maxHeapSize = "2g"
+{{#HAS_PROFILE}}                systemProperty("spring.profiles.active", "{{PROFILE}}")
+{{/HAS_PROFILE}}                if (!aiTestSkipCoverage) finalizedBy(aiTestReport)
+            }
+        }
+    }
+}
+
+// 테스트 의존성(MockK 등)을 그대로 쓰고, main 의 internal 선언을 볼 수 있게 한다
+configurations["aiTestImplementation"].extendsFrom(configurations["testImplementation"])
+configurations["aiTestRuntimeOnly"].extendsFrom(configurations["testRuntimeOnly"])
+extensions.configure<org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension> {
+    target.compilations.named("aiTest") { associateWith(target.compilations.getByName("main")) }
+}
+// <<< kotlin-spring-aitest-coverage

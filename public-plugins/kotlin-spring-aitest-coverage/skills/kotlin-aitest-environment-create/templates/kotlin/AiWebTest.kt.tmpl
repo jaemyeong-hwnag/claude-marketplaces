@@ -1,0 +1,28 @@
+package {{PACKAGE}}
+
+{{#BOOT4}}import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+{{/BOOT4}}{{^BOOT4}}import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+{{/BOOT4}}import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Import
+{{#HAS_PROFILE}}import org.springframework.test.context.ActiveProfiles
+{{/HAS_PROFILE}}import org.springframework.test.context.TestConstructor
+{{#HAS_DB}}import org.springframework.transaction.annotation.Transactional
+{{/HAS_DB}}
+/** MockMvc 로 컨트롤러 경계까지 태우는 통합 테스트 — [AiTest] 와 인프라는 같고 webEnvironment 만 다르다. */
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+@MustBeDocumented
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.MOCK,
+    properties = [
+        "spring.main.allow-bean-definition-overriding=true",
+{{#HAS_DB}}        "spring.jpa.hibernate.ddl-auto=update",
+{{/HAS_DB}}        "spring.batch.job.enabled=false",
+    ],
+)
+@AutoConfigureMockMvc
+@Import(AiTestContainers::class)
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
+{{#HAS_PROFILE}}@ActiveProfiles("{{PROFILE}}")
+{{/HAS_PROFILE}}{{#HAS_DB}}@Transactional
+{{/HAS_DB}}annotation class AiWebTest

@@ -1,0 +1,57 @@
+package {{PACKAGE}}
+
+import org.springframework.boot.test.context.TestConfiguration
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection
+import org.springframework.context.annotation.Bean
+{{#CUSTOM_PROPS}}import org.springframework.test.context.DynamicPropertyRegistrar
+{{/CUSTOM_PROPS}}{{#REDIS}}import org.testcontainers.containers.GenericContainer
+{{/REDIS}}{{#MYSQL}}{{#TC2}}import org.testcontainers.mysql.MySQLContainer
+{{/TC2}}{{^TC2}}import org.testcontainers.containers.MySQLContainer
+{{/TC2}}{{/MYSQL}}{{#POSTGRESQL}}{{#TC2}}import org.testcontainers.postgresql.PostgreSQLContainer
+{{/TC2}}{{^TC2}}import org.testcontainers.containers.PostgreSQLContainer
+{{/TC2}}{{/POSTGRESQL}}{{#RABBITMQ}}{{#TC2}}import org.testcontainers.rabbitmq.RabbitMQContainer
+{{/TC2}}{{^TC2}}import org.testcontainers.containers.RabbitMQContainer
+{{/TC2}}{{/RABBITMQ}}import org.testcontainers.utility.DockerImageName
+
+/** @AiTest · @AiWebTest 의 컨테이너 — 빈이라 컨텍스트 캐시와 수명이 같고, 접속 설정은 @ServiceConnection 이 덮는다. */
+@TestConfiguration(proxyBeanMethods = false)
+class AiTestContainers {
+{{#MYSQL}}
+    @Bean
+    @ServiceConnection
+    fun mysqlContainer(): MySQLContainer{{^TC2}}<*>{{/TC2}} =
+        MySQLContainer{{^TC2}}<Nothing>{{/TC2}}(DockerImageName.parse("mysql:8.0")).apply {
+            withUrlParam("zeroDateTimeBehavior", "convertToNull")
+            withUrlParam("characterEncoding", "UTF8")
+            withReuse(true)
+        }
+{{/MYSQL}}{{#POSTGRESQL}}
+    @Bean
+    @ServiceConnection
+    fun postgresContainer(): PostgreSQLContainer{{^TC2}}<*>{{/TC2}} =
+        PostgreSQLContainer{{^TC2}}<Nothing>{{/TC2}}(DockerImageName.parse("postgres:15-alpine")).apply {
+            withReuse(true)
+        }
+{{/POSTGRESQL}}{{#REDIS}}
+    @Bean
+    @ServiceConnection(name = "redis")
+    fun redisContainer(): GenericContainer<*> =
+        GenericContainer<Nothing>(DockerImageName.parse("redis:7-alpine")).apply {
+            withExposedPorts(6379)
+            withReuse(true)
+        }
+{{/REDIS}}{{#RABBITMQ}}
+    @Bean
+    @ServiceConnection
+    fun rabbitContainer(): RabbitMQContainer =
+        RabbitMQContainer(DockerImageName.parse("rabbitmq:3.13-alpine")).apply {
+            withReuse(true)
+        }
+{{/RABBITMQ}}{{#CUSTOM_PROPS}}
+    // 표준 키가 아닌 접속 설정(직접 만든 DataSource · 클라이언트)도 컨테이너로 덮는다
+    @Bean
+    fun aiTestProperties({{CUSTOM_PROPS_PARAMS}}): DynamicPropertyRegistrar =
+        DynamicPropertyRegistrar { registry ->
+{{CUSTOM_PROPS_LINES}}
+        }
+{{/CUSTOM_PROPS}}}
