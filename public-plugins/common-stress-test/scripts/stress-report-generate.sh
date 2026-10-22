@@ -3,7 +3,7 @@
 #
 #   stress-report-generate.sh [옵션] <steps.csv>
 #     --model open|closed     load 의 뜻. open = 목표 도착률(rps), closed = 동시 사용자 수 (기본 open)
-#     --slo-p99 <ms>          단계 합격 기준 p99 (없으면 p99 판정 생략)
+#     --slo-p99 <ms>          단계 합격 기준 p99 (없으면 p99 판정 생략. 주면 p99 가 빈 단계는 불합격)
 #     --slo-error <비율>       단계 합격 기준 에러율 (기본 0.01)
 #     --sustain <비율>         open 모델에서 처리량 ≥ 목표 × 비율이어야 부하를 견딘 것 (기본 0.95)
 #     --think-ms <ms>         closed 모델 think time — Little 검사에 쓴다 (기본 0)
@@ -87,7 +87,7 @@ END {
   cap = ""; allok = 1; tgt_found = 0; tgt_ok = 0; p99miss = 0
   for (i = 1; i <= n; i++) {
     why = ""
-    if (slo_p99 != "") { if (P99[i] == "") p99miss = 1; else if (P99[i] + 0 >= slo_p99 + 0) why = why " p99✗" }
+    if (slo_p99 != "") { if (P99[i] == "") { p99miss = 1; why = why " p99?" } else if (P99[i] + 0 >= slo_p99 + 0) why = why " p99✗" }
     if (E[i] != "" && E[i] + 0 >= slo_err + 0) why = why " 에러✗"
     if (model == "open" && X[i] < L[i] * sustain) why = why " 미달✗"
     if (D[i] != "" && D[i] + 0 > 0) why = why " dropped✗"
@@ -167,7 +167,7 @@ END {
   }
 
   for (i = 1; i <= n; i++) if (D[i] != "" && D[i] + 0 > 0) { warn[++nw] = "ST-12 load " L[i] " 에서 dropped " D[i] " — 부하기가 목표 도착률을 못 냈다. 이 단계의 지연은 과소 측정이다"; }
-  if (p99miss) warn[++nw] = "ST-04 p99 가 없는 단계가 있다"
+  if (p99miss) warn[++nw] = "ST-04 p99 가 없는 단계가 있다 — --slo-p99 를 판정할 수 없어 불합격(p99?)으로 본다. k6 는 summaryTrendStats 에 p(99) 를 넣는다"
   if (nw) { printf "\n## 경고\n\n"; for (i = 1; i <= nw; i++) printf "- %s\n", warn[i] }
   printf "\n규칙: %s\n", rules
   if (target != "") {

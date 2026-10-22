@@ -53,10 +53,12 @@
 - 그 구간의 URL, 이름에 `URL` · `HOST` 가 든 변수 대입(`-e BASE_URL=api.example.com`)
 - `--host` · locust 의 `-H` (hey · wrk · ab · oha 의 `-H` 는 헤더라 보지 않는다)
 - 명령이 가리키는 스크립트 파일(`*.js` · `*.py` · `*.jmx` · …, `<script.js` 로 넘긴 것 포함) 안의 URL과 JMX `HTTPSampler.domain`
+- 그 파일의 k6 기본값 `__ENV.BASE_URL || 'api.example.com'` (이름에 `URL` · `HOST` 가 든 변수, 스킴 없어도 본다)
 - `-f` 없는 `locust` 는 `locustfile.py`
 
 **보지 않는 것** — 부하 대상이 아닌 URL
 - `import` · `require` 줄과 `from '<url>'`(여러 줄 import 의 끝 줄)의 URL (예: k6 jslib)
+- 스크립트 파일의 주석 — 줄 전체 주석과 줄 끝 주석(앞이 공백인 `//` · `#`)
 - 출력 대상 — `--out` · `-o` 값, `>` 로 쓰는 파일, k6 설정 변수 `K6_*` 대입 (`-e K6_…` 로 넘기는 스크립트 변수는 본다)
 - heredoc 본문 — 셸에 먹이는 heredoc(`bash <<EOF`)은 명령으로, 부하 명령 줄의 heredoc(`k6 run - <<EOF`)은 스크립트로 본다
 
@@ -65,7 +67,7 @@
 - 그 이미지를 쓰는 `docker run`
 - `mvn` · `gradle` 의 gatling 태스크
 
-첫 단어를 찾을 때 건너뛰는 것 — 환경 변수 대입 · 옵션, `sudo` · `time` · `nohup` · `exec` · `command` · `env` · `npx` · `bunx` · `pnpx` · `uvx`, `uv` · `poetry` · `pipenv` · `pdm` · `hatch` 의 `run`, `python -m`, `timeout [옵션] 시간`, 셸 키워드 `do` · `then` · `else` · `elif` · `if` · `while` · `until` · `!`. `sh` · `bash` 의 `-c` 는 그 인자를 다시 본다.
+첫 단어를 찾을 때 건너뛰는 것 — 환경 변수 대입 · 옵션, `sudo` · `time` · `nohup` · `exec` · `command` · `env` · `npx` · `bunx` · `pnpx` · `uvx`, `uv` · `poetry` · `pipenv` · `pdm` · `hatch` 의 `run`, `python -m`, `timeout [옵션] 시간`, `nice` · `ionice` · `stdbuf` · `xargs` · `watch` · `caffeinate` 와 그 옵션(값을 받는 옵션은 값까지 — `nice -n 10` · `xargs -n 1`), 셸 키워드 `do` · `then` · `else` · `elif` · `if` · `while` · `until` · `!`. `sh` · `bash` 의 `-c` 는 그 인자를 다시 본다.
 
 **설정 방법** — `STRESS_TEST_ALLOWED_HOSTS` 는 프로젝트 `.claude/settings.json` 의 `env` 에 둔다.
 
@@ -93,13 +95,15 @@
 
 ### ST-04 · ST-05 · ST-06 — k6 기본값의 함정 (k6 공식 문서)
 
-- **ST-04**: 기본 `summaryTrendStats` 는 `avg,min,med,max,p(90),p(95)` 다. p99 가 없다.
+- **ST-04**: 기본 `summaryTrendStats` 는 `avg,min,med,max,p(90),p(95)` 다. p99 가 없다. 요약 · `--summary-export` 의 분위수는 이 목록에서만 나오므로 `summaryTrendStats` 에 `p(99)` 를 넣는다.
 - **ST-05**: `maxVUs` 를 두지 않으면 `preAllocatedVUs` 와 같다. 서버가 느려지면 빈 VU 가 없어 iteration 을 버리고 `dropped_iterations` 로 센다. 버린 요청의 지연은 측정되지 않는다.
 - **ST-06**: arrival-rate executor 는 도착률을 직접 정한다. 문서는 iteration 끝에 `sleep` 을 두지 말라고 한다.
 
 ### ST-10 — 단계 판정과 지속 가능 용량
 
 - **지속 가능 용량**: 그 단계와 **그 아래 모든 단계**가 합격한 최대 부하다.
+- **p99 가 빈 단계**: `--slo-p99` 를 주면 판정할 수 없어 불합격(`p99?`)으로 본다.
+- **지연 분위수**: `stress-step-generate.sh` 는 k6 의 `http_req_duration{expected_response:true}` 가 있으면 p50 · p95 · p99 · max 를 그것(성공 요청)으로 읽는다 (ST-32). avg 는 Little 검사(ST-13)가 전체 처리량과 맞춰 보므로 전체 요청 기준이다.
 - **sustain 비율 0.95**: open 모델에서 목표를 실제로 냈는지 보는 이 플러그인의 기본값이다. `--sustain` 으로 바꾼다.
 - **SLO 값**: 서비스가 정한다. 예시로 쓰는 `p99 < 300 ms` · `에러율 < 1%` 는 기준이 아니다.
   - 국내 감리 가이드의 "응답 3초" 도 양식에 실린 예시일 뿐이다.

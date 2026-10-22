@@ -11,7 +11,7 @@ test/common-stress-test.test.sh TC-S5    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. 부하 도구 · Docker 없이 돈다 (bash · awk · jq).
 
-## 자동 TC (48건)
+## 자동 TC (52건)
 
 차단(위반을 잡는다) TC 와 허용(잡으면 안 되는 것) TC 를 조항마다 둔다. 단계 판정 · 회귀 판정 픽스처는 실측 데이터와 scipy 로 검산한 값이다.
 
@@ -31,12 +31,13 @@ test/common-stress-test.test.sh TC-S5    # ID 접두사로 필터
 | TC-S10 | 부하 도구가 아닌 명령은 보지 않는다 |
 | TC-S11 | docker 이미지 · compose 서비스 · gatling 빌드 태스크도 부하 명령이다 |
 | TC-S12 | 훅 — 위반은 exit 2, 통과는 조용, 빈 입력 · 다른 도구는 통과 |
-| TC-S13 | 래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 본다 (래퍼 뒤가 부하 도구가 아니면 통과) |
+| TC-S13 | 래퍼(uv run · poetry run · python -m · timeout · sh -c · nice · ionice · stdbuf · xargs · watch · caffeinate, 옵션 포함) · 한 줄 루프 · if 안의 부하 명령도 본다 (래퍼 뒤가 부하 도구가 아니면 통과) |
 | TC-S14 | `<파일` 로 넘긴 스크립트 안의 URL 을 보고, `>` 출력 파일은 보지 않는다 |
 | TC-S15 | `-H` 는 locust 에서만 호스트다 (hey · wrk · ab · oha 는 헤더) |
 | TC-S16 | 출력 대상(`--out` · `-o` · `K6_*`) · 여러 줄 import 의 from URL · 다른 명령의 URL 은 보지 않는다 (`-e K6_…` · 부하 구간의 URL 은 막는다) |
 | TC-S17 | heredoc 본문은 보지 않고, 셸에 먹이는 heredoc 은 본다 |
 | TC-S18 | 다른 구간의 변수 대입(`export BASE_URL=… &&`)과 부하 도구에 먹이는 heredoc 스크립트는 본다 (`K6_*` · 로컬 대상은 통과) |
+| TC-S19 | 스크립트 파일의 줄 끝 주석(`//` · `#`) URL 은 보지 않고, 스킴 없는 `__ENV.BASE_URL \|\| 'host'` 기본값은 본다 (이름에 URL · HOST 가 없는 변수는 보지 않는다). 템플릿 k6 스크립트는 통과, 기본값을 공용 호스트로 바꾸면 차단 |
 
 ### B. ST-02 ~ ST-06 부하 스크립트 (`stress-script-validate.sh`)
 
@@ -63,6 +64,8 @@ test/common-stress-test.test.sh TC-S5    # ID 접두사로 필터
 | TC-S44 | Gatling 3.2 콘솔 형식 |
 | TC-S45 | Gatling 3.16 콘솔 형식 (표 · 단위 표기) |
 | TC-S46 | --load 없음 · 모르는 형식은 오류(1) |
+| TC-S47 | k6 — `http_req_duration{expected_response:true}` 가 있으면 p50 · p95 · p99 · max 를 그것으로, avg 는 전체 (summary-export · handleSummary) |
+| TC-S48 | Locust — 필요한 열(`99%` 등)이 없으면 그 열 이름으로 오류(1) |
 
 ### D. 단계 판정 (`stress-report-generate.sh`)
 
@@ -76,6 +79,7 @@ test/common-stress-test.test.sh TC-S5    # ID 접두사로 필터
 | TC-S55 | USL — 고정 상한처럼 모양이 다르면 R² 경고 |
 | TC-S56 | Little — closed 실측은 맞고(경고 없음), in-flight 가 어긋나면 ST-13 |
 | TC-S57 | 열 순서가 달라도 이름으로 읽고, load · throughput 이 없으면 오류 |
+| TC-S58 | `--slo-p99` 를 주면 p99 가 빈 단계 · p99 열이 없는 CSV 는 불합격(`p99?`), `--target` 은 2. `--slo-p99` 가 없으면 합격 |
 
 ### E. ST-20 회귀 판정 (`stress-regression-validate.sh`)
 
