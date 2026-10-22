@@ -273,6 +273,22 @@ tc TC-068c "NAMING_GLOSSARY 가 git 최상위 사전보다 앞선다 (#86)"
 OUT="$(hook_json PreToolUse "$WT/public-plugins/order-zap/README.md" | NAMING_GLOSSARY="$PLUGIN_ROOT/references/glossary.json" "$SCRIPT" 2>&1)"; CODE=$?
 expect_code 2; expect_out "끝 단어 'zap' 이 사전에 없습니다"
 
+# 메인 체크아웃 아래 slug 가 plugins 로 끝나는 git 워크트리
+MAIN="$TMP/wtmain"; mkdir -p "$MAIN"; git -C "$MAIN" init -q
+git -C "$MAIN" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
+git -C "$MAIN" worktree add -q "$MAIN/.claude/worktrees/13-language-naming-plugins" 2>/dev/null
+SLUG_WT="$MAIN/.claude/worktrees/13-language-naming-plugins"
+
+tc TC-140 "메인 체크아웃 세션에서 slug 가 plugins 로 끝나는 워크트리의 루트 파일은 통과시킨다 (#121)"
+for f in CLAUDE.md test/a.test.sh .github/pull_request_template.md .claude/hooks/a.sh; do
+  OUT="$(hook_json PreToolUse "$SLUG_WT/$f" | CLAUDE_PROJECT_DIR="$MAIN" "$SCRIPT" 2>&1)"; CODE=$?
+  expect_code 0; expect_empty
+done
+
+tc TC-141 "그 워크트리 안의 플러그인 이름 위반은 여전히 막는다 (#121)"
+OUT="$(hook_json PreToolUse "$SLUG_WT/public-plugins/java/README.md" | CLAUDE_PROJECT_DIR="$MAIN" "$SCRIPT" 2>&1)"; CODE=$?
+expect_code 2; expect_out "plugin 'java'"; expect_noout "13-language-naming-plugins"
+
 tc TC-069 "--all 은 루트의 git 최상위 사전을 쓴다 (#86)"
 run --all "$WT"; expect_code 0; expect_noout "'zap'"
 
