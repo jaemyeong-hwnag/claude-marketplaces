@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.12.0
+
+### Added
+- 사전 `role` 에 `searcher` (동의어 `finder` · `seeker` 금지) (#136) — 새 플러그인 `reference-search` 의 출처별 에이전트 `*-searcher`
+
 ## 0.11.2
 
 ### Fixed
