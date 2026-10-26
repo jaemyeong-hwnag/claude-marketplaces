@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.13.0
+
+### Added
+- 사전 `quality` 에 `evidence` (동의어 `proof` 금지) (#138) — 새 플러그인 `common-evidence-review` 의 관심사
+
 ## 0.12.0
 
 ### Added
