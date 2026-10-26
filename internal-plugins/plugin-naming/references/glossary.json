@@ -388,6 +388,14 @@
         "inspector"
       ],
       "meaning": "검토를 수행하는 주체"
+    },
+    {
+      "use": "searcher",
+      "deny": [
+        "finder",
+        "seeker"
+      ],
+      "meaning": "조건에 맞는 대상을 찾아 오는 주체"
     }
   ],
   "time": [

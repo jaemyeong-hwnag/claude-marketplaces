@@ -1,0 +1,19 @@
+{
+  "name": "reference-search",
+  "description": "논문 · 연구 결과(분야 무관) · 다른 회사의 기술 사례 · 공식 문서 · 표준을 출처별 에이전트로 나눠 병렬로 찾는다 — 요청에 맞는 출처와 에이전트 수를 고르고, 키 없는 학술 API로 실제 메타데이터를 받아 병합 · 검증한다. 문서에 새로 쓰는 DOI · arXiv ID 가 실제로 없으면 차단한다.",
+  "version": "0.1.0",
+  "author": {
+    "name": "황재명",
+    "email": "woaudsla@gmail.com"
+  },
+  "homepage": "https://github.com/jaemyeong-hwnag/claude-marketplaces",
+  "keywords": [
+    "research",
+    "paper",
+    "literature-search",
+    "citation",
+    "tech-blog",
+    "reference",
+    "multi-agent"
+  ]
+}
