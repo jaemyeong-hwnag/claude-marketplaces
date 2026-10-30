@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.3.4
+
+### Fixed
+- `PreToolUse` 훅에 `"onFailure": "block"` — 스크립트가 깨지면 버전 검사 없이 통과하던 것 (#167, `plugin-enforcement-effectiveness` `EF-07`)
+- `version-update` description 이 "릴리즈" 트리거로 `release-create` 와 겹쳐, 머지 뒤 "릴리즈해" 가 설치 확인 · GitHub 릴리즈 없이 태그만 다는 쪽으로 갈 수 있던 것 — 버전 올리기 · CHANGELOG 로 좁히고 태그 · 릴리즈는 `release-create` 로 넘긴다 (#167, `EF-40`)
+
 ## 0.3.3
 
 ### Fixed
