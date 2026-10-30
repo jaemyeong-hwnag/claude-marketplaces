@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.3.5
+
+### Changed
+- `version-update` 5절이 가리키는 스킬 이름을 `plugin-release-create` 로 (#202)
+
 ## 0.3.4
 
 ### Fixed

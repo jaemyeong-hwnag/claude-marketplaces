@@ -39,7 +39,7 @@ description: 플러그인 이름을 바꿀 때 사용한다. 설치한 사용자
    기대는 플러그인만 설치한 사람도 해야 한다 — `renames` 는 `dependencies` 의 옛 이름을 옮기지 않고, `plugin update` 만으로는 새 의존이 설치되지 않는다 (Claude Code 2.1.314 실측)
 
 7. 루트 `CHANGELOG.md` 의 `## 미출시` 에 "`<옛>` → `<새>` 이름 변경 — 이유"
-8. `verify-all.sh` → PR → 머지 → `release-create` (새 이름의 첫 태그)
+8. `verify-all.sh` → PR → 머지 → `plugin-release-create` (새 이름의 첫 태그)
 
 ## renames
 

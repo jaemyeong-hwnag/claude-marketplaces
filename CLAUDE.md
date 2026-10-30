@@ -28,7 +28,7 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 | 파일 내용 형식 (프런트매터 · README). 실행에서 무시 · 가려지는 것은 `plugin-enforcement-effectiveness` | `plugin-authoring` | `plugin-authoring/references/authoring-rules.md` | `document-create` | `/authoring-validate` |
 | 플러그인 사이의 의존 | `plugin-dependency` | `plugin-dependency/references/dependency-rules.md` | `dependency-update` | `/dependency-validate` |
 | 이슈 → 브랜치 → PR → 머지 (`W-01` ~ `W-10`) | `github-workflow` (public) | `public-plugins/github-workflow/references/workflow-rules.md` | `issue-create` · `pull-request-create` · `pull-request-merge` · `github-template-create` | `/github-workflow-validate` |
-| 버전 · 설치 확인 · 태그 · 릴리즈, 생성 · 이름 변경 · 삭제 절차 | `plugin-workflow` | `plugin-workflow/references/workflow-rules.md` | `release-create` · `plugin-create` · `plugin-name-update` · `plugin-delete` | `verify-all.sh` |
+| 버전 · 설치 확인 · 태그 · 릴리즈, 생성 · 이름 변경 · 삭제 절차 | `plugin-workflow` | `plugin-workflow/references/workflow-rules.md` | `plugin-release-create` · `plugin-create` · `plugin-name-update` · `plugin-delete` | `verify-all.sh` |
 | 적어 둔 강제가 실행에서 효력을 내는가 (훅 · MCP 명령 사슬 · 무시되는 에이전트 필드 · 조항 ↔ TC · eval 유무) | `plugin-enforcement-effectiveness` | `plugin-enforcement-effectiveness/references/enforcement-effectiveness-rules.md` | `enforcement-effectiveness-review` | `/enforcement-effectiveness-validate` |
 | 배치 · 등록 · 설치 동기화 | 저장소 `.claude/hooks/` | 아래 "마켓플레이스 등록" · `test/README.md` | - | `.claude/hooks/validate-plugin-scope.sh .` |
 

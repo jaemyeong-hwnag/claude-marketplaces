@@ -241,7 +241,7 @@ internal-plugins/plugin-versioning/test/validate-versioning.test.sh
 
 ## 플러그인 추가 절차
 
-개발 플로우의 "작업" 단계 안에서 한다 (`issue-create` → … → `pull-request-merge` · `release-create`).
+개발 플로우의 "작업" 단계 안에서 한다 (`issue-create` → … → `pull-request-merge` · `plugin-release-create`).
 
 1. 이름을 정한다 (`name-create` 스킬).
 2. 배포용은 `public-plugins/<이름>/`, 내부용은 `internal-plugins/<이름>/` 에 만든다 (`plugin-directory-create` 스킬).
