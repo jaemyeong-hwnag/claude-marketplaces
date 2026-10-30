@@ -7,7 +7,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/reference-validate.sh\" --hook",
-            "timeout": 30
+            "timeout": 30,
+            "onFailure": "block"
           }
         ]
       }

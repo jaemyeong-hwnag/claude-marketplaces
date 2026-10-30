@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.1
+
+### Fixed
+- `PreToolUse` 훅에 `"onFailure": "block"` — 스크립트가 깨지면 없는 DOI · arXiv ID 를 쓰는 편집이 그대로 통과하던 것 (#163, `plugin-enforcement-effectiveness` `EF-07`)
+
 ## 0.1.0
 
 ### Added
