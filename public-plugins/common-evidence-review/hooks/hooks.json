@@ -43,6 +43,17 @@
           }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/evidence-validate.sh\" --hook",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

@@ -40,7 +40,8 @@ AI 가 한 변경과 주장이 진짜 필요한지 · 맞는지를 작성 맥락
 |---|---|---|
 | evidence-validate.sh | UserPromptSubmit | 요청 원문을 기록한다. 게이트가 검증자에게 넘길 기준이다 |
 | evidence-validate.sh | PostToolUse (Write\|Edit\|MultiEdit) | 바꾼 파일 · 줄 수를 기록하고, 테스트 파일이면 `E-20` 신호를 **알린다** |
-| evidence-validate.sh | PostToolUse (Agent\|Task) | `evidence-reviewer` 가 돌면 검증함으로 표시한다 |
+| evidence-validate.sh | PostToolUse (Agent\|Task) | `evidence-reviewer` 가 동기로 끝나면 검증함, 백그라운드로 뜨면 검증 중으로 표시한다 |
+| evidence-validate.sh | SubagentStop | 백그라운드 `evidence-reviewer` 가 끝나면 검증함으로 표시한다 |
 | evidence-validate.sh | Stop | 코드 · 설정을 고쳤는데 검증하지 않았으면 종료를 한 번 되돌린다 (`E-30`). 되돌림 메시지에 바꾼 파일 · 요청 기록 · 최종 답의 주장 후보를 넣는다 |
 
 ## 주의

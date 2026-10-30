@@ -171,7 +171,7 @@ state() { # $1=훅 입력 $2=확장자
 
 clear_state() {
   local x f
-  for x in edits request design reviewed blocked plan plan.md alerted; do
+  for x in edits request design reviewed pending blocked plan plan.md alerted; do
     f="$(state "$1" "$x")" && rm -f "$f"
   done
   f="$(state "$1" seen)" && rm -rf "$f"
@@ -224,10 +224,19 @@ hook_prompt() {
 }
 
 hook_plan() { # PreToolUse ExitPlanMode — DD-31
-  local plan path h bl rv pf sig rq
+  local plan path h bl rv pd pf sig rq
   gate_on && [ "${DESIGN_SOUNDNESS_PLAN_GATE:-1}" != 0 ] || exit 0
   rv="$(state "$1" reviewed)" || exit 0
   [ -e "$rv" ] && exit 0
+  pd="$(state "$1" pending)"
+  if [ -e "$pd" ]; then   # 백그라운드 검증자가 아직 판정 중 — 같은 계획이어도 막는다
+    cat >&2 <<EOF
+설계 검토 중 (common-design-soundness-review DD-31): 백그라운드로 띄운 design-soundness-reviewer 가 아직 끝나지 않았다.
+완료 알림으로 판정을 받고, 결함 · 빈 곳을 계획에 반영한 뒤 다시 플랜 모드를 나간다.
+규칙: $RULES
+EOF
+    exit 2
+  fi
   plan="$(printf '%s' "$1" | jq -r '.tool_input.plan // ""')"
   path="$(printf '%s' "$1" | jq -r '.tool_input.planFilePath // ""')"
   if [ -z "$plan" ] && [ -n "$path" ] && [ -f "$path" ]; then plan="$(cat "$path")"; fi
@@ -254,7 +263,7 @@ EOF
 }
 
 hook_edit() {
-  local f cwd tool rel before after n0 n1 n st rv seen key new msg al dsg
+  local f cwd tool rel before after n0 n1 n st rv pd seen key new msg al dsg
   f="$(printf '%s' "$1" | jq -r '.tool_input.file_path // ""')"
   [ -n "$f" ] || exit 0
   cwd="$(printf '%s' "$1" | jq -r '.cwd // ""')"
@@ -301,8 +310,8 @@ $(printf '%s\n' "$new" | list)
   [ -n "$cwd" ] && case "$f" in "$cwd"/*) ;; *) exit 0 ;; esac
   st="$(state "$1" design)" || exit 0
   [ -e "$st" ] || exit 0
-  rv="$(state "$1" reviewed)"; al="$(state "$1" alerted)"
-  { [ -e "$rv" ] || [ -e "$al" ]; } && exit 0
+  rv="$(state "$1" reviewed)"; al="$(state "$1" alerted)"; pd="$(state "$1" pending)"
+  { [ -e "$rv" ] || [ -e "$pd" ] || [ -e "$al" ]; } && exit 0
   : > "$al"
   msg="설계 검토 없이 구현 시작 (common-design-soundness-review DD-32): 이번 요청은 설계를 포함하는데 design-soundness-reviewer 가 돌지 않았다 — ${f##*/}
 구현을 이어 가기 전에 design-soundness-review 스킬로 설계안을 검토한다. 설계가 없는 요청이면 무시한다. 다시 알리지 않는다.
@@ -311,10 +320,25 @@ $(printf '%s\n' "$new" | list)
   exit 0
 }
 
-hook_review() {
+hook_review() { # PostToolUse Agent — 동기 실행은 끝난 것, 백그라운드 실행은 SubagentStop 까지 검토 중
   local who st
   who="$(printf '%s' "$1" | jq -r '.tool_input.subagent_type // ""')"
-  case "$who" in *design-soundness-reviewer*) st="$(state "$1" reviewed)" && : > "$st" ;; esac
+  case "$who" in *design-soundness-reviewer*) ;; *) exit 0 ;; esac
+  if printf '%s' "$1" | jq -e '(.tool_response | objects | (.isAsync == true or .status == "async_launched")) // false' >/dev/null 2>&1; then
+    st="$(state "$1" pending)" && : > "$st"
+  else
+    st="$(state "$1" reviewed)" && : > "$st"
+  fi
+  exit 0
+}
+
+hook_subagent_stop() {
+  local st
+  case "$(printf '%s' "$1" | jq -r '.agent_type // ""')" in
+    *design-soundness-reviewer*)
+      st="$(state "$1" reviewed)" && : > "$st"
+      st="$(state "$1" pending)" && rm -f "$st" ;;
+  esac
   exit 0
 }
 
@@ -322,6 +346,8 @@ hook_stop() { # DD-30
   local ed rv bl rq active total files sig f
   ed="$(state "$1" edits)" || exit 0
   rv="$(state "$1" reviewed)"; bl="$(state "$1" blocked)"; rq="$(state "$1" request)"
+  # 백그라운드 검증자를 기다리며 끝내는 응답 — 막지 않고 기록을 남긴다 (완료 알림 뒤 다시 판정)
+  { [ ! -e "$rv" ] && [ -e "$(state "$1" pending)" ]; } && exit 0
   active="$(printf '%s' "$1" | jq -r '.stop_hook_active // false')"
   if ! gate_on || { [ "$active" = true ] && [ -e "$bl" ]; } || [ -e "$rv" ] || [ ! -s "$ed" ]; then
     clear_state "$1"; exit 0
@@ -363,6 +389,7 @@ if [ "${1:-}" = "--hook" ]; then
         Write|Edit|MultiEdit) hook_edit "$INPUT" ;;
         Agent|Task) hook_review "$INPUT" ;;
       esac ;;
+    SubagentStop) hook_subagent_stop "$INPUT" ;;
     Stop) hook_stop "$INPUT" ;;
   esac
   exit 0

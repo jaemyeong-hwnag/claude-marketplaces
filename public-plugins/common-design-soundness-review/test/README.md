@@ -11,7 +11,7 @@ test/design-soundness-validate.test.sh TC-D8    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. bash · jq · awk 만 쓴다. 기록은 임시 `CLAUDE_PLUGIN_DATA` 에 쓴다.
 
-## 자동 TC (64건)
+## 자동 TC (67건)
 
 조항마다 걸려야 하는 것과 걸리면 안 되는 것을 같이 둔다. 필수 절은 하나씩 뺀 경우를 따로 본다 (`TC-D02` — 문서 제목 `# 설계` 를 결정 절로 치지 않는 것도 여기서 걸린다).
 
@@ -105,6 +105,7 @@ test/design-soundness-validate.test.sh TC-D8    # ID 접두사로 필터
 | TC-D76 | DESIGN_SOUNDNESS_GATE=0 이면 기록도 차단도 없다 |
 | TC-D77 | 세션마다 따로 센다 · 요청 기록 경로를 알린다 |
 | TC-D78 | 바꾼 줄은 고치기 전 · 후 중 큰 쪽으로 센다 |
+| TC-D79 | 백그라운드 검증자를 기다리며 끝내면 막지 않고 기록을 남긴다 · 끝난 뒤 종료는 통과 |
 
 ### I. 플랜 모드 게이트 (DD-31)
 
@@ -117,6 +118,7 @@ test/design-soundness-validate.test.sh TC-D8    # ID 접두사로 필터
 | TC-D84 | planFilePath 가 없으면 계획을 기록 디렉터리에 써서 넘긴다 |
 | TC-D85 | DESIGN_SOUNDNESS_PLAN_GATE=0 · DESIGN_SOUNDNESS_GATE=0 이면 막지 않는다 · 다른 도구는 보지 않는다 |
 | TC-D86 | 새 요청은 앞 요청의 검토 · 차단 기록을 잇지 않는다 |
+| TC-D87 | 백그라운드 검증자가 끝나기 전에는 같은 계획이어도 막고, SubagentStop 뒤에는 통과 |
 
 ### J. 설계 뒤 첫 코드 편집 (DD-32)
 
@@ -127,6 +129,7 @@ test/design-soundness-validate.test.sh TC-D8    # ID 접두사로 필터
 | TC-D92 | 문서 편집 · 프로젝트 밖 편집에는 알리지 않는다 |
 | TC-D93 | 백그라운드 알림은 요청으로 치지 않는다 |
 | TC-D94 | requirements.txt 는 설정으로 센다 · designated 는 설계 요청이 아니다 |
+| TC-D95 | 검증자가 백그라운드로 도는 동안의 코드 편집에는 알리지 않는다 |
 
 ### K. fail-open
 

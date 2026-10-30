@@ -264,6 +264,18 @@ if [ "$TC_ON" = 1 ]; then
   unset EVIDENCE_REVIEW_MIN_LINES
 fi
 
+tc TC-E25 "백그라운드로 띄운 evidence-reviewer 는 끝날 때(SubagentStop)까지 검증으로 치지 않는다"
+run_hook "$(edit_p "$W/src/a.py" "" "$L3")"
+[ "$TC_ON" = 1 ] && OUT="$(jq -n '{hook_event_name: "PostToolUse", tool_name: "Agent", session_id: "s1", tool_input: {subagent_type: "evidence-reviewer", run_in_background: true}, tool_response: {isAsync: true, status: "async_launched"}}' | "$SCRIPT" --hook 2>&1)"
+run_hook "$(stop_p)"; expect_no_out
+[ "$TC_ON" = 1 ] && { [ -s "$CLAUDE_PLUGIN_DATA/s1.edits" ] || fail_tc "기다리는 동안 기록이 지워짐"; }
+run_hook "$(jq -n '{hook_event_name: "SubagentStop", session_id: "s1", agent_type: "Explore"}')"
+run_hook "$(stop_p)"; expect_no_out
+[ "$TC_ON" = 1 ] && { [ -e "$CLAUDE_PLUGIN_DATA/s1.pending" ] || fail_tc "다른 에이전트의 SubagentStop 이 검증 중을 지움"; }
+run_hook "$(jq -n '{hook_event_name: "SubagentStop", session_id: "s1", agent_type: "common-evidence-review:evidence-reviewer"}')"
+[ "$TC_ON" = 1 ] && { [ -e "$CLAUDE_PLUGIN_DATA/s1.reviewed" ] && [ ! -e "$CLAUDE_PLUGIN_DATA/s1.pending" ] || fail_tc "SubagentStop 뒤 검증함이 아님"; }
+run_hook "$(stop_p)"; expect_no_out
+
 echo "== C. CLI --diff"
 
 tc TC-E30 "기본 브랜치 대비 테스트 약화를 낸다. --strict 면 exit 2"

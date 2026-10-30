@@ -55,6 +55,7 @@ AI 가 한 변경과 주장마다 **필요한가 · 맞는가**를 작업 맥락
   - 기록된 `E-20` 신호
 - 이 훅이 되돌린 뒤의 종료(`stop_hook_active`)는 막지 않고 기록을 지운다. 그래서 한 요청에서 두 번 막지 않는다. 다른 플러그인의 Stop 훅이 되돌려 `stop_hook_active` 가 켜졌을 뿐이면 그대로 판정한다.
 - `evidence-reviewer` 가 돈 뒤에 또 고치면 검증함 표시를 지우고 그 뒤 편집만 다시 센다 (`E-11` 재검증).
+- 검증은 `evidence-reviewer` 가 **끝났을 때** 친다. 백그라운드 실행(`tool_response.status` 가 `async_launched`)은 `SubagentStop` 까지 "검증 중" 이다. 검증 중에 끝나는 응답(완료 알림을 기다림)은 막지 않고 기록을 남긴다.
 - 검증할 주장이 없는 변경(이름만 바꿈 · 포맷)이면 그 이유를 한 줄로 말하고 끝내면 된다.
 - 세지 않는 것:
   - 문서(`.md` · `.mdx` · `.markdown` · `.rst` · `.txt` · `.adoc`) — `DS-30` 의 몫이다. 단 `requirements*.txt` · `constraints*.txt` · `*-lock.txt` · `CMakeLists.txt` · `robots.txt` 는 설정으로 센다
@@ -69,7 +70,8 @@ AI 가 한 변경과 주장마다 **필요한가 · 맞는가**를 작업 맥락
 | `<세션>.edits` | PostToolUse `Write` · `Edit` · `MultiEdit` | 파일 경로와 바꾼 줄 수 |
 | `<세션>.signals` | 같음 | `E-20` 신호 |
 | `<세션>.request` | UserPromptSubmit | 요청 원문. `<task-notification>` 으로 시작하는 백그라운드 알림은 뺀다 |
-| `<세션>.reviewed` | PostToolUse `Agent` · `Task` (`evidence-reviewer`) | 검증함 표시 |
+| `<세션>.reviewed` | PostToolUse `Agent` · `Task` (`evidence-reviewer`, 동기로 끝남) · SubagentStop (`evidence-reviewer`) | 검증함 표시 |
+| `<세션>.pending` | PostToolUse `Agent` · `Task` (`evidence-reviewer`, 백그라운드로 뜸) | 검증 중 표시. SubagentStop 이 지운다 |
 | `<세션>.blocked` | Stop (되돌릴 때) | 이 훅이 이번 요청에서 되돌렸다는 표시 |
 
 위치는 `${CLAUDE_PLUGIN_DATA}` 이고, 없으면 `${TMPDIR:-/tmp}/common-evidence-review/` 다. 새 요청(UserPromptSubmit)이 오거나 Stop 이 통과하면 모두 지운다. 그래서 판정 단위는 한 요청이다 — 중단돼 Stop 이 돌지 않은 요청의 편집도 다음 요청에 이어지지 않는다.

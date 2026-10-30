@@ -60,7 +60,7 @@ state() { # $1=훅 입력 $2=확장자
 
 clear_state() { # $1=훅 입력
   local x f
-  for x in edits signals request reviewed blocked; do
+  for x in edits signals request reviewed pending blocked; do
     f="$(state "$1" "$x")" && rm -f "$f"
   done
 }
@@ -130,10 +130,25 @@ $(printf '%s\n' "$sig" | sed 's/^/- /')
   exit 0
 }
 
-hook_review() {
+hook_review() { # PostToolUse Agent — 동기 실행은 끝난 것, 백그라운드 실행은 SubagentStop 까지 검증 중
   local who st
   who="$(printf '%s' "$1" | jq -r '.tool_input.subagent_type // ""')"
-  case "$who" in *evidence-reviewer*) st="$(state "$1" reviewed)" && : > "$st" ;; esac
+  case "$who" in *evidence-reviewer*) ;; *) exit 0 ;; esac
+  if printf '%s' "$1" | jq -e '(.tool_response | objects | (.isAsync == true or .status == "async_launched")) // false' >/dev/null 2>&1; then
+    st="$(state "$1" pending)" && : > "$st"
+  else
+    st="$(state "$1" reviewed)" && : > "$st"
+  fi
+  exit 0
+}
+
+hook_subagent_stop() {
+  local st
+  case "$(printf '%s' "$1" | jq -r '.agent_type // ""')" in
+    *evidence-reviewer*)
+      st="$(state "$1" reviewed)" && : > "$st"
+      st="$(state "$1" pending)" && rm -f "$st" ;;
+  esac
   exit 0
 }
 
@@ -152,6 +167,8 @@ hook_stop() {
   local ed sg rq rv bl active total files c sig
   ed="$(state "$1" edits)" || exit 0
   sg="$(state "$1" signals)"; rq="$(state "$1" request)"; rv="$(state "$1" reviewed)"; bl="$(state "$1" blocked)"
+  # 백그라운드 검증자를 기다리며 끝내는 응답 — 막지 않고 기록을 남긴다 (완료 알림 뒤 다시 판정)
+  { [ ! -e "$rv" ] && [ -e "$(state "$1" pending)" ]; } && exit 0
   active="$(printf '%s' "$1" | jq -r '.stop_hook_active // false')"
   # stop_hook_active 는 다른 플러그인의 Stop 훅이 막아도 true 다 — 이 훅이 막은 뒤일 때만 통과시킨다
   if [ "${EVIDENCE_REVIEW_GATE:-1}" = 0 ] || { [ "$active" = true ] && [ -e "$bl" ]; } || [ -e "$rv" ] || [ ! -s "$ed" ]; then
@@ -188,6 +205,7 @@ if [ "${1:-}" = "--hook" ]; then
         Write|Edit|MultiEdit) hook_edit "$INPUT" ;;
         Agent|Task) hook_review "$INPUT" ;;
       esac ;;
+    SubagentStop) hook_subagent_stop "$INPUT" ;;
     Stop) hook_stop "$INPUT" ;;
   esac
   exit 0
