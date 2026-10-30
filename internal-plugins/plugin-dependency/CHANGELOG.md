@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.5
+
+### Fixed
+- 규칙 원본이 `dependency-update` 스킬에 맡긴 "비-common 이 필요한 common 을 빠뜨렸는가" 판단이 스킬 절차에 없던 것 — 1절에 질문을 넣었다 (#205)
+
 ## 0.1.4
 
 ### Fixed
