@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.4.0
+
+### Changed
+- `plugin-create` 1단계 — 새 플러그인 이름은 비슷한 이름이 있을 때만이 아니라 늘 `naming-reviewer` 에 목적 문장과 후보를 넘겨 판정받는다 (#140)
+
 ## 0.3.2
 
 ### Fixed

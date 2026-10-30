@@ -6,7 +6,7 @@
 ## 1. 형식
 
 - kebab-case (소문자 + 하이픈)만 사용한다.
-- 슬롯은 `{대상}-{범위}-{관심사}-{목적}` 네 개다. **필요한 슬롯만 쓰되 순서는 바꾸지 않는다.**
+- 슬롯은 `{대상}-{범위}-{관심사}-{행위}` 네 개다. **필요한 슬롯만 쓰되 순서는 바꾸지 않는다.**
 - **슬롯 하나는 1 ~ 3 단어다.** `kotlin-spring`(언어 + 프레임워크)은 대상 한 슬롯이다.
 - 이름 전체는 최소 두 단어, 최대 64자.
 
@@ -15,17 +15,17 @@
 | 대상 | 무엇을 다루는가 | `artifact`·`platform`·`abbreviation`·`time`·**미등록** | `plugin`, `spring`, `notion` |
 | 범위 | 대상 안에서 어디까지인가 | 위와 같음 | `document`, `config` |
 | 관심사 | 어떤 성질을 보는가 | `quality` | `naming`, `coverage`, `standard` |
-| 목적 | 무엇을 하려는가 | `action`·`role` | `validate`, `create`, `sync`, `reviewer` |
+| 행위 | 무엇을 하는가 (동작 또는 그 동작의 주체) | `action`·`role` | `validate`, `create`, `sync`, `reviewer` |
 
 ```
 plugin-naming                       대상 + 관심사
-name-create                         대상 + 목적
+name-create                         대상 + 행위
 spring-naming                       대상 + 관심사
-notion-document-sync                대상 + 범위 + 목적
-document-naming-validate            대상 + 관심사 + 목적
+notion-document-sync                대상 + 범위 + 행위
+document-naming-validate            대상 + 관심사 + 행위
 kotlin-spring-naming                대상(2) + 관심사
-kotlin-spring-api-naming-validate   대상(2) + 범위 + 관심사 + 목적
-plugin-naming-create-validate       대상 + 관심사 + 목적(2)
+kotlin-spring-api-naming-validate   대상(2) + 범위 + 관심사 + 행위
+plugin-naming-create-validate       대상 + 관심사 + 행위(2)
 ```
 
 - 공통 플러그인은 `common-{관심사}`.
@@ -40,7 +40,7 @@ plugin-naming-create-validate       대상 + 관심사 + 목적(2)
 | 대상 | 3 단어 | 대상·범위를 합쳐 **6 단어**까지 (둘은 같은 등급이라 경계를 기계가 모른다) |
 | 범위 | 3 단어 | 〃 |
 | 관심사 | 3 단어 | `quality` 단어가 **3 개**까지 |
-| 목적 | 3 단어 | `action`·`role` 단어가 **3 개**까지 |
+| 행위 | 3 단어 | `action`·`role` 단어가 **3 개**까지 |
 
 상한은 허용일 뿐 목표가 아니다. 한 슬롯에 여러 단어를 쓰는 건 **한 단어로는 대상이 특정되지 않을 때**뿐이다 (`kotlin-spring` — 코틀린으로 쓴 스프링).
 길어지면 슬롯을 더하지 말고 대상을 좁힌다. 64자를 넘으면 Claude Code 가 스킬 · 에이전트 이름으로 받지 않는다.
@@ -51,28 +51,28 @@ plugin-naming-create-validate       대상 + 관심사 + 목적(2)
 
 ```
 kotlin-spring-api-naming-validate
-└──── 대상·범위 ───┘ └관심사┘ └목적─┘
+└──── 대상·범위 ───┘ └관심사┘ └행위─┘
  kotlin-spring │ api
     대상        범위        ← 여기는 AI 가 나눈다
 ```
 
-- 관심사 · 목적은 사전 카테고리로 경계가 정해진다 — 기계가 나눈다.
+- 관심사 · 행위는 사전 카테고리로 경계가 정해진다 — 기계가 나눈다.
 - 대상과 범위의 경계는 **이름을 짓는 쪽이 밝힌다.** `name-create` 는 슬롯 표를 같이 내고, `naming-reviewer` 는 경계를 한 문장으로 말할 수 있는지 판정한다.
-- 검증기는 통과한 이름마다 `대상·범위 [kotlin-spring-api] 관심사 [naming] 목적 [validate]` 처럼 읽은 결과를 보여준다. 의도와 다르게 읽혔으면 단어나 사전 카테고리가 틀린 것이다.
+- 검증기는 통과한 이름마다 `대상·범위 [kotlin-spring-api] 관심사 [naming] 행위 [validate]` 처럼 읽은 결과를 보여준다. 의도와 다르게 읽혔으면 단어나 사전 카테고리가 틀린 것이다.
 
 ### 슬롯은 사전 카테고리로 판정한다
 
 단어가 어느 슬롯인지는 `glossary.json` 의 **카테고리**가 정한다. 그래서 순서를 기계가 검사할 수 있다.
 
-- `action`·`role` → 목적
+- `action`·`role` → 행위
 - `quality` → 관심사
 - 그 밖의 카테고리와 미등록 단어 → 대상·범위
 
-왼쪽에서 오른쪽으로 등급이 커지기만 해야 한다. `review-standard`(목적 뒤에 관심사), `glossary-update-plugin`(목적 뒤에 대상)은 막힌다.
+왼쪽에서 오른쪽으로 등급이 커지기만 해야 한다. `review-standard`(행위 뒤에 관심사), `glossary-update-plugin`(행위 뒤에 대상)은 막힌다.
 
 ### 끝 단어만 사전에 등록돼야 한다
 
-끝 단어는 항상 `{관심사}` 아니면 `{목적}` 이므로 **사전에 `use` 로 등록돼 있어야 한다.**
+끝 단어는 항상 `{관심사}` 아니면 `{행위}` 이므로 **사전에 `use` 로 등록돼 있어야 한다.**
 앞 단어(`{대상}`·`{범위}`)는 `spring`·`kotlin`·`notion`·`order` 같은 도메인 고유명사라 사전이 통제하지 않는다.
 
 사전이 모든 프레임워크·제품명을 담을 수는 없다. 통제할 가치가 있는 건 "무엇을 보고 무엇을 하는가"를 말하는 뒷부분이다.
@@ -86,7 +86,7 @@ kotlin-spring-api-naming-validate
 | 언어명 단독 사용 | `java`, `kotlin`, `react` |
 | 프레임워크명 단독 사용 | `spring`, `nextjs` |
 | 맥락 중복 | `spring-spring-boot-naming` |
-| 슬롯 하나가 네 단어 이상 (대상·범위는 합쳐 일곱 이상) | `plugin-naming-create-review-sync-validate` (목적 4) |
+| 슬롯 하나가 네 단어 이상 (대상·범위는 합쳐 일곱 이상) | `plugin-naming-create-review-sync-validate` (행위 4) |
 | 64자 초과 | - |
 | 슬롯 순서 위반 | `review-standard`, `glossary-update-plugin` |
 | 끝 단어가 사전에 없음 | `plugin-banana`, `order-service` |
@@ -111,7 +111,7 @@ kotlin-spring-api-naming-validate
 | | 담당 | 무엇을 |
 |---|---|---|
 | 정량 | `validate-naming.sh` (차단) | kebab-case, 최소 두 단어 · 64자, 슬롯별 단어 수, 슬롯 순서, `deny` 단어, 끝 단어 미등록 |
-| 판단 | AI (`naming-reviewer`, `name-create`) | 이름이 **무엇을 가리키는지 알 수 있는가**, 범위가 맞는가, 범용 단어가 아닌가, 설명과 이름이 맞는가 |
+| 판단 | AI (`naming-reviewer`, `name-create`) | 이름이 **무엇을 가리키는지 알 수 있는가**, 목적이 드러나는가, 범위가 맞는가, 범용 단어가 아닌가, 설명과 이름이 맞는가 |
 
 ### AI 가 판단할 것
 
@@ -120,7 +120,19 @@ kotlin-spring-api-naming-validate
 
 스크립트는 막지 않고 넘긴다. 훅은 `additionalContext` 로, CLI 는 `🤔 AI 가 판단할 것` 으로 출력한다. 훅은 **새 이름**(대상 디렉터리 · 파일이 아직 없을 때)만 넘긴다 — 기존 파일을 고칠 때마다 이름을 다시 판단하지 않는다.
 
-판단할 것은 다섯이다.
+### 목적 문장
+
+이름을 조립하기 전에 **"이게 없으면 무슨 일이 생기는가"** 를 한 문장으로 쓴다. "무엇에 무엇을 한다"는 기능이지 목적이 아니다.
+그 문장에서 이름에 담을 개념을 고르고, 뺀 개념도 같이 밝힌다. 슬롯 조립은 그다음이다.
+
+이름이 드러낼 것은 단위마다 다르다.
+
+| 단위 | 이름이 드러낼 것 |
+|---|---|
+| 플러그인 | 목적 — 목적 문장의 핵심어 |
+| 스킬 · 커맨드 · 에이전트 · 코드 식별자 | 역할 · 사용 — 쓰는 쪽에서 무엇을 해 주는가 |
+
+판단할 것은 여섯이다.
 
 1. **이름만 보고 무엇을 가리키는지 한 문장으로 말할 수 있는가.**
    - `plugin-structure-validate` → 무슨 구조인가? 디렉터리 구조라면 `plugin-directory-structure`.
@@ -131,11 +143,14 @@ kotlin-spring-api-naming-validate
    `kotlin-spring-api-naming` → 대상 `kotlin-spring`, 범위 `api`. 나눌 수 없으면 대상을 좁힌다.
 3. **무엇을 다루는지 말하지 않는 범용 단어를 쓰지 않았는가.** `utils`, `manager`, `data`, `misc`, `helper` 같은 것들.
    목록으로 막지 않는다 — 어떤 맥락에서는 `data` 가 정확한 단어일 수도 있으므로 매번 판단한다.
+   단어마다 **이 이름에서만 의미 있는 정보**인지 본다. 다른 플러그인 이름에 넣어도 뜻이 같은 단어(`component`, `design`)는 정보가 없다.
 4. **무엇을 하는지와 이름이 같은 것을 말하는가.** `plugin.json` 의 `description` 과 대조한다.
 5. **기존 이름과 헷갈리지 않는가, 기능이 겹치지 않는가.** 새 플러그인이면 `marketplace.json` 의 이름·description 과 대조한다.
-   - 끝 단어(관심사·목적)가 같고 대상만 다르면 — 같은 관심사를 다른 대상에 적용한 것인지, 사실 같은 것인지 본다 (`plugin-naming` 옆의 `plugin-name-validate`)
+   - 끝 단어(관심사·행위)가 같고 대상만 다르면 — 같은 관심사를 다른 대상에 적용한 것인지, 사실 같은 것인지 본다 (`plugin-naming` 옆의 `plugin-name-validate`)
    - 한 단어만 다르면 — 사람이 둘을 구분해서 부를 수 있는지 본다
    - 기능이 겹치면 이름을 고치지 말고 **새 플러그인 대신 기존 플러그인에 스킬을 더한다**
+6. **목적 문장의 핵심어가 이름에 있는가.** 플러그인은 목적 문장에서, 그 밖은 역할 · 사용에서 핵심어를 찾는다.
+   `plugin-component-review` 는 무엇을 검토하는지만 말하고 왜 있는지는 말하지 않는다 — 기능 이름이다.
 
 **옳지 않다고 판단하면 이름을 다시 만든다.** 통과했다는 이유로 넘어가지 않는다.
 답이 안 나오면 이름을 굴리지 말고 무엇을 만드는지부터 다시 정한다 — 용도가 좁아지면 이름은 따라온다.
@@ -173,7 +188,7 @@ kotlin-spring-api-naming-validate
 - 끝 단어는 `glossary.json` 의 `use` 단어만 사용한다. 앞 단어는 도메인 고유명사를 허용한다.
 - `deny` 목록의 단어는 위치를 가리지 않고 플러그인명·스킬명·커맨드명·에이전트명에 쓸 수 없다. 여러 단어 deny(`name-rule`)는 이름 안의 연속한 단어 조합과 대조한다.
 - `validate-naming.sh` 가 deny 사용·끝 단어 미등록·슬롯 순서를 자동으로 막는다.
-- 새 관심사·목적 단어가 필요하면 이름을 비틀지 말고 `glossary-update` 스킬로 먼저 등록한다.
+- 새 관심사·행위 단어가 필요하면 이름을 비틀지 말고 `glossary-update` 스킬로 먼저 등록한다.
 
 **카테고리가 곧 슬롯이다.** 새 항목을 추가할 때 카테고리를 잘못 고르면 슬롯 판정이 틀어진다.
 `meaning` 에는 단어의 뜻만 적는다 — 이번 용례나 대상을 섞어 쓰지 않는다 (`structure` 는 "구성 요소의 배치 구조"이지 "디렉터리 구조"가 아니다).

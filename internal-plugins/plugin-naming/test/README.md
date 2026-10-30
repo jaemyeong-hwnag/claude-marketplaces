@@ -146,18 +146,18 @@ VERBOSE=1 test/validate-naming.test.sh  # 통과 케이스의 출력까지 표�
 | TC-088 | 전체 검사는 플러그인 디렉터리 밖(`.agent-tasks/` 초안)을 보지 않는다 (#86) | 통과 (0) | `Bad_Name` 없음 |
 | TC-089 | 플러그인 디렉터리 안의 같은 위반은 여전히 잡는다 (#86) | 차단 (2) | 메시지: `skill 'Bad_Name'` |
 
-### J. 슬롯 `{대상}-{범위}-{관심사}-{목적}`
+### J. 슬롯 `{대상}-{범위}-{관심사}-{행위}`
 
 | ID | 무엇을 | 기대 | 확인 |
 |---|---|---|---|
 | TC-090 | 슬롯 네 개는 통과한다 | 통과 (0) | `plugin-document-naming-review` |
-| TC-091 | 대상이 여러 단어(언어-프레임워크)여도 통과한다 | 통과 (0) | `kotlin-spring-api-naming-validate` → `대상·범위 [kotlin-spring-api] 관심사 [naming] 목적 [validate]` |
+| TC-091 | 대상이 여러 단어(언어-프레임워크)여도 통과한다 | 통과 (0) | `kotlin-spring-api-naming-validate` → `대상·범위 [kotlin-spring-api] 관심사 [naming] 행위 [validate]` |
 | TC-092 | 슬롯마다 세 단어, 전체 열두 단어 · 64자까지 통과한다 | 통과 (0) | `rust-axum-order-file-date-api-test-naming-standard-get-list-sync` |
-| TC-093 | 목적이 관심사보다 앞에 오면 막는다 | 차단 (2) | `review-standard` → `'standard'(관심사)가 목적 뒤에` |
-| TC-094 | 목적이 대상보다 앞에 오면 막는다 | 차단 (2) | `glossary-update-plugin` → `'plugin'(대상·범위)가 목적 뒤에` |
-| TC-095 | 대상-관심사-목적 순서는 통과한다 | 통과 (0) | `document-naming-validate` |
+| TC-093 | 행위가 관심사보다 앞에 오면 막는다 | 차단 (2) | `review-standard` → `'standard'(관심사)가 행위 뒤에` |
+| TC-094 | 행위가 대상보다 앞에 오면 막는다 | 차단 (2) | `glossary-update-plugin` → `'plugin'(대상·범위)가 행위 뒤에` |
+| TC-095 | 대상-관심사-행위 순서는 통과한다 | 통과 (0) | `document-naming-validate` |
 | TC-096 | 관심사가 네 단어면 막고 슬롯 구분을 보여준다 | 차단 (2) | 메시지: `관심사가 4 단어입니다`, `관심사 [naming-coverage-test-structure]` |
-| TC-097 | 목적이 네 단어면 막는다 | 차단 (2) | 메시지: `목적이 4 단어입니다` |
+| TC-097 | 행위가 네 단어면 막는다 | 차단 (2) | 메시지: `행위가 4 단어입니다` |
 | TC-098 | 대상·범위가 일곱 단어면 막는다 | 차단 (2) | 메시지: `대상·범위가 7 단어입니다`, `대상 3 + 범위 3` |
 | TC-099 | 대상·범위가 여섯 단어면 통과한다 | 통과 (0) | `kotlin-spring-boot-order-api-config-naming` |
 
@@ -189,7 +189,7 @@ VERBOSE=1 test/validate-naming.test.sh  # 통과 케이스의 출력까지 표�
 | TC-128 | 범용 단어도 막지 않고 판단으로 넘긴다 | 통과 (0) | `utils-create` |
 | TC-129 | 판단 요청이 범용 단어를 묻는다 | 통과 (0) | `범용 단어를 쓰지 않았는가` |
 | TC-130 | 판단 요청이 기존 이름 · 기능 겹침을 묻는다 | 통과 (0) | 메시지: `기존 이름과 헷갈리거나 기능이 겹치지 않는가` |
-| TC-131 | 판단 요청이 단어별 슬롯 구분을 보여준다 | 통과 (0) | `대상·범위 [plugin-directory] 관심사 [structure] 목적 [-]` |
+| TC-131 | 판단 요청이 단어별 슬롯 구분을 보여준다 | 통과 (0) | `대상·범위 [plugin-directory] 관심사 [structure] 행위 [-]` |
 | TC-137 | 훅 모드는 이미 있는 이름을 판단으로 넘기지 않는다 | 통과 (0) | 출력 없음 (기존 스킬 · 에이전트 파일 편집) |
 | TC-138 | 훅 모드는 새 이름만 판단으로 넘긴다 | 통과 (0) | `skill 'order-delete'`, 기존 `plugin 'order-sync'` 없음 |
 | TC-139 | 이미 있는 이름이어도 기계 위반은 막는다 | 차단 (2) | `plugin 'java'` |
