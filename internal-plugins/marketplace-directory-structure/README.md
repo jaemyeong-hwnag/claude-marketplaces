@@ -76,6 +76,7 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 �
 | `references/` | `*.md` `*.json` |
 | `agents/` | `*.md` |
 | `test/` | `*.test.sh` `README.md` |
+| `evals/` | `{case-name}/` 디렉터리. 그 안은 Claude Code eval 형식(`prompt.md` · `graders/*.md` · `case.yaml` · 픽스처)을 따르므로 자유 |
 
 마켓플레이스 루트: `.claude-plugin/marketplace.json` · `README.md` · `CHANGELOG.md` 필수, `.claude-plugin/` 에는 `marketplace.json` `tags.json` `categories.json` `plugins.json` `keywords.json` 만, 플러그인은 `public-plugins/<이름>/` · `internal-plugins/<이름>/` 바로 아래에만.
 

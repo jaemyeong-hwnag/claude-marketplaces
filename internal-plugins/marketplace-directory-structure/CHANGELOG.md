@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.4.1
+
+### Fixed
+- `plugin-directory-create` 스킬의 위치 표와 README 규칙 요약 표에 `evals/` 가 없어, 규칙 원본(`P-06` · `P-10`)이 허용하는 eval 케이스를 "표에 없는 디렉터리" 로 안내하던 것 (#182)
+
 ## 0.4.0
 
 ### Changed
