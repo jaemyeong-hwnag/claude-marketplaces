@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.4
+
+### Fixed
+- `PreToolUse` 훅에 `"onFailure": "block"` — `stress-target-validate.sh` 가 깨지면 운영 호스트 부하 차단(`ST-01`) 없이 통과하던 것 (#160, `plugin-enforcement-effectiveness` `EF-07`)
+
 ## 0.1.3
 
 ### Fixed
