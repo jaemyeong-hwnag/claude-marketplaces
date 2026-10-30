@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.5
+
+### Fixed
+- `PreToolUse` 훅에 `"onFailure": "block"` — 스크립트가 깨지면 프런트매터 · README 검사 없이 `Write` 가 통과하던 것 (#164, `plugin-enforcement-effectiveness` `EF-07`)
+
 ## 0.1.4
 
 ### Fixed
