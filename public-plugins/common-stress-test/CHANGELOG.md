@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.5
+
+### Fixed
+- `stress-result-review` 트리거 "몇 rps 까지" 가 측정 결과 없는 용량 질문(`stress-test-create` 의 "몇 rps 버티나")에도 뜨던 것 — "측정 결과로 몇 rps 까지" 로 좁힌다 (#206)
+
 ## 0.1.4
 
 ### Fixed
