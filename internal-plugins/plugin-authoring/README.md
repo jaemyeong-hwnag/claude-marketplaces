@@ -17,7 +17,7 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 �
 
 | 스킬 | 트리거 | 설명 |
 |---|---|---|
-| document-create | SKILL.md · description · README 쓰기 | 프런트매터·description 판단, README 템플릿 |
+| plugin-document-create | SKILL.md · description · README 쓰기 | 프런트매터·description 판단, README 템플릿 |
 | /authoring-validate | 직접 호출 | 저장소 전체 플러그인의 작성 규칙을 검증한다 |
 
 ## 포함된 훅

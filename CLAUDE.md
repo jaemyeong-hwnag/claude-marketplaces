@@ -25,7 +25,7 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 | 이름 | `plugin-naming` | `plugin-naming/references/naming-rules.md` · `glossary.json` | `name-create` · `glossary-update` | `/naming-review` · `naming-reviewer` |
 | 파일 위치 | `marketplace-directory-structure` | `…/references/directory-structure-rules.md` | `plugin-directory-create` | `/directory-structure-validate` |
 | 버전 · CHANGELOG · 태그 | `plugin-versioning` | `plugin-versioning/references/versioning-rules.md` | `version-update` | `/versioning-validate` |
-| 파일 내용 형식 (프런트매터 · README). 실행에서 무시 · 가려지는 것은 `plugin-enforcement-effectiveness` | `plugin-authoring` | `plugin-authoring/references/authoring-rules.md` | `document-create` | `/authoring-validate` |
+| 파일 내용 형식 (프런트매터 · README). 실행에서 무시 · 가려지는 것은 `plugin-enforcement-effectiveness` | `plugin-authoring` | `plugin-authoring/references/authoring-rules.md` | `plugin-document-create` | `/authoring-validate` |
 | 플러그인 사이의 의존 | `plugin-dependency` | `plugin-dependency/references/dependency-rules.md` | `dependency-update` | `/dependency-validate` |
 | 이슈 → 브랜치 → PR → 머지 (`W-01` ~ `W-10`) | `github-workflow` (public) | `public-plugins/github-workflow/references/workflow-rules.md` | `issue-create` · `pull-request-create` · `pull-request-merge` · `github-template-create` | `/github-workflow-validate` |
 | 버전 · 설치 확인 · 태그 · 릴리즈, 생성 · 이름 변경 · 삭제 절차 | `plugin-workflow` | `plugin-workflow/references/workflow-rules.md` | `plugin-release-create` · `plugin-create` · `plugin-name-update` · `plugin-delete` | `verify-all.sh` |

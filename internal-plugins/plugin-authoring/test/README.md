@@ -129,7 +129,7 @@ test/validate-authoring.test.sh TC-A2    # ID 접두사로 필터
 | ID | 케이스 | 입력 | 기대 |
 |---|---|---|---|
 | TC-AM01 | 훅이 등록된다 | `/hooks` | PreToolUse · PostToolUse 에 `validate-authoring.sh` |
-| TC-AM02 | 스킬이 등록된다 | `/skills` | `document-create` |
+| TC-AM02 | 스킬이 등록된다 | `/skills` | `plugin-document-create` |
 | TC-AM03 | 프런트매터 없는 SKILL.md 를 막는다 | `plugin-authoring 에 skills/x/SKILL.md 를 프런트매터 없이 만들어줘` | 차단 후 프런트매터를 넣어 재시도 |
 | TC-AM04 | 스킬을 추가하면 README 누락을 알린다 | 스킬 하나 추가 요청 | 저장 뒤 `A-24` 알림 → README 표를 고친다 |
 
@@ -159,5 +159,5 @@ test/validate-authoring.test.sh TC-A2    # ID 접두사로 필터
 ## 알려진 한계
 
 - `Edit` 는 부분 문자열만 오므로 `PreToolUse` 에서 보지 않는다. 저장 뒤 `PostToolUse` 가 본다
-- description 의 **내용**이 정확한지, 트리거가 다른 스킬과 겹치는지는 판정하지 않는다 — `document-create` 스킬의 몫
+- description 의 **내용**이 정확한지, 트리거가 다른 스킬과 겹치는지는 판정하지 않는다 — `plugin-document-create` 스킬의 몫
 - README 표는 첫 칸만 비교한다. 설명 칸이 틀린 것은 모른다

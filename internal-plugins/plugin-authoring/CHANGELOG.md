@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.2.0
+
+### Changed
+- 스킬 `document-create` 를 `plugin-document-create` 로 이름을 바꿨다 (#201) — 일반 문서가 아니라 플러그인의 SKILL.md · 커맨드 · 에이전트 · README 를 다룬다는 것이 이름에 드러나게. `/plugin-authoring:document-create` 로 부르던 것은 `/plugin-authoring:plugin-document-create` 로 부른다
+
 ## 0.1.5
 
 ### Fixed

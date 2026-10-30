@@ -1,5 +1,5 @@
 ---
-name: document-create
+name: plugin-document-create
 description: 플러그인의 SKILL.md · 커맨드 · 에이전트 · README 를 새로 쓰거나 고칠 때 사용한다. 스킬 description 을 쓸 때, 스킬이 길어져 나눌지 정할 때, README 를 만들거나 구성요소를 추가한 뒤 README 를 맞출 때 적용한다. 트리거 — "스킬 작성", "SKILL.md", "description", "README", "프런트매터". 작성 규칙과 README 템플릿을 강제한다.
 ---
 
