@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.16.0
+
+### Added
+- 사전 `quality` 에 `soundness` (동의어 `validity` 금지), `artifact` 에 `design` (동의어 `blueprint` 금지) (#145) — 새 플러그인 `common-design-soundness-review` 의 관심사 · 대상
+
 ## 0.15.0
 
 ### Added

@@ -421,6 +421,15 @@
       "source": "./internal-plugins/plugin-enforcement-effectiveness",
       "category": "internal",
       "description": "플러그인이 훅 · 에이전트 프런트매터 · 규칙 원본에 적어 둔 강제가 실행에서 알림 없이 꺼지지 않았는지 재현해 막는다 — 훅 · MCP 명령 사슬, 무시되는 에이전트 필드, 가려지는 이름, 조항 ↔ TC 연결, eval 유무, 훅 · MCP 서버 실제 실행. 형식 · 위치 · 순서는 관여하지 않는다."
+    },
+    {
+      "name": "common-design-soundness-review",
+      "source": "./public-plugins/common-design-soundness-review",
+      "category": "public",
+      "description": "구현 전 소프트웨어 설계(구조 · 플로우 · 결정)의 앞뒤가 맞는지 작성 맥락 없는 검증자가 판정한다 — 플랜 모드 계획 · 대화 속 설계안 · 설계 문서가 대상. 설계 요약을 먼저 내고 근거 · 반박, 모순 · 전개, 플로우의 막힘과 요구에 기여하지 않는 단계, 요구마다 대응 결정을 본다. 검토 없이 플랜 모드를 나가거나 설계 문서를 고치고 끝내면 한 번 되돌린다.",
+      "tags": [
+        "development"
+      ]
     }
   ]
 }
