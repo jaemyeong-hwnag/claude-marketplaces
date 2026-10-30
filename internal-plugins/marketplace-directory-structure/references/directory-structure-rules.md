@@ -27,7 +27,9 @@ test/                      # 저장소 정책 테스트
   {대상}.test.sh
   README.md
 CLAUDE.md
-README.md
+README.md                  # 영어 (기본)
+README.ko.md               # 한국어
+README.zh-CN.md            # 중국어 간체
 CHANGELOG.md
 .gitignore
 public-plugins/            # 배포용 (category: public)
@@ -39,7 +41,7 @@ internal-plugins/          # 내부용 (category: internal)
 | 조항 | 내용 | 검증 |
 |---|---|---|
 | R-01 | `.claude-plugin/marketplace.json` 이 있어야 한다 | 위반 시 차단 |
-| R-02 | `README.md`, `CHANGELOG.md` 가 있어야 한다 | 위반 시 차단 |
+| R-02 | `README.md` · `README.ko.md` · `README.zh-CN.md` · `CHANGELOG.md` 가 있어야 한다 | 위반 시 차단 |
 | R-03 | `.claude-plugin/` 에는 위 다섯 파일만 둔다 | 위반 시 차단 |
 | R-04 | 플러그인은 `public-plugins/<이름>/` 또는 `internal-plugins/<이름>/` **바로 아래**에만 둔다 | 위반 시 차단 |
 | R-05 | `CLAUDE.md` 가 없으면 경고한다 | 경고 |
@@ -60,7 +62,9 @@ git 저장소면 `R-04` 와 플러그인 파일 검사(`P-05` ~ `P-08`)는 git �
 {public-plugins|internal-plugins}/{plugin-name}/
   .claude-plugin/
     plugin.json              # 필수
-  README.md                  # 필수
+  README.md                  # 필수 — 영어 (기본)
+  README.ko.md               # 필수 — 한국어
+  README.zh-CN.md            # 필수 — 중국어 간체
   CHANGELOG.md               # 필수
   skills/
     {skill-name}/
@@ -89,7 +93,7 @@ git 저장소면 `R-04` 와 플러그인 파일 검사(`P-05` ~ `P-08`)는 git �
 
 | 조항 | 내용 |
 |---|---|
-| P-01 | `.claude-plugin/plugin.json`, `README.md`, `CHANGELOG.md` 는 필수다 |
+| P-01 | `.claude-plugin/plugin.json` · `README.md` · `README.ko.md` · `README.zh-CN.md` · `CHANGELOG.md` 는 필수다 |
 | P-02 | `.claude-plugin/` 에는 `plugin.json` 만 둔다 |
 | P-03 | `plugin.json` 은 올바른 JSON 이고 `name` 이 디렉터리명과 같아야 한다 |
 | P-04 | `plugin.json` 이 가리키는 상대 경로(`hooks`)의 파일이 실제로 있어야 한다 |
@@ -137,7 +141,7 @@ The standard hooks/hooks.json is loaded automatically, so manifest.hooks should 
 1. `public-plugins/{plugin-name}/` 또는 `internal-plugins/{plugin-name}/` 생성
 2. `.claude-plugin/plugin.json` 작성
 3. `skills/`, `hooks/`, `agents/`, `commands/` 등 구성요소 추가
-4. `README.md` 작성
+4. `README.md` · `README.ko.md` · `README.zh-CN.md` 작성
 5. `CHANGELOG.md` 초기화
 6. 마켓플레이스 루트 `.claude-plugin/marketplace.json` 에 등록
    - `source` 와 `category` 가 1번에서 고른 디렉터리와 일치해야 한다

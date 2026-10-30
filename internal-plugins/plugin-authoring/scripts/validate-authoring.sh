@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 플러그인 파일의 내용 형식을 검증한다 — 스킬·커맨드·에이전트 프런트매터, 본문·참조 크기, README 절 구성.
+# 플러그인 파일의 내용 형식을 검증한다 — 스킬·커맨드·에이전트 프런트매터, 본문·참조 크기, 세 언어 README 절 구성.
 # 이름(plugin-naming)·위치(marketplace-directory-structure)·버전(plugin-versioning)은 다루지 않는다.
 #
 # 훅 모드 : stdin 으로 훅 JSON 을 받는다.
@@ -20,7 +20,6 @@ RULES="$PLUGIN_ROOT/references/authoring-rules.md"
 DESC_MAX=300
 SKILL_LINES_MAX=200
 REF_LINES_MAX=500
-TEMPLATE_ORDER="설치|의존성|포함된 스킬|포함된 에이전트|포함된 훅|주의|변경 이력"
 
 ERRORS=()
 WARNINGS=()
@@ -147,98 +146,135 @@ table_first_cells() { # stdin=절 본문 → 표의 첫 칸들 (머리행·구�
   '
 }
 
+README_LANGS="en ko zh-CN"
+readme_file() { case "$1" in en) echo README.md ;; *) echo "README.$1.md" ;; esac; }
+# 언어별 템플릿 절 제목 — H_INSTALL H_DEPS H_SKILLS H_AGENTS H_HOOKS H_NOTES H_LOG 와 의존성이 없을 때의 단어 NONE_WORD
+set_lang() {
+  case "$1" in
+    en)    H_INSTALL="Installation"; H_DEPS="Dependencies"; H_SKILLS="Skills"; H_AGENTS="Agents"; H_HOOKS="Hooks"; H_NOTES="Notes"; H_LOG="Changelog"; NONE_WORD="None" ;;
+    ko)    H_INSTALL="설치"; H_DEPS="의존성"; H_SKILLS="포함된 스킬"; H_AGENTS="포함된 에이전트"; H_HOOKS="포함된 훅"; H_NOTES="주의"; H_LOG="변경 이력"; NONE_WORD="없음" ;;
+    zh-CN) H_INSTALL="安装"; H_DEPS="依赖"; H_SKILLS="技能"; H_AGENTS="代理"; H_HOOKS="钩子"; H_NOTES="注意事项"; H_LOG="变更记录"; NONE_WORD="无" ;;
+  esac
+}
+
 check_readme() { # $1=플러그인 디렉터리 $2=플러그인명 $3=배치(public|internal|"")
-  local dir="$1" name="$2" kind="$3" readme="$1/README.md" first headings h pos last prev_pos=0 prev_h=""
+  local lang
+  for lang in $README_LANGS; do check_readme_lang "$1" "$2" "$3" "$lang"; done
+}
+
+check_readme_lang() { # $1=플러그인 디렉터리 $2=플러그인명 $3=배치 $4=언어
+  local dir="$1" name="$2" kind="$3" lang="$4" file readme label first headings h pos last prev_pos=0 prev_h="" other
   local expected actual x sec events deps d
+  file="$(readme_file "$lang")"; readme="$dir/$file"; label="$name/$file"
   [ -r "$readme" ] || return 0   # 없는 것은 구조 규칙(P-01)의 몫
+  set_lang "$lang"
 
   first="$(unfenced "$readme" | grep -m1 -E '^# ' | sed -E 's/^# +//; s/[[:space:]]+$//')"
-  [ "$first" = "$name" ] || err "$name/README.md: 첫 제목이 '# ${first:-없음}' 입니다 — '# $name' 이어야 합니다 (A-20)"
+  [ "$first" = "$name" ] || err "$label: 첫 제목이 '# ${first:-없음}' 입니다 — '# $name' 이어야 합니다 (A-20)"
+
+  # A-29 언어 전환 — 나머지 두 언어 파일을 링크한다
+  for other in $README_LANGS; do
+    [ "$other" = "$lang" ] && continue
+    grep -qF "]($(readme_file "$other"))" "$readme" || err "$label: '$(readme_file "$other")' 링크가 없습니다 — 언어 전환 줄에 나머지 두 언어를 링크합니다 (A-29)"
+  done
 
   headings="$(unfenced "$readme" | grep -E '^## ' | sed -E 's/^## +//; s/[[:space:]]+$//')"
   has_h() { printf '%s\n' "$headings" | grep -qxF -- "$1"; }
 
-  for h in "설치" "의존성" "변경 이력"; do
-    has_h "$h" || err "$name/README.md: '## $h' 절이 없습니다 (A-21)"
+  for h in "$H_INSTALL" "$H_DEPS" "$H_LOG"; do
+    has_h "$h" || err "$label: '## $h' 절이 없습니다 (A-21)"
   done
   # 스킬이나 커맨드 중 하나라도 있으면. ls 에 글롭을 여럿 주면 하나만 없어도 실패하므로 파일마다 본다.
   if any_exists "$dir"/skills/*/SKILL.md "$dir"/commands/*.md; then
-    has_h "포함된 스킬" || err "$name/README.md: 스킬·커맨드가 있는데 '## 포함된 스킬' 절이 없습니다 (A-22)"
+    has_h "$H_SKILLS" || err "$label: 스킬·커맨드가 있는데 '## $H_SKILLS' 절이 없습니다 (A-22)"
   fi
   if ls "$dir"/agents/*.md >/dev/null 2>&1; then
-    has_h "포함된 에이전트" || err "$name/README.md: 에이전트가 있는데 '## 포함된 에이전트' 절이 없습니다 (A-22)"
+    has_h "$H_AGENTS" || err "$label: 에이전트가 있는데 '## $H_AGENTS' 절이 없습니다 (A-22)"
   fi
   if [ -r "$dir/hooks/hooks.json" ]; then
-    has_h "포함된 훅" || err "$name/README.md: hooks/hooks.json 이 있는데 '## 포함된 훅' 절이 없습니다 (A-22)"
+    has_h "$H_HOOKS" || err "$label: hooks/hooks.json 이 있는데 '## $H_HOOKS' 절이 없습니다 (A-22)"
   fi
 
   # A-23 순서 — 템플릿 절끼리의 상대 순서, 그리고 변경 이력이 마지막
-  IFS='|' read -r -a order <<< "$TEMPLATE_ORDER"
-  for h in "${order[@]}"; do
+  for h in "$H_INSTALL" "$H_DEPS" "$H_SKILLS" "$H_AGENTS" "$H_HOOKS" "$H_NOTES" "$H_LOG"; do
     pos="$(printf '%s\n' "$headings" | grep -nxF -- "$h" | head -1 | cut -d: -f1)"
     [ -n "$pos" ] || continue
     if [ "$pos" -lt "$prev_pos" ]; then
-      err "$name/README.md: '## $h' 가 '## $prev_h' 보다 앞에 있습니다 — 템플릿 순서를 지키세요 (A-23)"
+      err "$label: '## $h' 가 '## $prev_h' 보다 앞에 있습니다 — 템플릿 순서를 지키세요 (A-23)"
     fi
     prev_pos="$pos"; prev_h="$h"
   done
   last="$(printf '%s\n' "$headings" | tail -1)"
-  if has_h "변경 이력" && [ "$last" != "변경 이력" ]; then
-    err "$name/README.md: '## 변경 이력' 뒤에 '## $last' 가 있습니다 — 변경 이력이 마지막 절입니다 (A-23)"
+  if has_h "$H_LOG" && [ "$last" != "$H_LOG" ]; then
+    err "$label: '## $H_LOG' 뒤에 '## $last' 가 있습니다 — 변경 이력이 마지막 절입니다 (A-23)"
   fi
 
   # A-24 스킬 표 ↔ 실제
-  if has_h "포함된 스킬"; then
+  if has_h "$H_SKILLS"; then
     expected="$( { for x in "$dir"/skills/*/SKILL.md; do [ -r "$x" ] && basename "$(dirname "$x")"; done
                    for x in "$dir"/commands/*.md; do [ -r "$x" ] && echo "/$(basename "$x" .md)"; done; } | sort -u)"
-    actual="$(section_text "$readme" "포함된 스킬" | table_first_cells | sort -u)"
+    actual="$(section_text "$readme" "$H_SKILLS" | table_first_cells | sort -u)"
     while IFS= read -r x; do [ -n "$x" ] || continue
-      printf '%s\n' "$actual" | grep -qxF -- "$x" || err "$name/README.md: '## 포함된 스킬' 표에 '$x' 가 없습니다 (A-24)"
+      printf '%s\n' "$actual" | grep -qxF -- "$x" || err "$label: '## $H_SKILLS' 표에 '$x' 가 없습니다 (A-24)"
     done <<< "$expected"
     while IFS= read -r x; do [ -n "$x" ] || continue
-      printf '%s\n' "$expected" | grep -qxF -- "$x" || err "$name/README.md: '## 포함된 스킬' 표의 '$x' 는 없는 스킬·커맨드입니다 (A-24)"
+      printf '%s\n' "$expected" | grep -qxF -- "$x" || err "$label: '## $H_SKILLS' 표의 '$x' 는 없는 스킬·커맨드입니다 (A-24)"
     done <<< "$actual"
   fi
 
   # A-25 에이전트 표 ↔ 실제
-  if has_h "포함된 에이전트"; then
+  if has_h "$H_AGENTS"; then
     expected="$(for x in "$dir"/agents/*.md; do [ -r "$x" ] && basename "$x" .md; done | sort -u)"
-    actual="$(section_text "$readme" "포함된 에이전트" | table_first_cells | sort -u)"
+    actual="$(section_text "$readme" "$H_AGENTS" | table_first_cells | sort -u)"
     while IFS= read -r x; do [ -n "$x" ] || continue
-      printf '%s\n' "$actual" | grep -qxF -- "$x" || err "$name/README.md: '## 포함된 에이전트' 표에 '$x' 가 없습니다 (A-25)"
+      printf '%s\n' "$actual" | grep -qxF -- "$x" || err "$label: '## $H_AGENTS' 표에 '$x' 가 없습니다 (A-25)"
     done <<< "$expected"
     while IFS= read -r x; do [ -n "$x" ] || continue
-      printf '%s\n' "$expected" | grep -qxF -- "$x" || err "$name/README.md: '## 포함된 에이전트' 표의 '$x' 는 없는 에이전트입니다 (A-25)"
+      printf '%s\n' "$expected" | grep -qxF -- "$x" || err "$label: '## $H_AGENTS' 표의 '$x' 는 없는 에이전트입니다 (A-25)"
     done <<< "$actual"
   fi
 
   # A-26 훅 절 ↔ hooks.json 이벤트
-  if has_h "포함된 훅" && [ -r "$dir/hooks/hooks.json" ]; then
-    sec="$(section_text "$readme" "포함된 훅")"
+  if has_h "$H_HOOKS" && [ -r "$dir/hooks/hooks.json" ]; then
+    sec="$(section_text "$readme" "$H_HOOKS")"
     events="$(jq -r '.hooks // {} | keys[]' "$dir/hooks/hooks.json" 2>/dev/null)"
     while IFS= read -r x; do [ -n "$x" ] || continue
-      printf '%s' "$sec" | grep -qF -- "$x" || err "$name/README.md: '## 포함된 훅' 에 이벤트 '$x' 가 없습니다 (A-26)"
+      printf '%s' "$sec" | grep -qF -- "$x" || err "$label: '## $H_HOOKS' 에 이벤트 '$x' 가 없습니다 (A-26)"
     done <<< "$events"
   fi
 
   # A-27 의존성 절 ↔ dependencies
-  if has_h "의존성" && [ -r "$dir/.claude-plugin/plugin.json" ]; then
-    sec="$(section_text "$readme" "의존성")"
+  if has_h "$H_DEPS" && [ -r "$dir/.claude-plugin/plugin.json" ]; then
+    sec="$(section_text "$readme" "$H_DEPS")"
     deps="$(jq -r '(.dependencies // [])[] | if type == "string" then . else (.name // empty) end' "$dir/.claude-plugin/plugin.json" 2>/dev/null)"
     if [ -z "$deps" ]; then
-      printf '%s' "$sec" | grep -qF "없음" || err "$name/README.md: 의존성이 없으면 '## 의존성' 에 '없음' 이라고 씁니다 (A-27)"
+      printf '%s' "$sec" | grep -qF "$NONE_WORD" || err "$label: 의존성이 없으면 '## $H_DEPS' 에 '$NONE_WORD' 이라고 씁니다 (A-27)"
     else
       while IFS= read -r d; do [ -n "$d" ] || continue
-        printf '%s' "$sec" | grep -qF -- "$d" || err "$name/README.md: '## 의존성' 에 '$d' 가 없습니다 (A-27)"
+        printf '%s' "$sec" | grep -qF -- "$d" || err "$label: '## $H_DEPS' 에 '$d' 가 없습니다 (A-27)"
       done <<< "$deps"
     fi
   fi
 
   # A-28 public 설치 명령
-  if [ "$kind" = public ] && has_h "설치"; then
-    section_text "$readme" "설치" | grep -qF -- "$name@" || \
-      err "$name/README.md: '## 설치' 에 '$name@…' 설치 명령이 없습니다 (A-28)"
+  if [ "$kind" = public ] && has_h "$H_INSTALL"; then
+    section_text "$readme" "$H_INSTALL" | grep -qF -- "$name@" || \
+      err "$label: '## $H_INSTALL' 에 '$name@…' 설치 명령이 없습니다 (A-28)"
   fi
+}
+
+# A-30 마켓플레이스 루트 README 세 언어가 public 플러그인을 모두 싣는다
+check_root_readme() { # $1=루트
+  local root="$1" lang file d
+  for lang in $README_LANGS; do
+    file="$root/$(readme_file "$lang")"
+    [ -r "$file" ] || continue   # 없는 것은 구조 규칙(R-02)의 몫
+    for d in "$root"/public-plugins/*/; do
+      [ -r "$d/.claude-plugin/plugin.json" ] || continue
+      d="$(basename "$d")"
+      grep -qF "](public-plugins/$d)" "$file" || err "$(readme_file "$lang"): public 플러그인 '$d' 가 실려 있지 않습니다 — '](public-plugins/$d)' 링크를 넣으세요 (A-30)"
+    done
+  done
 }
 
 # ---- 플러그인 하나 ---------------------------------------------------------
@@ -287,6 +323,7 @@ validate_all() { # $1=루트
       | while IFS= read -r pd; do find "$pd" -mindepth 1 -maxdepth 1 -type d 2>/dev/null; done | sort
   )
   [ "$n" -gt 0 ] || die "--all: '$root' 에서 플러그인을 하나도 찾지 못했습니다 — 마켓플레이스 루트(*-plugins/ 를 가진 디렉터리)를 주세요"
+  check_root_readme "$root"
 }
 
 report() {
@@ -344,7 +381,7 @@ hook_pre() { # $1=경로 $2=payload
 hook_post() { # $1=경로
   split_plugin_path "$1" || exit 0
   case "$REL_OUT" in
-    README.md|skills/*|commands/*.md|agents/*.md|hooks/hooks.json|.claude-plugin/plugin.json|references/*) ;;
+    README.md|README.ko.md|README.zh-CN.md|skills/*|commands/*.md|agents/*.md|hooks/hooks.json|.claude-plugin/plugin.json|references/*) ;;
     *) exit 0 ;;
   esac
   [ -r "$PLUGIN_DIR_OUT/.claude-plugin/plugin.json" ] || exit 0

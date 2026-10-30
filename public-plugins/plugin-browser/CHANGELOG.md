@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.2.3
+
+### Changed
+- README 를 영어(기본) `README.md` · 한국어 `README.ko.md` · 중국어 간체 `README.zh-CN.md` 로 나눴다 (#229)
+
+### Fixed
+- README 서술 4건을 코드에 맞췄다 — 전수 검토 (#229)
+- 스킬 예시 `related plugin-naming` 을 `related java-naming` 으로 — internal 플러그인은 엔진이 다루지 않아 결과가 0개였다. `--help` 의 `facets` 관점 목록을 엔진이 받는 것으로 (#229)
+
 ## 0.2.2
 
 ### Fixed

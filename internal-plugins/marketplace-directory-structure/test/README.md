@@ -23,6 +23,7 @@ test/validate-directory-structure.test.sh TC-D1    # ID 접두사로 필터
 | TC-D02 | 필수 세 파일을 갖춘 플러그인은 통과한다 | 통과 (0) | - |
 | TC-D03 | plugin.json 이 없으면 막는다 | 차단 (2) | 메시지: `plugin.json 이 없습니다` |
 | TC-D04 | README.md 가 없으면 막는다 | 차단 (2) | 메시지: `README.md 가 없습니다` |
+| TC-D04a | README 번역 하나라도 없으면 막는다 (#229) | 차단 (2) | 메시지: `README.zh-CN.md 가 없습니다 (P-01)` · `README.ko.md 가 없습니다 (P-01)` |
 | TC-D05 | CHANGELOG.md 가 없으면 막는다 | 차단 (2) | 메시지: `CHANGELOG.md 가 없습니다` |
 | TC-D06 | plugin.json 이 깨져 있으면 막는다 | 차단 (2) | 메시지: `JSON 파싱 실패` |
 | TC-D07 | plugin.json 의 name 이 디렉터리명과 다르면 막는다 | 차단 (2) | 메시지: `디렉터리명과 같아야 합니다` |
@@ -75,6 +76,7 @@ test/validate-directory-structure.test.sh TC-D1    # ID 접두사로 필터
 | TC-D30 | 정상 루트는 통과한다 | 통과 (0) | - |
 | TC-D31 | marketplace.json 이 없으면 막는다 (R-01) | 차단 (2) | 메시지: `marketplace.json 이 없습니다` |
 | TC-D32 | 루트 CHANGELOG.md 가 없으면 막는다 (R-02) | 차단 (2) | 메시지: `CHANGELOG.md 가 없습니다` |
+| TC-D32a | 루트 README 번역이 없으면 막는다 (R-02, #229) | 차단 (2) | 메시지: `마켓플레이스 루트: README.ko.md 가 없습니다 (R-02)` |
 | TC-D33 | .claude-plugin 의 알 수 없는 파일을 막는다 (R-03) | 차단 (2) | 메시지: `알 수 없는 파일` |
 | TC-D34 | tags/categories/plugins/keywords.json 은 허용한다 | 통과 (0) | - |
 | TC-D35 | CLAUDE.md 가 없으면 경고만 한다 (R-05) | 통과 (0) | 메시지: `CLAUDE.md 가 없습니다` |

@@ -1,89 +1,91 @@
 # plugin-naming
 
-플러그인·스킬·커맨드·에이전트의 이름을 공통 규칙과 사전으로 강제한다.
+**English** · [한국어](README.ko.md) · [简体中文](README.zh-CN.md)
 
-다루는 것은 **이름 하나뿐**이다. 어느 디렉터리에 두는지, 어떻게 배포하는지는 이 플러그인의 관심사가 아니다.
+Enforces names of plugins, skills, commands, and agents with shared rules and a glossary.
 
-## 설치
+It handles **names only**. Which directory a file goes in, or how it is distributed, is not this plugin's concern.
 
-이 저장소에서는 SessionStart 훅(`.claude/hooks/sync-internal-plugins.sh`)이 등록·활성화·설치한다.
-internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 곳에서 쓰려면 `public-plugins/` 로 옮긴다.
+## Installation
 
-## 의존성
+In this repository, the SessionStart hook (`.claude/hooks/sync-internal-plugins.sh`) registers, enables, and installs it.
+As an internal plugin it is not distributed to other repositories. To use it elsewhere, move it to `public-plugins/`.
 
-없음
+## Dependencies
 
-## 포함된 스킬
+None
 
-| 스킬 | 트리거 | 설명 |
+## Skills
+
+| Skill | Trigger | Description |
 |---|---|---|
-| name-create | 이름 짓기·바꾸기, 플러그인·스킬·커맨드 만들기 | 목적 문장("이게 없으면 …")에서 담을 개념을 고르고 `{대상}-{범위}-{관심사}-{행위}` 슬롯(슬롯당 1 ~ 3 단어)과 사전으로 이름을 정한다 |
-| glossary-update | 사전에 단어 추가·수정, "이 단어 써도 되나" | 중복·정렬·카테고리 규칙을 지키며 사전을 고친다 |
-| /naming-review | 직접 호출 | 이름 하나 또는 저장소 전체를 검증하고 판정한다 |
+| name-create | Naming or renaming; creating a plugin, skill, or command | Picks the concepts to carry from a purpose sentence ("without this, …") and builds the name from the `{대상}-{범위}-{관심사}-{행위}` (target-scope-concern-action) slots (1 – 3 words per slot) and the glossary. A name that passes is judged by `naming-reviewer` |
+| glossary-update | Adding or changing glossary words, "can I use this word?" | Edits the glossary following the duplicate, ordering, and category rules |
+| /naming-review | Invoke directly | Validates and judges one name or the whole repository |
 
-## 포함된 에이전트
+## Agents
 
-| 에이전트 | 설명 |
+| Agent | Description |
 |---|---|
-| naming-reviewer | 기계 규칙을 통과한 이름이 무엇을 가리키는지, 목적 문장의 핵심어가 드러나는지 판정한다 |
+| naming-reviewer | Judges whether a name that passed the mechanical rules says what it refers to, and whether the purpose sentence's key word shows in it |
 
-## 포함된 훅
+## Hooks
 
-| 스크립트 | 이벤트 | 동작 |
+| Script | Event | Behavior |
 |---|---|---|
-| validate-naming.sh | PreToolUse (Write\|Edit) | 경로에서 이름을 뽑아 규칙 위반이면 **차단**, 통과한 새 이름이면 AI 판단 요청 |
-| validate-naming.sh | PostToolUse (Write\|Edit) | `glossary.json` 을 저장하면 사전 구조를 검증 |
+| validate-naming.sh | PreToolUse (Write\|Edit) | Extracts names from the path; **blocks** on a rule violation, and asks for AI judgment on a new name that passes |
+| validate-naming.sh | PostToolUse (Write\|Edit) | Validates the glossary structure when `glossary.json` is saved |
 
-## 파일
+## Files
 
-| 경로 | 역할 |
+| Path | Role |
 |---|---|
-| `references/naming-rules.md` | 네이밍 규칙 원본. 단일 기준 |
-| `references/glossary.json` | 기본 단어 사전 (`use` / `deny` / `meaning`) |
-| `scripts/validate-naming.sh` | 기계 검증. 훅과 CLI 겸용 |
-| `test/` | 회귀 테스트와 TC 명세 |
-| `evals/` | `claude plugin eval` 케이스 — 이름 짓기 스킬 발동 · 한 단어 이름 차단. `plugin-workflow` 의 `eval-all.sh` 로 돈다 |
+| `references/naming-rules.md` | Source of the naming rules. Single source of truth |
+| `references/glossary.json` | Default word glossary (`use` / `deny` / `meaning`) |
+| `scripts/validate-naming.sh` | Mechanical validation. Serves both the hook and the CLI |
+| `test/` | Regression tests and TC specs |
+| `evals/` | `claude plugin eval` cases — naming skill trigger · one-word name blocked. Run by `plugin-workflow`'s `eval-all.sh` |
 
-## 동작
+## Behavior
 
-`Write` / `Edit` 시 경로에서 이름을 뽑아 검사하고, 위반이면 종료 코드 2 로 차단한다.
+On `Write` / `Edit`, names are extracted from the path and checked; a violation is blocked with exit code 2.
 
-| 경로 패턴 | 검사 대상 |
+| Path pattern | Checked |
 |---|---|
-| `*plugins/<이름>/...` | 플러그인명 |
-| `.../skills/<이름>/...` | 스킬명 |
-| `.../commands/<이름>.md` | 커맨드명 |
-| `.../agents/<이름>.md` | 에이전트명 |
+| `*plugins/<name>/...` | Plugin name |
+| `.../skills/<name>/...` | Skill name |
+| `.../commands/<name>.md` | Command name |
+| `.../agents/<name>.md` | Agent name |
 
-그 외 경로에는 반응하지 않는다. `plugins/`, `public-plugins/`, `my-own-plugins/` 처럼 **이름이 `plugins` 로 끝나는 디렉터리**면 무엇이든 플러그인 위치로 본다. 그 디렉터리들이 어떤 의미인지는 저장소가 정할 일이다.
+Other paths are ignored. **Any directory named `plugins` or ending in `-plugins`**, such as `plugins/`, `public-plugins/`, or `my-own-plugins/`, is treated as a plugin location. What those directories mean is up to the repository.
 
-## 프로젝트별 사전
+## Per-project glossary
 
-사전은 아래 순서로 해석된다.
+The glossary is resolved in this order.
 
 1. `$NAMING_GLOSSARY`
-2. 편집 경로(CLI 는 현재 디렉터리, `--all` 은 루트)의 git 최상위 `internal-plugins/plugin-naming/references/glossary.json` ← 워크트리에서 고친 사전
-3. `$CLAUDE_PROJECT_DIR/references/glossary.json` ← 프로젝트 전용
-4. `${CLAUDE_PLUGIN_ROOT}/references/glossary.json` ← 플러그인 기본
+2. `internal-plugins/plugin-naming/references/glossary.json` at the git top level of the edited path (CLI: current directory, `--all`: root) ← glossary edited in a worktree
+3. `$CLAUDE_PROJECT_DIR/references/glossary.json` ← project-specific
+4. `${CLAUDE_PLUGIN_ROOT}/references/glossary.json` ← plugin default
 
-프로젝트 사전을 두면 플러그인 사전을 **대체한다.** 병합이 아니므로 기본 사전을 복사한 뒤 도메인 단어를 더한다.
+A project glossary **replaces** the plugin glossary. It is not merged, so copy the default glossary and add your domain words.
 
 ## CLI
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/scripts/validate-naming.sh" <이름 또는 경로>
+"${CLAUDE_PLUGIN_ROOT}/scripts/validate-naming.sh" <name or path>
 "${CLAUDE_PLUGIN_ROOT}/scripts/validate-naming.sh" --all .
 "${CLAUDE_PLUGIN_ROOT}/scripts/validate-naming.sh" --glossary
 ```
 
-## 테스트
+## Tests
 
 ```bash
 test/validate-naming.test.sh
 ```
 
-TC 명세는 [`test/README.md`](test/README.md).
+TC specs: [`test/README.md`](test/README.md).
 
-## 변경 이력
+## Changelog
 
-[`CHANGELOG.md`](CHANGELOG.md) 참조.
+See [`CHANGELOG.md`](CHANGELOG.md).

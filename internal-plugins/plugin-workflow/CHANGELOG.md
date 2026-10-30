@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.7.2
+
+### Changed
+- README 를 영어(기본) `README.md` · 한국어 `README.ko.md` · 중국어 간체 `README.zh-CN.md` 로 나눴다 (#229)
+
+### Fixed
+- README 서술 4건을 코드에 맞췄다 — 전수 검토 (#229)
+- `plugin-create` 의 단계 · 체크리스트에 README 세 언어와 루트 README 수록을 더했다 (#229)
+
 ## 0.7.1
 
 ### Fixed

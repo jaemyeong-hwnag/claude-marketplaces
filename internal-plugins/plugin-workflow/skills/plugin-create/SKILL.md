@@ -32,7 +32,7 @@ jq -r '.plugins[] | "\(.name)\t\(.description)"' .claude-plugin/marketplace.json
 | 3 | 디렉터리 · 필수 파일 | `plugin-directory-create` | `validate-directory-structure.sh <디렉터리>` |
 | 4 | 버전 `0.1.0` · CHANGELOG `## 0.1.0` | `version-update` | `validate-versioning.sh <디렉터리>` |
 | 5 | 규칙 원본 → 검증기 → 테스트 (규칙 원본에 차단 · 경고 조항이 있을 때만) — 조항마다 ID 를 단 TC | 이 스킬 (4절) | `test/*.test.sh` |
-| 6 | 스킬 · 커맨드 · 에이전트 · README | `plugin-document-create` | `validate-authoring.sh <디렉터리>` |
+| 6 | 스킬 · 커맨드 · 에이전트 · README 세 언어(`README.md` · `README.ko.md` · `README.zh-CN.md`) — public 이면 루트 README 세 개의 수록 표에도 | `plugin-document-create` | `validate-authoring.sh --all .` |
 | 7 | 의존성 (있으면) | `dependency-update` | `validate-dependency.sh --all .` |
 | 8 | 등록 | 이 스킬 (3절) | `.claude/hooks/validate-plugin-scope.sh .` |
 | 9 | eval 케이스 — 스킬 발동 1 · 훅 차단 1 | 이 스킬 (5절) | `eval-all.sh --quick --plugin <이름>` |
@@ -85,9 +85,9 @@ claude plugin details <이름>@jaemyeong-hwnag-plugins    # Hooks (N) 이 hooks.
 - [ ] 기존 플러그인에 더하는 것으로 안 되는 이유가 있다
 - [ ] 이름 — 규칙 통과, 목적 문장의 핵심어가 이름에 있다, `naming-reviewer` 통과, 기존 이름과 헷갈리지 않는다
 - [ ] 배치 — public / internal, common 이면 public
-- [ ] 필수 파일 셋, 버전 `0.1.0`, CHANGELOG `## 0.1.0`
+- [ ] 필수 파일 — `plugin.json` · README 세 언어 · CHANGELOG, 버전 `0.1.0`, CHANGELOG `## 0.1.0`
 - [ ] 차단 · 경고 조항이 있으면 — 규칙 원본, 조항 ID 를 단 TC, 검증기 · 훅 (`onFailure: "block"`)
-- [ ] README 템플릿, 표 = 실제 구성요소
+- [ ] README 세 언어 템플릿, 표 = 실제 구성요소, public 이면 루트 README 세 개에 실림
 - [ ] 의존성 — common 은 없음, 층 방향, public → internal 없음
 - [ ] 등록 — category · tags · description
 - [ ] eval 케이스 — trigger · hook, 스킬마다 발동 그레이더

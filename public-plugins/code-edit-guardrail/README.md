@@ -1,8 +1,10 @@
 # code-edit-guardrail
 
-Claude 가 코드를 고칠 때 넘지 말아야 할 선을 프로젝트 설정 하나로 강제한다 — 언어 무관. 코드를 고치고 테스트를 안 고치면 완료 차단, 고친 경로의 린트 · 포맷 · 타입 검사 명령 실패 시 완료 차단, 공유자원 편집은 사용자 확인.
+**English** · [한국어](README.ko.md) · [简体中文](README.zh-CN.md)
 
-엔진은 플러그인 훅이 돌리고, 프로젝트에는 설정 파일 하나만 둔다. 스크립트를 프로젝트에 복사하지 않으므로 플러그인을 업데이트하면 모든 프로젝트에 같이 반영된다.
+Enforces the lines Claude must not cross when editing code, with one project config — language-agnostic. Blocks completion when code changes without test changes, blocks completion when the lint · format · type-check command for the edited paths fails, and asks the user before shared resources are edited.
+
+The plugin hooks run the engine; the project holds only one config file. No scripts are copied into the project, so a plugin update reaches every project at once.
 
 ```json
 {
@@ -12,69 +14,70 @@ Claude 가 코드를 고칠 때 넘지 말아야 할 선을 프로젝트 설정 
 }
 ```
 
-## 설치
+## Installation
 
 ```bash
 claude plugin marketplace add jaemyeong-hwnag/claude-marketplaces
 claude plugin install code-edit-guardrail@jaemyeong-hwnag-plugins --scope project
 ```
 
-설치한 뒤 "가드레일 설정해줘" 로 `code-edit-guardrail-apply` 를 불러 `.claude/code-edit-guardrail.json` 을 만든다. 설정이 없는 동안 훅은 아무것도 하지 않는다.
+After installing, say "set up the guardrail" to invoke `code-edit-guardrail-apply`, which creates `.claude/code-edit-guardrail.json`. Until the config exists, the hooks do nothing.
 
-필요한 것: `jq`. 없으면 훅이 조용히 통과한다 (fail-open).
+Requires `jq`. Without it the hooks pass silently (fail-open).
 
-## 의존성
+## Dependencies
 
-없음
+None
 
-## 포함된 스킬
+## Skills
 
-| 스킬 | 트리거 | 설명 |
+| Skill | Triggers | Description |
 |---|---|---|
-| code-edit-guardrail-apply | 테스트 없이 못 끝내게 · 끝날 때 린트 · 마이그레이션 고치면 확인 · 가드레일 설정 | 스택을 감지해 코드 · 테스트 글롭과 품질 lane 을 채우고, 공유자원은 후보만 내 사용자가 확정한다 |
+| code-edit-guardrail-apply | don't let it finish without tests · run lint at the end · ask before touching migrations · set up the guardrail | Detects the stack and fills in code · test globs and quality lanes; for shared resources it only proposes candidates and the user decides |
 
-## 포함된 훅
+## Hooks
 
-| 스크립트 | 이벤트 | 동작 |
+| Script | Event | Action |
 |---|---|---|
-| code-edit-guardrail.sh reset | UserPromptSubmit | 이번 요청의 편집 기록 · 면제를 비운다 |
-| code-edit-guardrail.sh shared | PreToolUse (Edit\|Write\|MultiEdit) | 공유자원 경로 · 내용 패턴에 걸리면 **사용자 확인** (`G-03`) |
-| code-edit-guardrail.sh track | PostToolUse (Edit\|Write\|MultiEdit\|NotebookEdit) | 고친 파일을 기록한다 |
-| code-edit-guardrail.sh stop | Stop | 코드만 고치고 테스트를 안 고쳤으면 (`G-01`), 고친 경로의 품질 lane 이 실패하면 (`G-02`) 완료를 **차단**. 한 번 되돌린 뒤에는 사용자에게 경고(`systemMessage`)만 |
+| code-edit-guardrail.sh reset | UserPromptSubmit | Clears this request's edit log · exemptions |
+| code-edit-guardrail.sh shared | PreToolUse (Edit\|Write\|MultiEdit) | **Asks the user** when a shared-resource path · content pattern matches (`G-03`) |
+| code-edit-guardrail.sh track | PostToolUse (Edit\|Write\|MultiEdit\|NotebookEdit) | Records the edited file |
+| code-edit-guardrail.sh stop | Stop | **Blocks** completion if code changed without test changes (`G-01`) or a quality lane for the edited paths fails (`G-02`). After one block, only warns the user (`systemMessage`) |
 
-## 주의
+## Notes
 
-- 판정 단위는 한 요청이다. Claude 의 편집 도구로 바꾼 파일만 본다 — Bash 로 바꾼 파일(코드 생성기 · `sed`)은 보지 않는다. git 과 무관하다
-- `G-01` 은 "테스트 파일을 하나라도 고쳤는가" 만 본다. 커버리지는 보지 않는다
-- 동작이 그대로인 변경은 사용자에게 알린 뒤 면제한다 — 차단 메시지에 면제 파일 경로가 나온다. 면제는 그 요청에만 유효하다
-- 편집 기록 · 면제 파일은 프로젝트의 `.claude/code-edit-guardrail/` 에 둔다. 스스로 ignore 하므로 커밋되지 않는다
-- 품질 lane 은 Stop 마다 돈다. 전체 빌드 · 테스트가 아니라 빠른 검사 명령을 쓴다 (시간 제한 600초)
-- 설정 경로는 환경 변수 `CODE_EDIT_GUARDRAIL_CONFIG` 로 바꿀 수 있다 (기본 `.claude/code-edit-guardrail.json`)
-- 시크릿 · 코드 ↔ 문서 동기는 다루지 않는다
+- The unit of judgment is one request. Only files changed by Claude's edit tools count — files changed via Bash (code generators · `sed`) are not seen. It does not depend on git
+- `G-01` only checks "was at least one test file edited". It does not check coverage
+- Behavior-preserving changes are exempted after telling the user — the block message shows the exemption file path. An exemption is valid only for that request
+- The edit log · exemption files live in the project's `.claude/code-edit-guardrail/`. The directory ignores itself, so it is never committed
+- A quality lane runs at Stop only when a file edited in this request matches its `paths`. Use fast check commands, not a full build · test run (the time limit is 600 seconds for the whole Stop hook — lanes run one after another)
+- A file in another git work tree under the project (`.claude/worktrees/<id>` · nested repository) uses that work tree as its root if the work tree has its own config — config, globs and lane working directory are relative to it. Without its own config, the project config applies
+- The config path can be changed with the `CODE_EDIT_GUARDRAIL_CONFIG` environment variable (default `.claude/code-edit-guardrail.json`)
+- Secrets · code ↔ docs sync are out of scope
 
-## 무엇을 막나
+## What it enforces
 
-| | 조항 |
+| | Rules |
 |---|---|
-| 게이트 (훅) | `G-01` 테스트 동반 · `G-02` 품질 lane · `G-03` 공유자원 확인 |
-| 설정 (`validate`) | `C-01` 파일 · JSON · `C-02` 최상위 키 · `C-03` 절 모양 · `C-04` 정규식 · `C-05` 걸리는 파일 없는 글롭 (경고) |
+| Gates (hooks) | `G-01` tests accompany code · `G-02` quality lane · `G-03` shared-resource confirmation |
+| Config (`validate`) | `C-01` file · JSON · `C-02` top-level keys · `C-03` section shape · `C-04` regex · `C-05` glob matching no files (warning) |
 
-## 파일
+## Files
 
-| 경로 | 역할 |
+| Path | Role |
 |---|---|
-| `references/code-edit-guardrail-rules.md` | 규칙 원본 — 설정 형식, 글롭 문법, 조항, 면제 |
-| `scripts/code-edit-guardrail.sh` | 훅 네 모드 + CLI `validate` |
-| `test/` | 회귀 테스트와 TC 명세 |
-| `evals/` | `claude plugin eval` 케이스 — 설정 스킬 발동(`guardrail-config-request`) · 테스트 없는 완료 차단(`test-missing-blocked`) |
+| `references/code-edit-guardrail-rules.md` | Rule source — config format, glob syntax, rules, exemptions |
+| `scripts/code-edit-guardrail.sh` | Four hook modes + CLI `validate` |
+| `test/` | Regression tests and TC spec |
+| `evals/` | `claude plugin eval` cases — config skill firing (`guardrail-config-request`) · blocking completion without tests (`test-missing-blocked`) |
 
-## 사용
+## Usage
 
 ```bash
-scripts/code-edit-guardrail.sh validate .   # 설정 검증
-test/code-edit-guardrail.test.sh            # 회귀 테스트
+scripts/code-edit-guardrail.sh validate .   # validate the config
+test/code-edit-guardrail.test.sh            # regression tests
 ```
 
-## 변경 이력
+## Changelog
 
-[`CHANGELOG.md`](CHANGELOG.md) 참조.
+See [`CHANGELOG.md`](CHANGELOG.md).

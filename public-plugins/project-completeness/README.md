@@ -1,84 +1,86 @@
 # project-completeness
 
-프로젝트가 서비스로서 갖출 것을 갖췄는지 재고 메운다 — 저장소 자동 탐지와 69항목 체크리스트로 위험도 · 실천 범위 진단, 레시피대로 설정 · CI 적용 후 검증 · 롤백, DORA · SLO · 온콜 18지표 실측 판정. 추측 통과 없음.
+**English** · [한국어](README.ko.md) · [简体中文](README.zh-CN.md)
 
-린트 A 등급을 받으면서도 모든 고객 문의를 개발자가 DB 를 열어 처리하는 서비스가 있다. 코드 품질 도구는 빈 상태 · 환불 경로 · 백업 복원 · 온콜 · 롤백을 보지 않는다. 이 플러그인은 그 질문까지 포함해 **있는가**(체크리스트)와 **잘 되는가**(실측 지표)를 따로 잰다.
+Measures and fills what a project needs to be a service — auto-detects the repository and diagnoses risk · practice coverage with a 69-item checklist, applies settings · CI from recipes then verifies · rolls back, and judges 18 DORA · SLO · on-call metrics from measured values. No pass by guessing.
+
+Some services get an A grade from linters while developers open the DB to handle every customer inquiry. Code quality tools do not look at empty states · refund paths · backup restores · on-call · rollbacks. This plugin includes those questions and measures **does it exist** (checklist) and **does it work** (measured metrics) separately.
 
 ```
-completeness-review      진단 (읽기 전용)   → 위험도 + 실천 범위 + 가장 비어 있는 축
-completeness-apply       레시피로 설정 · CI  → 검증 → 실패하면 롤백
-service-health-review    실측 수치          → 지표별 판정 + 미측정 목록
+completeness-review      diagnosis (read-only)   → risk + practice coverage + emptiest axis
+completeness-apply       settings · CI by recipe → verify → roll back on failure
+service-health-review    measured values         → judgment per metric + unmeasured list
 ```
 
-## 설치
+## Installation
 
 ```bash
 claude plugin marketplace add jaemyeong-hwnag/claude-marketplaces
 claude plugin install project-completeness@jaemyeong-hwnag-plugins --scope project
 ```
 
-필요한 것: `bash`, `jq`, `find`, `grep`. 레시피를 적용할 때는 그 레시피의 도구(Node · Python · Go 툴체인, Docker 등).
+Requires: `bash`, `jq`, `find`, `grep`. When applying a recipe, that recipe's tools (Node · Python · Go toolchains, Docker, etc.).
 
-## 의존성
+## Dependencies
 
-없음
+None
 
-## 포함된 스킬
+## Skills
 
-| 스킬 | 트리거 | 설명 |
+| Skill | Triggers | Description |
 |---|---|---|
-| completeness-review | 완성도 점검 · 품질 진단 · 뭐부터 도입 | `detect` → 측정 범위 선택 → ⚡ 자동 · ▶️ 실행 · 💬 질문으로 판정 → `score` |
-| completeness-apply | 적용해줘 · CI 에 붙여줘 · 린트 도입 | 한 축씩 레시피 → 계획 동의 → 적용 → 검증 → 실패 시 롤백. 커밋하지 않는다 |
-| service-health-review | 서비스 건강도 · DORA · 온콜 · 알림 피로 | 아는 값만 모아 `health` 로 판정. 재지 않은 지표를 따로 보고 |
+| completeness-review | completeness check · quality diagnosis · what to adopt first | `detect` → choose measurement scope → judge by ⚡ auto · ▶️ run · 💬 ask → `score` |
+| completeness-apply | apply it · hook it into CI · adopt a linter | One axis at a time: recipe → plan agreement → apply → verify → roll back on failure. Does not commit |
+| service-health-review | service health · DORA · on-call · alert fatigue | Collects only known values and judges them with `health`. Reports unmeasured metrics separately |
 
-## 주의
+## Notes
 
-- **추측 통과가 없다.** 확인하지 못한 항목은 미통과로 센다 — 점수가 낮게 나오는 것이 정상이다
-- `detect` 의 `hints` 는 판정이 아니다. 소스에 `refund` 가 있어도 그것이 동작하는 환불 경로인지는 코드를 읽거나 물어서 정한다
-- **위험도와 실천 범위는 다른 질문이다.** 핵심 12항목을 갖춘 라이브러리는 범위가 20% 여도 위험하지 않다
-- 언어 레시피는 Node · Python · Go 만 있다. Java · Kotlin 은 탐지는 되지만 레시피는 공통 · 운영 · 서비스 것만 적용된다
-- 레시피의 버전 · 설정 형식은 낡는다. 설치한 버전과 형식이 다르면 스킬이 멈추고 알린다
-- `completeness-apply` 는 파일을 고치지만 커밋하지 않는다. 처음 넣는 검사는 CI 를 실패시키지 않는다 (시크릿 · Critical 취약점 제외)
+- **No pass by guessing.** Items that could not be confirmed count as not passed — a low score is normal
+- `hints` from `detect` are not judgments. Even if the source contains `refund`, whether it is a working refund path is decided by reading the code or asking
+- **Risk and practice coverage are different questions.** A library with the 12 critical items is not at risk even at 20% coverage
+- Language recipes exist only for Node · Python · Go. Java · Kotlin are detected, but only the common · ops · service recipes apply
+- Recipe versions · config formats go stale. If the installed version's format differs, the skill stops and tells you
+- `completeness-apply` changes files but does not commit. Newly added checks do not fail CI (except secrets · Critical vulnerabilities)
 
-## 무엇을 재나
+## What it measures
 
-| 축 | 항목 | 핵심 | 예 |
+| Axis | Items | Critical | Examples |
 |---|---:|---:|---|
-| `code` 코드 | 10 | 2 | 린터 CI 강제 · 신규 코드 게이트 · CODEOWNERS · 아키텍처 경계 |
-| `test` 테스트 | 7 | 1 | 커버리지 · 뮤테이션 · 핵심 플로우 E2E · 실제 DB 통합 |
-| `security` 보안 | 8 | 3 | 시크릿 스캔 · SAST · SCA + SBOM · 의존성 자동 갱신 |
-| `perf` 성능 | 7 | 0 | Core Web Vitals · 성능 · 번들 예산 · 부하 테스트 |
-| `ux` 접근성 · UX | 6 | 0 | axe 위반 0 · 수동 스크린리더 · WCAG 2.2 |
-| `ops` 운영 | 7 | 3 | 트레이스 · SLO · 온콜 · 런북 · 롤백 · 포스트모템 |
-| `service` 서비스 완성도 | 19 | 3 | 빈 · 에러 · 로딩 상태 · 환불 경로 · 운영 도구 · 백업 복원 · 렌더 스모크 · 명세 ↔ 구현 |
-| `product` 제품 · 조직 | 5 | 0 | 퍼널 · 실험 · DORA 수집 · DevEx |
+| `code` Code | 10 | 2 | Linter enforced in CI · new-code gate · CODEOWNERS · architecture boundaries |
+| `test` Tests | 7 | 1 | Coverage · mutation · E2E for core flows · integration with a real DB |
+| `security` Security | 8 | 3 | Secret scanning · SAST · SCA + SBOM · automatic dependency updates |
+| `perf` Performance | 7 | 0 | Core Web Vitals · performance · bundle budgets · load tests |
+| `ux` Accessibility · UX | 6 | 0 | Zero axe violations · manual screen reader · WCAG 2.2 |
+| `ops` Operations | 7 | 3 | Traces · SLO · on-call · runbooks · rollback · postmortems |
+| `service` Service completeness | 19 | 3 | Empty · error · loading states · refund path · admin tools · backup restore · render smoke · spec ↔ implementation |
+| `product` Product · organization | 5 | 0 | Funnels · experiments · DORA collection · DevEx |
 
-프로젝트 타입(`backend-api` · `library` · `cli` …)마다 구조적으로 해당 없는 항목은 N/A 로 빠진다.
+Items structurally irrelevant to a project type (`backend-api` · `library` · `cli` …) drop out as N/A.
 
-## 파일
+## Files
 
-| 경로 | 역할 |
+| Path | Role |
 |---|---|
-| `references/completeness-rules.md` | 규칙 원본 — 판정 원칙 `Q-01` ~ `Q-07`, 적용 원칙 `Q-11` ~ `Q-19`, 게이트 단계, 축 순서, 레시피 형식 |
-| `references/completeness-checklist.json` | 항목 · 핵심 · 측정 방식 · 프로젝트 타입별 N/A · 등급 경계 |
-| `references/service-health-metrics.json` | 건강도 지표 · 기준 |
-| `references/recipe-*.md` | 도입 레시피 — 공통 · Node · Python · Go · 운영 · 서비스 |
+| `references/completeness-rules.md` | Source of rules — judgment principles `Q-01` – `Q-07`, application principles `Q-11` – `Q-19`, gate stages, axis order, recipe format |
+| `references/completeness-checklist.json` | Items · critical · measurement mode · N/A per project type · grade boundaries |
+| `references/service-health-metrics.json` | Health metrics · thresholds |
+| `references/recipe-*.md` | Adoption recipes — common · Node · Python · Go · ops · service |
 | `scripts/project-completeness.sh` | `detect` · `scope` · `score` · `health` · `recipe` |
-| `test/` | 회귀 테스트와 TC 명세 |
-| `evals/` | `claude plugin eval` 케이스 — 진단 스킬 발동(`completeness-request`) |
+| `test/` | Regression tests and TC specs |
+| `evals/` | `claude plugin eval` cases — diagnosis skill trigger (`completeness-request`) |
 
-## 사용
+## Usage
 
 ```bash
 S=scripts/project-completeness.sh
-$S detect .                                          # 저장소 흔적 → JSON
-$S scope --type backend-api                          # 측정할 수 있는 항목
+$S detect .                                          # repository traces → JSON
+$S scope --type backend-api                          # measurable items
 $S score --type backend-api --pass code.lint-ci,security.secret-scan --na code.ai-provenance
-$S health cfr=8 recovery=45 pages_week=12            # 인자 없으면 지표 목록
-$S recipe security.secret-scan                       # 항목을 메우는 레시피
-test/project-completeness.test.sh                    # 회귀 테스트
+$S health cfr=8 recovery=45 pages_week=12            # without arguments, lists metrics
+$S recipe security.secret-scan                       # recipe that fills the item
+test/project-completeness.test.sh                    # regression tests
 ```
 
-## 변경 이력
+## Changelog
 
-[`CHANGELOG.md`](CHANGELOG.md) 참조.
+See [`CHANGELOG.md`](CHANGELOG.md).

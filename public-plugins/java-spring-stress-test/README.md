@@ -1,65 +1,67 @@
 # java-spring-stress-test
 
-Java · Spring Boot 3.x 서버를 부하 측정할 때 프레임워크 몫을 맡는다 — Actuator · Prometheus 지연 히스토그램과 in-flight · Tomcat 스레드 계측, 측정을 무효로 만드는 설정(devtools · DEBUG 로그 · show-sql · fork 0 JMH) 탐지, 스레드 · 커넥션 풀 손잡이 점검, JMH 마이크로벤치마크.
+**English** · [한국어](README.ko.md) · [简体中文](README.zh-CN.md)
 
-부하 모델 · 판정 통계 · 대상 호스트 안전은 `common-stress-test` 가 맡는다. 근거는 Spring Boot 레퍼런스(Developer Tools · Logging · Metrics · Virtual threads) · `ServerProperties` · Tomcat HTTP Connector 문서 · HikariCP README · JMH 소스다.
+Handles the framework's share when load-testing a Java · Spring Boot 3.x server — Actuator · Prometheus latency histograms with in-flight · Tomcat thread instrumentation, detection of settings that invalidate a measurement (devtools · DEBUG logging · show-sql · fork 0 JMH), thread · connection pool knob checks, JMH microbenchmarks.
 
-## 설치
+Load model · verdict statistics · target host safety belong to `common-stress-test`. Evidence: Spring Boot reference (Developer Tools · Logging · Metrics · Virtual threads) · `ServerProperties` · Tomcat HTTP Connector docs · HikariCP README · JMH source.
+
+## Installation
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
 /plugin install java-spring-stress-test@jaemyeong-hwnag-plugins
 ```
 
-## 의존성
+## Dependencies
 
-- `common-stress-test` — 부하 스크립트 작성(`stress-test-create`) · 결과 판정(`stress-result-review`) · 대상 호스트 안전
+- `common-stress-test` — writing load scripts (`stress-test-create`) · judging results (`stress-result-review`) · target host safety
 
-## 포함된 스킬
+## Skills
 
-| 스킬 | 트리거 | 설명 |
+| Skill | Trigger | Description |
 |---|---|---|
-| spring-stress-test-apply | Spring 부하 테스트 · actuator prometheus · 톰캣 스레드 · HikariCP 풀 · JMH | 무효 설정 제거 → 서버 측 계측 → 손잡이 · JVM 기록 → 워밍업 → JMH |
+| spring-stress-test-apply | Spring load test · actuator prometheus · Tomcat threads · HikariCP pool · JMH | Remove invalidating settings → server-side instrumentation → record knobs · JVM → warm-up → JMH |
 
-## 포함된 훅
+## Hooks
 
-| 스크립트 | 이벤트 | 동작 |
+| Script | Event | Behavior |
 |---|---|---|
-| spring-stress-config-validate.sh | PreToolUse (Bash) | 부하 도구 실행(`k6 run` · `locust` · `jmeter` · `gatling` · `wrk` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `autocannon` · `docker run … grafana/k6`)일 때만 프로젝트를 검사해 **경고**로 알린다. 막지 않는다 |
+| spring-stress-config-validate.sh | PreToolUse (Bash) | Only when running a load tool (`k6 run` · `k6 cloud` · `locust` · `jmeter` · `gatling` · `wrk` · `wrk2` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `autocannon`, `docker run` · compose with those images, the gatling task of `mvn` · `gradle`), checks the project and reports **warnings**. Does not block |
 
-## 주의
+## Notes
 
-- 설정은 `application*.properties|yml|yaml` 만 본다. 환경 변수 · 명령행 인자 · Config Server 값은 보지 않는다
-- 프로필 이름이 단어로 `dev` · `local` · `test` 인 파일(`loadtest` · `perftest` 는 본다), 한 파일 안 `---` · `#---` 문서 중 그 프로필에서만 켜지는 문서, `src/test/` 는 보지 않는다
-- 실행 방식(`bootRun` · IDE)과 워밍업은 스크립트가 판정하지 않는다 — 스킬이 본다
-- Spring MVC · 내장 Tomcat 기준이다. WebFlux · Jetty · Undertow 는 Tomcat 조항(`SPR-07`)을 건너뛴다
-- `jq` 가 필요하다 (훅 모드)
+- Only `application*.properties|yml|yaml` are read for settings. Environment variables · command-line arguments · Config Server values are not read
+- Files whose profile name is the word `dev` · `local` · `test` (`loadtest` · `perftest` are read), documents in one file split by `---` · `#---` that only activate under those profiles, and `src/test/` are skipped
+- The scripts do not judge how the app is run (`bootRun` · IDE) or warm-up — the skill does
+- Based on Spring MVC · embedded Tomcat. WebFlux · Jetty · Undertow skip the Tomcat clause (`SPR-07`)
+- Requires `jq` (hook mode)
 
-## 규칙 요약
+## Rule summary
 
-| 조항 | 규칙 | 판정 |
+| Clause | Rule | Verdict |
 |---|---|---|
-| `SPR-01` | devtools 는 `developmentOnly` · `<optional>true</optional>` 로만 | 경고 |
-| `SPR-02` | `logging.level.root` DEBUG · TRACE 로 재지 않는다 | 차단 |
-| `SPR-03` | `debug=true` · `trace=true` 를 끈다 | 경고 |
-| `SPR-04` | `spring.jpa.show-sql` · `hibernate.show_sql` 을 끈다 | 경고 |
-| `SPR-05` | `percentiles-histogram.http.server.requests=true` 로 버킷을 낸다 | 경고 |
-| `SPR-06` | `percentiles.*` (합칠 수 없는 분위수)로 판정하지 않는다 | 경고 |
-| `SPR-07` | `server.tomcat.mbeanregistry.enabled=true` (Tomcat 스레드 지표) | 경고 |
-| `SPR-08` | 가상 스레드면 `server.tomcat.threads.*` 는 효과가 없다 | 경고 |
-| `SPR-09` | 컨테이너 `java` 에 힙 상한을 준다 | 경고 |
-| `SPR-10` | JMH fork 0 금지 | 차단 |
-| `SPR-11` ~ `SPR-15` | 실행 방식 · 워밍업 · 손잡이 기록 · JMH 비교 통계 · JVM 기록 | AI 판단 |
+| `SPR-01` | devtools only as `developmentOnly` · `<optional>true</optional>` | Warning |
+| `SPR-02` | Do not measure with `logging.level.root` DEBUG · TRACE | Block |
+| `SPR-03` | Turn off `debug=true` · `trace=true` | Warning |
+| `SPR-04` | Turn off `spring.jpa.show-sql` · `hibernate.show_sql` | Warning |
+| `SPR-05` | Emit buckets with `percentiles-histogram.http.server.requests=true` | Warning |
+| `SPR-06` | Do not judge by `percentiles.*` (non-aggregable quantiles) | Warning |
+| `SPR-07` | `server.tomcat.mbeanregistry.enabled=true` (Tomcat thread metrics) | Warning |
+| `SPR-08` | With virtual threads, `server.tomcat.threads.*` has no effect | Warning |
+| `SPR-09` | Give container `java` a heap limit | Warning |
+| `SPR-10` | No JMH fork 0 | Block |
+| `SPR-11` ~ `SPR-15` | How it runs · warm-up · knob record · JMH comparison statistics · JVM record | AI judgment |
 
-원본: [`references/spring-stress-rules.md`](references/spring-stress-rules.md)
+Source: [`references/spring-stress-rules.md`](references/spring-stress-rules.md)
 
-## 사용
+## Usage
 
 ```bash
-scripts/spring-stress-config-validate.sh .                 # 프로젝트 검사 — 0 통과 · 2 위반 · 1 오류
-test/spring-stress-config-validate.test.sh                 # 회귀 테스트
+scripts/spring-stress-config-validate.sh .                 # check the project — 0 pass · 2 violation · 1 error
+test/spring-stress-config-validate.test.sh                 # regression tests
 ```
 
-## 변경 이력
+## Changelog
 
-[`CHANGELOG.md`](CHANGELOG.md) 참조.
+See [`CHANGELOG.md`](CHANGELOG.md).

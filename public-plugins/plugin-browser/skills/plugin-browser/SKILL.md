@@ -18,7 +18,7 @@ Claude 의 Bash 는 TTY 가 아니다. 대화형 선택은 열리지 않고 정�
 ```bash
 "$PB" search 테스트 커버리지 --width 100 --color never
 "$PB" project . --width 100 --color never
-"$PB" related plugin-naming --width 100 --color never
+"$PB" related java-naming --width 100 --color never
 "$PB" show github-workflow --width 100 --color never
 "$PB" facets tag --width 100 --color never
 ```

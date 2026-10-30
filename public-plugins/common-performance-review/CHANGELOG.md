@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.1.3
+
+### Changed
+- README 를 영어(기본) `README.md` · 한국어 `README.ko.md` · 중국어 간체 `README.zh-CN.md` 로 나눴다 (#229)
+
+### Fixed
+- README 서술 2건을 코드에 맞췄다 — 전수 검토 (#229)
+- `plugin.json` · 마켓플레이스 엔트리 description 의 "20개 패턴" 을 19개로 — `PF-09` 는 없다 (#229)
+
 ## 0.1.2
 
 ### Fixed

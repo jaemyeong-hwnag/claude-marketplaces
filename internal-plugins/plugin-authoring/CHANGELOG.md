@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.3.0
+
+### Added
+- `A-29` 세 언어 README 가 서로를 링크한다 · `A-30` 루트 README 세 개가 모든 public 플러그인을 싣는다 (`--all`) (#229)
+
+### Changed
+- `A-20` ~ `A-28` 을 `README.md`(영어) · `README.ko.md` · `README.zh-CN.md` 마다 그 언어의 절 제목으로 본다 — 영어판 README 는 `## Installation` · `## Dependencies` … 를 요구한다 (#229)
+- README 를 영어 · 한국어 · 중국어 간체로 나눴다. 훅 표의 Pre 대상을 "`Write` 로 쓰는 파일" 로, 조항 범위를 "스킬·커맨드·에이전트·참조" 로 바로잡았다 (#229)
+
 ## 0.2.0
 
 ### Changed
