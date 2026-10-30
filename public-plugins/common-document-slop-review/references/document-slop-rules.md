@@ -118,10 +118,11 @@ AI 가 문서를 만들거나 고칠 때 아래 세 가지가 들어가는 것�
 | `DS-30` | 세션에서 프로젝트 안 문서를 실질적으로 고쳤는데(한 번에 비어 있지 않은 줄 3줄 이상) `document-slop-review` 스킬이나 `document-slop-reviewer` 에이전트가 돌지 않았으면, 종료를 **한 번** 되돌린다 |
 
 - 되돌린 뒤의 종료(`stop_hook_active`)는 막지 않고 기록을 지운다. 그래서 같은 요청에서 두 번 막히지 않는다.
+- 리뷰는 `document-slop-reviewer` 가 **끝났을 때** 친다. 백그라운드 실행(`tool_response.status` 가 `async_launched`)은 `SubagentStop` 까지 "리뷰 중" 이다. 리뷰 중에 끝나는 응답(완료 알림을 기다림)은 막지 않고 기록을 남긴다.
 - 오탈자처럼 리뷰할 내용이 없는 변경이면, 그 이유를 한 줄로 말하고 끝내면 된다.
 - 프로젝트 밖 파일(사용자 메모리 등)은 기록하지 않는다.
 - 끄기: 환경 변수 `DOCUMENT_SLOP_REVIEW_GATE=0`
-- 기록 위치: `${CLAUDE_PLUGIN_DATA}/gate-<session_id>.list`. `CLAUDE_PLUGIN_DATA` 가 없으면 `${TMPDIR:-/tmp}/common-document-slop-review/` 에 둔다.
+- 기록 위치: `${CLAUDE_PLUGIN_DATA}/gate-<session_id>.list`, 리뷰 중 표시는 `gate-<session_id>.pending`. `CLAUDE_PLUGIN_DATA` 가 없으면 `${TMPDIR:-/tmp}/common-document-slop-review/` 에 둔다.
 
 ## 5. 종료 코드
 

@@ -4,7 +4,8 @@
 #
 #   훅:  document-slop-validate.sh --hook  (stdin 으로 훅 입력)
 #        PostToolUse(Write|Edit|MultiEdit) — 이번에 쓴 줄만 본다. 차단은 exit 2 + stderr, 경고는 additionalContext
-#        PostToolUse(Skill|Agent)          — document-slop-review(er) 가 돌면 DS-30 기록을 지운다
+#        PostToolUse(Skill|Agent)          — document-slop-review(er) 가 돌면 DS-30 기록을 지운다. 백그라운드 리뷰어는 리뷰 중으로만 표시
+#        SubagentStop                      — 백그라운드 document-slop-reviewer 가 끝나면 DS-30 기록을 지운다
 #        Stop                              — DS-30
 #   CLI: document-slop-validate.sh [--strict] [--diff [<기준>]] [파일|디렉터리 ...]   (기본: 현재 디렉터리)
 #        차단이 있으면 exit 2, --strict 면 경고가 있어도 exit 2. 실행 오류는 exit 1
@@ -244,10 +245,24 @@ ${warns}경고는 후보다. 출처 · 미확인 표시 · 단서는 지우지 �
   exit 0
 }
 
-hook_review() { # $1=훅 입력 — 리뷰가 돌았으면 DS-30 기록을 지운다
+hook_review() { # $1=훅 입력 — 리뷰가 돌았으면 DS-30 기록을 지운다. 백그라운드 리뷰어는 SubagentStop 까지 리뷰 중
   local who st
   who="$(printf '%s' "$1" | jq -r '(.tool_input.skill // "") + " " + (.tool_input.subagent_type // "")')"
-  case "$who" in *document-slop-review*) st="$(state_file "$1")" && rm -f "$st" ;; esac
+  case "$who" in *document-slop-review*) ;; *) exit 0 ;; esac
+  st="$(state_file "$1")" || exit 0
+  if printf '%s' "$1" | jq -e '(.tool_response | objects | (.isAsync == true or .status == "async_launched")) // false' >/dev/null 2>&1; then
+    : > "${st%.list}.pending"
+  else
+    rm -f "$st"
+  fi
+  exit 0
+}
+
+hook_subagent_stop() { # $1=훅 입력
+  local st
+  case "$(printf '%s' "$1" | jq -r '.agent_type // ""')" in
+    *document-slop-reviewer*) st="$(state_file "$1")" && rm -f "$st" "${st%.list}.pending" ;;
+  esac
   exit 0
 }
 
@@ -256,6 +271,8 @@ hook_stop() { # $1=훅 입력
   [ "${DOCUMENT_SLOP_REVIEW_GATE:-1}" != 0 ] || exit 0
   st="$(state_file "$1")" || exit 0
   [ -s "$st" ] || exit 0
+  # 백그라운드 리뷰어를 기다리며 끝내는 응답 — 막지 않고 기록을 남긴다 (완료 알림 뒤 다시 판정)
+  [ -e "${st%.list}.pending" ] && exit 0
   active="$(printf '%s' "$1" | jq -r '.stop_hook_active // false')"
   if [ "$active" = true ]; then rm -f "$st"; exit 0; fi
   list="$(head -10 "$st" | sed 's/^/  - /')"
@@ -277,6 +294,7 @@ if [ "${1:-}" = "--hook" ]; then
         Write|Edit|MultiEdit) hook_edit "$INPUT" ;;
         Skill|Agent|Task) hook_review "$INPUT" ;;
       esac ;;
+    SubagentStop) hook_subagent_stop "$INPUT" ;;
     Stop) hook_stop "$INPUT" ;;
   esac
   exit 0

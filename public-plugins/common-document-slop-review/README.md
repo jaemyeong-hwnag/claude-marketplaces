@@ -39,7 +39,8 @@ AI 가 문서를 만들거나 고칠 때마다 slop 을 막는다 — 대화 잔
 | 스크립트 | 이벤트 | 동작 |
 |---|---|---|
 | document-slop-validate.sh | PostToolUse (Write\|Edit\|MultiEdit) | 이번에 쓴 줄에서 `DS-01` ~ `DS-04` 를 **막고** (exit 2), `DS-05` ~ `DS-16` 을 **알린다** |
-| document-slop-validate.sh | PostToolUse (Skill\|Agent\|Task) | `document-slop-review` · `document-slop-reviewer` 가 돌면 게이트 기록을 지운다 |
+| document-slop-validate.sh | PostToolUse (Skill\|Agent\|Task) | `document-slop-review` · `document-slop-reviewer` 가 돌면 게이트 기록을 지운다. 백그라운드로 뜬 `document-slop-reviewer` 는 리뷰 중으로 표시한다 |
+| document-slop-validate.sh | SubagentStop | 백그라운드 `document-slop-reviewer` 가 끝나면 게이트 기록을 지운다 |
 | document-slop-validate.sh | Stop | 문서를 고쳤는데 리뷰하지 않았으면 종료를 한 번 되돌린다 (`DS-30`) |
 
 ## 주의
