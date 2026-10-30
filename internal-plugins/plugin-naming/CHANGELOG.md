@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.15.0
+
+### Added
+- 사전 `quality` 에 `effectiveness`(적어 둔 것이 실행에서 실제로 효력을 내는 정도) · `enforcement`(적어 둔 규칙을 지키게 하는 것)를 더했다 (#143)
+
+### Changed
+- `PreToolUse` 훅에 `"onFailure": "block"` — 스크립트가 없거나 실행되지 않으면 이름 검사 없이 통과하던 것을 막는다 (#143, `plugin-enforcement-effectiveness` `EF-07`)
+
 ## 0.14.0
 
 ### Changed

@@ -4,6 +4,7 @@
 
 ### Changed
 - `validate-plugin-scope.sh` 가 `marketplace.json` `renames` 를 본다 — 키가 지금 등록된 이름이거나 internal 이름이면, origin 기본 브랜치에 있던 키가 사라지면 막는다. `claude plugin validate` 는 옛 이름 재사용을 통과시킨다 (#141)
+- `CLAUDE.md` 관심사 표에 `plugin-enforcement-effectiveness` 줄, 함정 표에 훅 fail-open 줄 (#143)
 - README 의 "규칙을 어기는 이름 · 위치로는 파일이 만들어지지 않는다" 를 `Write` · `Edit` 훅 한정으로 고쳤다 — `Bash` 로 만든 것은 `verify-all.sh` 가 사후에 잡는다 (#62)
 - README 를 사용자 안내 중심으로 — 처음 시작하기 · 플러그인 찾기 · 필요한 플러그인 자동 설치 · 업데이트 · 문제 해결, 수록 플러그인 표에 public 19개 전부 (#48)
 - `.gitignore` 에 로컬 IDE · MCP 설정(`.mcp.json` · `.idea/`)을 더했다 (#46)

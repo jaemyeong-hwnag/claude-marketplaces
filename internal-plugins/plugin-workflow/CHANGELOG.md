@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.6.0
+
+### Changed
+- `plugin-create` 순서에 단계 둘 (#143) — 5단계 "규칙 원본 → 검증기 → 테스트"(차단 · 경고 조항이 있을 때만, 조항 ID 를 단 TC · `onFailure: "block"`), 10단계 "적어 둔 강제가 실행에서 효력이 있는가"(`enforcement-effectiveness-review`, eval 뒤). eval 안내에 스킬마다 발동 그레이더(`EF-31`), 체크리스트 두 줄
+
 ## 0.5.0
 
 ### Added

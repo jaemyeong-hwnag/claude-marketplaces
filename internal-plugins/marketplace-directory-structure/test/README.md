@@ -71,11 +71,11 @@ test/validate-directory-structure.test.sh TC-D1    # ID 접두사로 필터
 | ID | 케이스 | 기대 | 추가 확인 |
 |---|---|---|---|
 | TC-D30 | 정상 루트는 통과한다 | 통과 (0) | - |
-| TC-D31 | marketplace.json 이 없으면 막는다 | 차단 (2) | 메시지: `marketplace.json 이 없습니다` |
-| TC-D32 | 루트 CHANGELOG.md 가 없으면 막는다 | 차단 (2) | 메시지: `CHANGELOG.md 가 없습니다` |
-| TC-D33 | .claude-plugin 의 알 수 없는 파일을 막는다 | 차단 (2) | 메시지: `알 수 없는 파일` |
+| TC-D31 | marketplace.json 이 없으면 막는다 (R-01) | 차단 (2) | 메시지: `marketplace.json 이 없습니다` |
+| TC-D32 | 루트 CHANGELOG.md 가 없으면 막는다 (R-02) | 차단 (2) | 메시지: `CHANGELOG.md 가 없습니다` |
+| TC-D33 | .claude-plugin 의 알 수 없는 파일을 막는다 (R-03) | 차단 (2) | 메시지: `알 수 없는 파일` |
 | TC-D34 | tags/categories/plugins/keywords.json 은 허용한다 | 통과 (0) | - |
-| TC-D35 | CLAUDE.md 가 없으면 경고만 한다 | 통과 (0) | 메시지: `CLAUDE.md 가 없습니다` |
+| TC-D35 | CLAUDE.md 가 없으면 경고만 한다 (R-05) | 통과 (0) | 메시지: `CLAUDE.md 가 없습니다` |
 | TC-D36 | 플러그인이 *-plugins 밖에 있으면 막는다 | 차단 (2) | 메시지: `아래에 둡니다` |
 | TC-D36a | git 이 무시하는 경로(`.agent-tasks/` 초안)의 플러그인은 `R-04` 로 보지 않는다 (#87) | 통과 (0) | - |
 | TC-D36b | git 저장소여도 무시되지 않은 경로의 플러그인은 여전히 막는다 (#87) | 차단 (2) | 메시지: `drafts/order-sync: 플러그인은`, `.agent-tasks` 없음 |

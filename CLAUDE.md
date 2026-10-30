@@ -25,10 +25,11 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 | 이름 | `plugin-naming` | `plugin-naming/references/naming-rules.md` · `glossary.json` | `name-create` · `glossary-update` | `/naming-review` · `naming-reviewer` |
 | 파일 위치 | `marketplace-directory-structure` | `…/references/directory-structure-rules.md` | `plugin-directory-create` | `/directory-structure-validate` |
 | 버전 · CHANGELOG · 태그 | `plugin-versioning` | `plugin-versioning/references/versioning-rules.md` | `version-update` | `/versioning-validate` |
-| 파일 내용 형식 (프런트매터 · README) | `plugin-authoring` | `plugin-authoring/references/authoring-rules.md` | `document-create` | `/authoring-validate` |
+| 파일 내용 형식 (프런트매터 · README). 실행에서 무시 · 가려지는 것은 `plugin-enforcement-effectiveness` | `plugin-authoring` | `plugin-authoring/references/authoring-rules.md` | `document-create` | `/authoring-validate` |
 | 플러그인 사이의 의존 | `plugin-dependency` | `plugin-dependency/references/dependency-rules.md` | `dependency-update` | `/dependency-validate` |
 | 이슈 → 브랜치 → PR → 머지 (`W-01` ~ `W-10`) | `github-workflow` (public) | `public-plugins/github-workflow/references/workflow-rules.md` | `issue-create` · `pull-request-create` · `pull-request-merge` · `github-template-create` | `/workflow-validate` |
 | 버전 · 설치 확인 · 태그 · 릴리즈, 생성 · 이름 변경 · 삭제 절차 | `plugin-workflow` | `plugin-workflow/references/workflow-rules.md` | `release-create` · `plugin-create` · `plugin-name-update` · `plugin-delete` | `verify-all.sh` |
+| 적어 둔 강제가 실행에서 효력을 내는가 (훅 · MCP 명령 사슬 · 무시되는 에이전트 필드 · 조항 ↔ TC · eval 유무) | `plugin-enforcement-effectiveness` | `plugin-enforcement-effectiveness/references/enforcement-effectiveness-rules.md` | `enforcement-effectiveness-review` | `/enforcement-effectiveness-validate` |
 | 배치 · 등록 · 설치 동기화 | 저장소 `.claude/hooks/` | 아래 "마켓플레이스 등록" · `test/README.md` | - | `.claude/hooks/validate-plugin-scope.sh .` |
 
 규칙은 `Write` · `Edit` · `Bash` 훅이 막거나 알린다. **훅이 막으면 우회하지 말고 메시지가 지시한 대로 고친다** (이름이면 사전이 지시한 단어로). 새로 막을 단어는 스크립트가 아니라 `glossary.json` 에 넣는다.
@@ -83,6 +84,7 @@ public 플러그인은 이 훅이 설치하지 않는다. internal 이 `dependen
 | 함정 | 결과 | 대책 |
 |---|---|---|
 | `plugin.json` 에 `"hooks": "./hooks/hooks.json"` | 자동 로드와 중복돼 **그 플러그인의 훅이 전부 꺼진다**. `validate --strict` 도 통과한다 | 적지 않는다 (구조 `P-09`). 설치 뒤 `claude plugin list --json` 의 `errors` 를 본다 |
+| 훅 스크립트가 없음 · 실행 권한 없음 · 상대 경로 | 훅이 실패하고 도구 호출이 **그대로 통과한다** (fail-open). `validate --strict` 도 통과한다 | `PreToolUse` · `UserPromptSubmit` 훅에 `"onFailure": "block"`, 경로는 `"${CLAUDE_PLUGIN_ROOT}/…"` (`EF-01` ~ `EF-03` · `EF-07`) |
 | 검증 스크립트의 `*/.claude/…` 제외 패턴 | 루트가 워크트리 안이면 전부 제외돼 **아무것도 검사하지 않고 통과** | 제외는 루트 기준(`"$root/.claude/…"`)으로 쓴다 |
 | macOS 기본 bash 3.2 | 연관 배열 없음, 빈 배열 확장이 `set -u` 로 죽음, `;;&` · `source <(…)` 안 됨, `=~` 가 `BASH_REMATCH` 를 덮어씀 | 그래프 계산은 jq, 빈 배열은 `${a+"${a[@]}"}`, 캡처는 함수 호출 전에 받는다 |
 | 탭 구분 `read` | 빈 칸이 합쳐져 뒤 칸이 밀린다 | 공백이 아닌 구분자(`\x1f`) |

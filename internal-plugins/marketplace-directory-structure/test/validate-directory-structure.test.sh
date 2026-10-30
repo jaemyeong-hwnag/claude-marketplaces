@@ -224,15 +224,15 @@ tc TC-D30 "정상 루트는 통과한다"
 R="$(make_root ok)"; put_plugin "$R" public-plugins order-sync; put_plugin "$R" internal-plugins document-lint
 run --marketplace "$R"; expect_code 0
 
-tc TC-D31 "marketplace.json 이 없으면 막는다"
+tc TC-D31 "marketplace.json 이 없으면 막는다 (R-01)"
 R="$(make_root nomanifest)"; rm -f "$R/.claude-plugin/marketplace.json"
 run --marketplace "$R"; expect_code 2; expect_out "marketplace.json 이 없습니다"
 
-tc TC-D32 "루트 CHANGELOG.md 가 없으면 막는다"
+tc TC-D32 "루트 CHANGELOG.md 가 없으면 막는다 (R-02)"
 R="$(make_root nochangelog)"; rm -f "$R/CHANGELOG.md"
 run --marketplace "$R"; expect_code 2; expect_out "CHANGELOG.md 가 없습니다"
 
-tc TC-D33 ".claude-plugin 의 알 수 없는 파일을 막는다"
+tc TC-D33 ".claude-plugin 의 알 수 없는 파일을 막는다 (R-03)"
 R="$(make_root unknownfile)"; : > "$R/.claude-plugin/owners.json"
 run --marketplace "$R"; expect_code 2; expect_out "알 수 없는 파일"
 
@@ -242,7 +242,7 @@ R="$(make_root knownfiles)"
 : > "$R/.claude-plugin/plugins.json"; : > "$R/.claude-plugin/keywords.json"
 run --marketplace "$R"; expect_code 0
 
-tc TC-D35 "CLAUDE.md 가 없으면 경고만 하고 막지 않는다"
+tc TC-D35 "CLAUDE.md 가 없으면 경고만 하고 막지 않는다 (R-05)"
 R="$(make_root noclaude)"; rm -f "$R/CLAUDE.md"
 run --marketplace "$R"; expect_code 0; expect_out "CLAUDE.md 가 없습니다"
 

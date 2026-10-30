@@ -415,6 +415,12 @@
       "tags": [
         "development"
       ]
+    },
+    {
+      "name": "plugin-enforcement-effectiveness",
+      "source": "./internal-plugins/plugin-enforcement-effectiveness",
+      "category": "internal",
+      "description": "플러그인이 훅 · 에이전트 프런트매터 · 규칙 원본에 적어 둔 강제가 실행에서 알림 없이 꺼지지 않았는지 재현해 막는다 — 훅 · MCP 명령 사슬, 무시되는 에이전트 필드, 가려지는 이름, 조항 ↔ TC 연결, eval 유무, 훅 · MCP 서버 실제 실행. 형식 · 위치 · 순서는 관여하지 않는다."
     }
   ]
 }
