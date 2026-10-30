@@ -58,7 +58,7 @@ SLO 경계(예: 100 ms)를 버킷 경계로 넣는다. 경계 사이 값은 보�
 
 | 손잡이 | 포화에 미치는 영향 | 확인 |
 |---|---|---|
-| `GOMAXPROCS` | CPU 바운드 용량의 상한. CPU limit 보다 크면 CFS 스로틀 — 실측 `--cpus=2` 에 8 고정 시 주기의 30.5% 스로틀 | `go_sched_gomaxprocs_threads`, `cpu.stat` |
+| `GOMAXPROCS` | CPU 바운드 용량의 상한. CPU limit 보다 크면 CFS 스로틀 — 실측 `--cpus=2` 에 8 고정 시 주기의 30.5% 스로틀. CPU **limit** 만 따른다 (request 는 보지 않는다). 소수 limit 은 올림, 최소 2 (`GIN-22`) | `go_sched_gomaxprocs_threads`, `cpu.stat` |
 | `SetMaxOpenConns` | DB 대기 요청의 상한 = Little 의 L. 용량 ≈ 풀 크기 / DB 보유 시간 — 실측 풀 10 · 20 ms 에서 474 rps 에서 멈췄다 | `go_sql_wait_count_total` 증가 |
 | `SetMaxIdleConns` | 기본 2. 동시 사용이 넘으면 닫고 다시 열기 반복 | `go_sql_max_idle_closed_total` |
 | `GOGC` · `GOMEMLIMIT` | GC 빈도 ↔ 메모리. 한도는 컨테이너 메모리의 90~95% | `go_gc_duration_seconds_count` |
