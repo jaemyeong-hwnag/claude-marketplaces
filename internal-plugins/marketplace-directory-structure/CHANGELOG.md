@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.5.0
+
+### Added
+- 플러그인 루트에 README 번역 `README.ko.md` · `README.zh-CN.md` 를 둘 수 있다 (#218, `P-05`). 다른 언어 접미사는 여전히 막는다
+
 ## 0.4.2
 
 ### Fixed

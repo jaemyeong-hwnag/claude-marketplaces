@@ -130,6 +130,14 @@ tc TC-D11 "LICENSE 와 .gitignore 는 루트에 둘 수 있다"
 P="$(make_plugin order-sync)"; : > "$P/LICENSE"; : > "$P/.gitignore"
 run "$P"; expect_code 0
 
+tc TC-D11a "README 번역 README.ko.md · README.zh-CN.md 는 루트에 둘 수 있다 (#218)"
+P="$(make_plugin order-sync)"; : > "$P/README.ko.md"; : > "$P/README.zh-CN.md"
+run "$P"; expect_code 0
+
+tc TC-D11b "목록에 없는 언어의 README 는 막는다 (#218)"
+P="$(make_plugin order-sync)"; : > "$P/README.ja.md"
+run "$P"; expect_code 2; expect_out "order-sync/README.ja.md: 플러그인 루트에는"
+
 tc TC-D12 "알 수 없는 디렉터리를 막는다"
 P="$(make_plugin order-sync)"; mkdir -p "$P/docs"; : > "$P/docs/guide.md"
 run "$P"; expect_code 2; expect_out "알 수 없는 디렉터리 'docs/'"
