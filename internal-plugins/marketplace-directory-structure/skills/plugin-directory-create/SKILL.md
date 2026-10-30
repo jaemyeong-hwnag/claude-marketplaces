@@ -34,7 +34,7 @@ description: 플러그인의 디렉터리와 파일 위치를 정할 때 사용�
    | 회귀 테스트 | `test/<대상>.test.sh` + `test/README.md` | `*.test.sh` `README.md` |
    | eval 케이스 | `evals/<케이스명>/` | 그 안은 Claude Code eval 형식(`prompt.md` · `graders/*.md` · `case.yaml` · 픽스처)을 따르므로 자유 |
 
-   플러그인 루트에 둘 수 있는 파일은 `README.md` · `CHANGELOG.md` · `LICENSE` · `.gitignore` 뿐이다.
+   플러그인 루트에 둘 수 있는 파일은 `README.md` · `README.ko.md` · `README.zh-CN.md` · `CHANGELOG.md` · `LICENSE` · `.gitignore` 뿐이다.
    설계 메모·작업 문서는 플러그인 안이 아니라 저장소의 `.agent-tasks/<주제>/` 에 둔다.
 
 5. **등록한다.**

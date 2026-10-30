@@ -64,7 +64,7 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 �
 
 충돌하면 [`references/directory-structure-rules.md`](references/directory-structure-rules.md) 가 우선한다.
 
-플러그인 루트: `.claude-plugin/plugin.json` · `README.md` · `CHANGELOG.md` 는 필수.
+플러그인 루트: `.claude-plugin/plugin.json` · `README.md` · `CHANGELOG.md` 는 필수. 번역 `README.ko.md` · `README.zh-CN.md` 를 둘 수 있다.
 
 | 디렉터리 | 둘 수 있는 것 |
 |---|---|

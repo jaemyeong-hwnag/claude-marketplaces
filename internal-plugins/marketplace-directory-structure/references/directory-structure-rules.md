@@ -93,7 +93,7 @@ git 저장소면 `R-04` 와 플러그인 파일 검사(`P-05` ~ `P-08`)는 git �
 | P-02 | `.claude-plugin/` 에는 `plugin.json` 만 둔다 |
 | P-03 | `plugin.json` 은 올바른 JSON 이고 `name` 이 디렉터리명과 같아야 한다 |
 | P-04 | `plugin.json` 이 가리키는 상대 경로(`hooks`)의 파일이 실제로 있어야 한다 |
-| P-05 | 플러그인 루트에는 `README.md` · `CHANGELOG.md` · `LICENSE` · `.gitignore` 만 둔다 |
+| P-05 | 플러그인 루트에는 `README.md` · `README.ko.md` · `README.zh-CN.md` · `CHANGELOG.md` · `LICENSE` · `.gitignore` 만 둔다 |
 | P-06 | 디렉터리는 `.claude-plugin` · `skills` · `hooks` · `scripts` · `commands` · `references` · `agents` · `test` · `evals` 만 쓴다 |
 | P-07 | 각 디렉터리에 두는 파일 확장자는 아래 표를 따른다 |
 | P-08 | `skills/` 아래에는 스킬 디렉터리만 두고, 각 디렉터리에 `SKILL.md` 가 있어야 한다 |

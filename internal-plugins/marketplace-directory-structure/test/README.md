@@ -42,6 +42,8 @@ test/validate-directory-structure.test.sh TC-D1    # ID 접두사로 필터
 | TC-D10a | git 이 무시하는 파일은 보지 않는다 — 루트 · `skills/` 의 `.DS_Store` (#87) | 통과 (0) | - |
 | TC-D10b | git 저장소여도 무시되지 않은 파일은 여전히 막는다 (#87) | 차단 (2) | 메시지: `order-sync/NOTES.md: 플러그인 루트에는`, `.DS_Store` 없음 |
 | TC-D11 | LICENSE 와 .gitignore 는 루트에 둘 수 있다 | 통과 (0) | - |
+| TC-D11a | README 번역 `README.ko.md` · `README.zh-CN.md` 는 루트에 둘 수 있다 (#218) | 통과 (0) | - |
+| TC-D11b | 목록에 없는 언어의 README 는 막는다 (#218) | 차단 (2) | 메시지: `order-sync/README.ja.md: 플러그인 루트에는` |
 | TC-D12 | 알 수 없는 디렉터리를 막는다 | 차단 (2) | 메시지: `알 수 없는 디렉터리 'docs/'` |
 | TC-D13 | .claude-plugin 에 plugin.json 외의 파일을 막는다 | 차단 (2) | 메시지: `.claude-plugin/ 에는 plugin.json 만` |
 | TC-D14 | hooks/ 에 스크립트를 두면 막는다 | 차단 (2) | 메시지: `hooks/ 에는 *.json 만` |

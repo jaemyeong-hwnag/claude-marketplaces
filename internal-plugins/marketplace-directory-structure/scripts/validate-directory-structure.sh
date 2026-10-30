@@ -18,7 +18,7 @@ PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 RULES="$PLUGIN_ROOT/references/directory-structure-rules.md"
 
 # 규칙 원본은 references/directory-structure-rules.md 다. 여기는 그 기계 검증이다.
-PLUGIN_ROOT_FILES="README.md CHANGELOG.md LICENSE .gitignore"
+PLUGIN_ROOT_FILES="README.md README.ko.md README.zh-CN.md CHANGELOG.md LICENSE .gitignore"
 PLUGIN_DIRS=".claude-plugin skills hooks scripts commands references agents test evals"
 MARKETPLACE_FILES="marketplace.json tags.json categories.json plugins.json keywords.json"
 
