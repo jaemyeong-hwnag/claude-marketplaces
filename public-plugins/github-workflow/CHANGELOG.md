@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.2.0
+
+### Changed
+- 커맨드 `/workflow-validate` 를 `/github-workflow-validate` 로 바꿨다 (#198). 무엇의 workflow 인지 이름만으로 알 수 없었다 — 이제 `/github-workflow:github-workflow-validate` 로 부른다
+
 ## 0.1.6
 
 ### Fixed
