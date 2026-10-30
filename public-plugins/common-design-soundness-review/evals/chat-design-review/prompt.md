@@ -2,6 +2,7 @@
 description: 스킬 이름 없이 플로우 설계를 요청하면 설계안을 낸 뒤 design-soundness-review 로 구현 전에 검토한다
 tags: [trigger]
 max_turns: 20
+timeout_seconds: 600
 allowed_tools: [Read, Glob, Grep, Write, Skill, Agent]
 ---
 
