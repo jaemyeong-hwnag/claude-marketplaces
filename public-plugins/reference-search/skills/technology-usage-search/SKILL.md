@@ -1,5 +1,5 @@
 ---
-name: technical-document-search
+name: technology-usage-search
 description: 공식 문서 · 릴리스 노트 · 마이그레이션 가이드 · 표준(RFC · W3C · ISO · NIST · OWASP) · 실제 사용 코드 · 이슈 · 설계 문서(KEP · PEP)를 찾을 때 사용한다. 출처별 에이전트를 요청 깊이에 맞게 골라 병렬로 찾고 검증한다. 트리거 — "공식 문서", "스펙", "표준", "RFC", "레퍼런스 찾아", "실제로 어떻게 쓰는지", "official docs".
 ---
 

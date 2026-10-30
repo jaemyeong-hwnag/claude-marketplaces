@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.2.0
+
+### Changed
+- 스킬 이름 변경 — `/reference-search:company-reference-search` 는 `company-case-search`, `/reference-search:technical-document-search` 는 `technology-usage-search` 로 부른다 (#199)
+- 에이전트 이름 변경 — `regional-database-searcher` 는 `regional-academic-database-searcher`, `field-database-searcher` 는 `discipline-database-searcher`. 출처 카탈로그 `references/sources/` 파일 이름도 같이 바뀐다 (#199)
+
 ## 0.1.1
 
 ### Fixed

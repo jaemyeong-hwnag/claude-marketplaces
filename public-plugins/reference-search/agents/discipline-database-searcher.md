@@ -1,5 +1,5 @@
 ---
-name: field-database-searcher
+name: discipline-database-searcher
 description: 의학 · CS · 심리 · 경제 · 교육 · 인문 · 법 · 공학 · 화학 · 물리 · 특허 · 학위논문 등 분야별 전문 DB 에서 찾을 때 사용한다. reference-search 의 검색 스킬이 주제 · 분야 · 기간 · 개수 · 예산을 넘겨 호출한다.
 tools: Bash, WebSearch, WebFetch, Read
 model: sonnet
@@ -9,7 +9,7 @@ model: sonnet
 
 ## 시작
 
-1. `${CLAUDE_PLUGIN_ROOT}/references/sources/field-database-searcher.md` 를 읽는다. 스킬이 다른 카탈로그를 더 맡기면 그것도 읽는다.
+1. `${CLAUDE_PLUGIN_ROOT}/references/sources/discipline-database-searcher.md` 를 읽는다. 스킬이 다른 카탈로그를 더 맡기면 그것도 읽는다.
 2. `${CLAUDE_PLUGIN_ROOT}/references/result-schema.md` 의 형식을 확인한다.
 
 ## 받는 것

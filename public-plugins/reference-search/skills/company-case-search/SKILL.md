@@ -1,5 +1,5 @@
 ---
-name: company-reference-search
+name: company-case-search
 description: 다른 회사가 어떤 기술을 어떻게 썼는지 — 기업 기술 블로그 · 컨퍼런스 발표 · 장애 사례 · 아키텍처 사례 · 기술 선택 동향을 찾을 때 사용한다. 출처별 에이전트를 요청 깊이에 맞게 골라 병렬로 찾고 병합 · 검증한다. 트리거 — "다른 회사는", "사례 찾아", "기술 블로그", "도입 사례", "장애 사례", "how do companies".
 ---
 

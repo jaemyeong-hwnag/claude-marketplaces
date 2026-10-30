@@ -23,8 +23,8 @@ echo "${REFERENCE_SEARCH_DEPTH:-} ${REFERENCE_SEARCH_MAX_AGENTS:-}"
 |---|---|
 | 늘 | `academic-index-searcher` |
 | 심사 전 최신 연구가 필요하다 (기본으로 넣는다) | `preprint-searcher` |
-| 분야가 뚜렷하다 (의학 · 법 · 교육 · 특허 · 학위논문 …) | `field-database-searcher` |
-| 국내 · 한국 · 특정 나라 자료 | `regional-database-searcher` |
+| 분야가 뚜렷하다 (의학 · 법 · 교육 · 특허 · 학위논문 …) | `discipline-database-searcher` |
+| 국내 · 한국 · 특정 나라 자료 | `regional-academic-database-searcher` |
 | "요즘 · 동향 · 화제 · 트렌드" | `research-trend-searcher` | <!-- document-slop-ignore -->
 | 산업 적용 사례도 묻는다 | `company-blog-searcher` (기업 사례 스킬의 묶음) |
 

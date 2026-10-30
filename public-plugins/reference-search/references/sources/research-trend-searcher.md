@@ -6,7 +6,7 @@
 
 - 띄운다: 화제 논문 요청, 특정 주간 · 월간 화제 논문, 학회(NeurIPS · CVPR 등) 채택 · Best Paper 목록, 어떤 논문에 대한 커뮤니티 반응.
 - 띄운다: 한 분야의 흐름을 잡기 위해 뉴스레터 · 해설 기사가 필요할 때.
-- 띄우지 않는다: 특정 주제의 논문을 빠짐없이 찾는 검색(`academic-index-searcher` · `field-database-searcher`), 프리프린트 서버 원문 검색(`preprint-searcher`).
+- 띄우지 않는다: 특정 주제의 논문을 빠짐없이 찾는 검색(`academic-index-searcher` · `discipline-database-searcher`), 프리프린트 서버 원문 검색(`preprint-searcher`).
 
 ## 출처
 

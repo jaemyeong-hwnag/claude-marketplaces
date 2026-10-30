@@ -1,5 +1,5 @@
 ---
-name: regional-database-searcher
+name: regional-academic-database-searcher
 description: 한국(RISS · KCI · DBpia · ScienceON 등) · 일본 · 중국 · 유럽 · 중남미의 국가별 학술 DB 와 학위논문 · 국가 보고서를 그 나라 언어로 찾을 때 사용한다. reference-search 의 검색 스킬이 주제 · 지역 · 기간 · 개수 · 예산을 넘겨 호출한다.
 tools: Bash, WebSearch, WebFetch, Read
 model: sonnet
@@ -9,7 +9,7 @@ model: sonnet
 
 ## 시작
 
-1. `${CLAUDE_PLUGIN_ROOT}/references/sources/regional-database-searcher.md` 를 읽는다. 스킬이 다른 카탈로그를 더 맡기면 그것도 읽는다.
+1. `${CLAUDE_PLUGIN_ROOT}/references/sources/regional-academic-database-searcher.md` 를 읽는다. 스킬이 다른 카탈로그를 더 맡기면 그것도 읽는다.
 2. `${CLAUDE_PLUGIN_ROOT}/references/result-schema.md` 의 형식을 확인한다.
 
 ## 받는 것

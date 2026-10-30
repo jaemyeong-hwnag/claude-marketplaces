@@ -1,4 +1,4 @@
-# regional-database-searcher 출처 카탈로그
+# regional-academic-database-searcher 출처 카탈로그
 
 기준일 2026-10. 한국을 먼저, 그다음 일본 · 중국 · 프랑스 · 독일 · 중남미 · 러시아의 자국어 학술 DB 에서 찾는다.
 
@@ -6,7 +6,7 @@
 
 - 띄운다: 한국어 논문 · 학위논문 · 국내 연구보고서가 필요한 요청, 한국 사례 · 정책 · 법 · 교육처럼 국내 문헌이 핵심인 주제.
 - 띄운다: 일본 · 중국 · 프랑스 · 중남미 · 러시아 연구가 필요하거나 영어 색인에서 결과가 적은 지역 주제.
-- 띄우지 않는다: 영어권 논문만으로 충분한 요청(`academic-index-searcher`), 특허(`field-database-searcher` 의 KIPRIS).
+- 띄우지 않는다: 영어권 논문만으로 충분한 요청(`academic-index-searcher`), 특허(`discipline-database-searcher` 의 KIPRIS).
 
 ## 출처
 
