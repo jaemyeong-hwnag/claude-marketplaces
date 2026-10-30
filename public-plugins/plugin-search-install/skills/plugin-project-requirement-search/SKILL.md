@@ -1,5 +1,5 @@
 ---
-name: project-plugin-search
+name: plugin-project-requirement-search
 description: 이 프로젝트에 필요한 이 마켓의 public 플러그인을 조회할 때 사용한다. 프로젝트 설정에 선언됐는데 안 깔린 것, 그 의존, 파일 신호(언어 · 프레임워크 · CI · Docker …)로 추천하는 것을 상태와 근거와 함께 낸다. 트리거 — "이 프로젝트에 뭐 깔아야 해", "필요한 플러그인", "빠진 플러그인", "플러그인 추천", "온보딩".
 ---
 

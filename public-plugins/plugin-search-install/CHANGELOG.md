@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.3.0
+
+### Changed
+- **스킬 `project-plugin-search` 를 `plugin-project-requirement-search` 로 바꿨다** (#200) — `/plugin-search-install:project-plugin-search` 로 부르던 사용자는 `/plugin-search-install:plugin-project-requirement-search` 로 부른다. 옛 이름은 설치된 플러그인을 찾는 것으로 읽혔다
+
 ## 0.2.2
 
 ### Fixed
