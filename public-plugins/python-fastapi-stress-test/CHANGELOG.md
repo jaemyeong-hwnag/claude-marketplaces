@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.4
+
+### Fixed
+- `PreToolUse` 훅에 `"onFailure": "block"` — 스크립트가 깨지면 설정 검사 없이 통과하던 것 (#172, `plugin-enforcement-effectiveness` `EF-07`)
+
 ## 0.1.3
 
 ### Fixed
