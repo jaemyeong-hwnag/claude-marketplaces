@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.5
+
+### Fixed
+- 스킬 `gin-stress-test-apply` 3절에 `GIN-22`(`GOMAXPROCS` 는 CPU limit 만 따른다 · 소수 limit 은 올림 · 최소 2)가 없어, request 기준으로 정하거나 소수 limit 을 내림해도 절차가 잡지 못하던 것 (#204)
+
 ## 0.1.4
 
 ### Fixed
