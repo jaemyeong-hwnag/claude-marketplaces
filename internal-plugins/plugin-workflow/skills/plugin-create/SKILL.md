@@ -31,12 +31,16 @@ jq -r '.plugins[] | "\(.name)\t\(.description)"' .claude-plugin/marketplace.json
 | 2 | 배치 — `public-plugins/` 또는 `internal-plugins/` | 이 스킬 (3절) | - |
 | 3 | 디렉터리 · 필수 파일 | `plugin-directory-create` | `validate-directory-structure.sh <디렉터리>` |
 | 4 | 버전 `0.1.0` · CHANGELOG `## 0.1.0` | `version-update` | `validate-versioning.sh <디렉터리>` |
-| 5 | 스킬 · 커맨드 · 에이전트 · README | `document-create` | `validate-authoring.sh <디렉터리>` |
-| 6 | 의존성 (있으면) | `dependency-update` | `validate-dependency.sh --all .` |
-| 7 | 등록 | 이 스킬 (3절) | `.claude/hooks/validate-plugin-scope.sh .` |
-| 8 | eval 케이스 — 스킬 발동 1 · 훅 차단 1 | 이 스킬 (4절) | `eval-all.sh --quick --plugin <이름>` |
-| 9 | 전체 검증 · 테스트 | `pull-request-create` | `verify-all.sh .` |
-| 10 | 설치 확인 | 이 스킬 (5절) | `claude plugin list` 에 `Error:` 없음 |
+| 5 | 규칙 원본 → 검증기 → 테스트 (규칙 원본에 차단 · 경고 조항이 있을 때만) — 조항마다 ID 를 단 TC | 이 스킬 (4절) | `test/*.test.sh` |
+| 6 | 스킬 · 커맨드 · 에이전트 · README | `document-create` | `validate-authoring.sh <디렉터리>` |
+| 7 | 의존성 (있으면) | `dependency-update` | `validate-dependency.sh --all .` |
+| 8 | 등록 | 이 스킬 (3절) | `.claude/hooks/validate-plugin-scope.sh .` |
+| 9 | eval 케이스 — 스킬 발동 1 · 훅 차단 1 | 이 스킬 (5절) | `eval-all.sh --quick --plugin <이름>` |
+| 10 | 적어 둔 강제가 실행에서 효력이 있는가 | `enforcement-effectiveness-review` | `validate-enforcement-effectiveness.sh <디렉터리>` |
+| 11 | 전체 검증 · 테스트 | `pull-request-create` | `verify-all.sh .` |
+| 12 | 설치 확인 | 이 스킬 (6절) | `claude plugin list` 에 `Error:` 없음 |
+
+10단계를 eval 뒤에 두는 이유: 검증기가 eval 케이스 유무(`EF-30`)까지 본다. 앞에 두면 늘 실패한다.
 
 ## 3. 배치와 등록
 
@@ -49,14 +53,23 @@ jq -r '.plugins[] | "\(.name)\t\(.description)"' .claude-plugin/marketplace.json
 
 `tags` 는 `.claude-plugin/tags.json` 에 있는 것만, 2개까지 (domain 1 + technology 1). `version` · `author` 는 엔트리에 쓰지 않는다.
 
-## 4. eval 케이스
+## 4. 규칙 원본 · 검증기 · 테스트
+
+규칙 원본(`references/*-rules.md`)이 먼저다 — 스크립트 메시지와 TC 가 조항 ID 를 인용한다.
+
+- 판정 열이 `차단` · `경고` 인 조항마다 그 ID 를 설명에 단 TC 를 `test/*.test.sh` 에 둔다 (`EF-05`). 막히는 TC 와 통과하는 TC 를 둘 다 둔다
+- 그런 조항이 하나라도 있으면 `scripts/validate-*.sh` 나 `hooks/hooks.json` 이 있어야 한다 (`EF-06`)
+- `PreToolUse` · `UserPromptSubmit` 훅에는 `"onFailure": "block"` 을 둔다 — 스크립트가 깨지면 막지 않고 통과한다 (`EF-07`)
+- 훅 · MCP 명령의 플러그인 파일은 `"${CLAUDE_PLUGIN_ROOT}/…"` 로 쓰고, 직접 실행하는 스크립트는 `git add --chmod=+x` (`EF-01` ~ `EF-03`)
+
+## 5. eval 케이스
 
 `evals/<케이스>/prompt.md` + `graders/*.md`. 판정 모델 없이 결정적으로 채점한다.
 
-- 스킬 발동 — 스킬 이름을 말하지 않는 자연스러운 요청 + `tool_used: Skill` 그레이더 + 답에 대한 `regex`
-- 훅 차단 — 규칙을 어기는 작업 요청 + `trace` 에서 훅 메시지를 찾는 `regex`
+- 스킬 발동 — 스킬 이름을 말하지 않는 자연스러운 요청 + `tool_used: Skill` 그레이더 + 답에 대한 `regex`. 스킬마다 하나 — `input_match` 가 `{"skill": "<플러그인>:<스킬>"}` 에 맞아야 한다 (`EF-31`, 새 플러그인은 `--since` 에서 차단)
+- 훅 차단 — 규칙을 어기는 작업 요청 + `trace` 에서 훅 메시지를 찾는 `regex`. `tags: [hook]` (`EF-30`)
 
-## 5. 설치 확인
+## 6. 설치 확인
 
 ```bash
 .claude/hooks/sync-internal-plugins.sh                                    # internal
@@ -73,9 +86,11 @@ claude plugin details <이름>@jaemyeong-hwnag-plugins    # Hooks (N) 이 hooks.
 - [ ] 이름 — 규칙 통과, 목적 문장의 핵심어가 이름에 있다, `naming-reviewer` 통과, 기존 이름과 헷갈리지 않는다
 - [ ] 배치 — public / internal, common 이면 public
 - [ ] 필수 파일 셋, 버전 `0.1.0`, CHANGELOG `## 0.1.0`
+- [ ] 차단 · 경고 조항이 있으면 — 규칙 원본, 조항 ID 를 단 TC, 검증기 · 훅 (`onFailure: "block"`)
 - [ ] README 템플릿, 표 = 실제 구성요소
 - [ ] 의존성 — common 은 없음, 층 방향, public → internal 없음
 - [ ] 등록 — category · tags · description
-- [ ] eval 케이스 둘
+- [ ] eval 케이스 — trigger · hook, 스킬마다 발동 그레이더
+- [ ] `validate-enforcement-effectiveness.sh <디렉터리>` 통과 · `enforcement-effectiveness-review` 의 재현된 지적 처리
 - [ ] `verify-all.sh` 전부 ✅
 - [ ] `claude plugin list` 에 `Error:` 없음

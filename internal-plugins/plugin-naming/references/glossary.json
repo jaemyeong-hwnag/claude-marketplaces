@@ -298,6 +298,20 @@
       "meaning": "다른 것에 기대는 관계"
     },
     {
+      "use": "effectiveness",
+      "deny": [
+        "efficacy"
+      ],
+      "meaning": "적어 둔 것이 실행에서 실제로 효력을 내는 정도"
+    },
+    {
+      "use": "enforcement",
+      "deny": [
+        "enforce"
+      ],
+      "meaning": "적어 둔 규칙을 지키게 하는 것"
+    },
+    {
       "use": "evidence",
       "deny": [
         "proof"

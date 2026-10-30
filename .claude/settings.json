@@ -22,6 +22,7 @@
     "marketplace-directory-structure@jaemyeong-hwnag-plugins": true,
     "plugin-authoring@jaemyeong-hwnag-plugins": true,
     "plugin-dependency@jaemyeong-hwnag-plugins": true,
+    "plugin-enforcement-effectiveness@jaemyeong-hwnag-plugins": true,
     "plugin-naming@jaemyeong-hwnag-plugins": true,
     "plugin-versioning@jaemyeong-hwnag-plugins": true,
     "plugin-workflow@jaemyeong-hwnag-plugins": true

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.4.0
+
+### Changed
+- `PreToolUse` 훅에 `"onFailure": "block"` — 스크립트가 없거나 실행되지 않으면 구조 검사 없이 통과하던 것을 막는다 (#143, `plugin-enforcement-effectiveness` `EF-07`)
+- TC-D31 · TC-D32 · TC-D33 · TC-D35 설명에 조항 ID `R-01` · `R-02` · `R-03` · `R-05` 를 달았다 (#143, `EF-05`). 판정은 그대로다
+
 ## 0.3.2
 
 ### Fixed
