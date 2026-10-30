@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.5.0
+
+### Added
+- `plugin-name-update` 스킬 · `scripts/plugin-name-update.sh` — 플러그인 이름 변경 (#141). 디렉터리 · `plugin.json` · 엔트리 · public 이면 `marketplace.json` `renames` · 기대는 플러그인의 `dependencies` · `enabledPlugins` 키를 바꾸고, 남은 문자열 참조는 후보로만 낸다. `renames` 가 있어야 설치한 사용자의 설정 키를 Claude Code 가 새 이름으로 옮긴다
+- TC-W138 ~ W147, eval `name-update-steps`
+
 ## 0.4.0
 
 ### Changed

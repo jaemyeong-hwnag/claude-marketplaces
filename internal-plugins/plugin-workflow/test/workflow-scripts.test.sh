@@ -300,6 +300,99 @@ printf -- '---\n---\n\nq\n' > "$R/internal-plugins/ok-sync/evals/c1/prompt.md"
 : > "$CALLS"; run "$EA" "$R"
 [ "$TC_ON" = 1 ] && { grep -q 'plugin eval .*/evals/c1/prompt.md' "$CALLS" || fail_tc "케이스를 찾지 못했다"; }; true
 
+echo "== J. 이름 변경 =="
+NU="$PLUGIN_ROOT/scripts/plugin-name-update.sh"
+
+# order-sync(public) ← order-report(public) · order-release(internal, 객체 의존) — $1=이름 $2=deps 를 둘지(1/0)
+mkname() {
+  mkrepo "$1"; local m="$W/.claude-plugin/marketplace.json"
+  mkdir -p "$W/.claude-plugin" "$W/.claude" "$W/public-plugins/order-sync/.claude-plugin" "$W/public-plugins/order-sync/test" \
+           "$W/public-plugins/order-report/.claude-plugin" "$W/internal-plugins/order-release/.claude-plugin"
+  printf '{ "name": "order-sync", "version": "0.1.0" }' > "$W/public-plugins/order-sync/.claude-plugin/plugin.json"
+  printf '# order-sync\n\n/plugin install order-sync@x-marketplace\n' > "$W/public-plugins/order-sync/README.md"
+  printf '# CHANGELOG\n\n## 0.1.0\n\n- order-sync 첫\n' > "$W/public-plugins/order-sync/CHANGELOG.md"
+  echo t > "$W/public-plugins/order-sync/test/order-sync.test.sh"
+  if [ "${2:-1}" = 1 ]; then
+    printf '{ "name": "order-report", "dependencies": ["order-sync"] }' > "$W/public-plugins/order-report/.claude-plugin/plugin.json"
+    printf '{ "name": "order-release", "dependencies": [{ "name": "order-sync", "version": "~0.1.0" }] }' > "$W/internal-plugins/order-release/.claude-plugin/plugin.json"
+  else
+    printf '{ "name": "order-report" }' > "$W/public-plugins/order-report/.claude-plugin/plugin.json"
+    printf '{ "name": "order-release" }' > "$W/internal-plugins/order-release/.claude-plugin/plugin.json"
+  fi
+  jq -n '{ name: "x-marketplace", plugins: [
+    { name: "order-sync", source: "./public-plugins/order-sync", category: "public" },
+    { name: "order-report", source: "./public-plugins/order-report", category: "public" },
+    { name: "order-release", source: "./internal-plugins/order-release", category: "internal" } ] }' > "$m"
+  printf '{ "enabledPlugins": { "order-release@x-marketplace": true, "order-sync@x-marketplace": true } }' > "$W/.claude/settings.json"
+  gitq "$W" add -A; gitq "$W" commit -qm plugins
+}
+mj() { jq -r "$1" "$W/.claude-plugin/marketplace.json"; }
+
+tc TC-W138 "name-update: public 이름을 바꾸고 renames · 의존 · 활성화 키를 옮긴다"
+mkname nu1
+run "$NU" order-sync order-sync-v2 "$W"; expect_code 0
+[ "$TC_ON" = 1 ] && {
+  [ -d "$W/public-plugins/order-sync-v2" ] && [ ! -e "$W/public-plugins/order-sync" ] || fail_tc "디렉터리가 옮겨지지 않았다"
+  [ "$(jq -r .name "$W/public-plugins/order-sync-v2/.claude-plugin/plugin.json")" = order-sync-v2 ] || fail_tc "plugin.json name"
+  [ "$(mj '.plugins[0] | "\(.name) \(.source)"')" = "order-sync-v2 ./public-plugins/order-sync-v2" ] || fail_tc "엔트리: $(mj '.plugins[0]')"
+  [ "$(mj '.renames["order-sync"]')" = order-sync-v2 ] || fail_tc "renames: $(mj '.renames')"
+  [ "$(jq -r '.dependencies[0]' "$W/public-plugins/order-report/.claude-plugin/plugin.json")" = order-sync-v2 ] || fail_tc "문자열 의존"
+  [ "$(jq -r '.dependencies[0] | "\(.name) \(.version)"' "$W/internal-plugins/order-release/.claude-plugin/plugin.json")" = "order-sync-v2 ~0.1.0" ] || fail_tc "객체 의존"
+  [ "$(jq -c '.enabledPlugins' "$W/.claude/settings.json")" = '{"order-release@x-marketplace":true,"order-sync-v2@x-marketplace":true}' ] || fail_tc "활성화 키: $(jq -c .enabledPlugins "$W/.claude/settings.json")"
+}; true
+expect_out "버전을 올릴 플러그인 (version-update): order-sync-v2 order-report order-release"
+
+tc TC-W139 "name-update: 남은 참조 후보를 내고 CHANGELOG 는 뺀다"
+mkname nu2
+run "$NU" order-sync order-sync-v2 "$W"; expect_code 0
+expect_out "public-plugins/order-sync-v2/README.md:1:"; expect_out "test/order-sync.test.sh"; expect_not "CHANGELOG.md:"
+
+tc TC-W140 "name-update: internal 은 renames 를 쓰지 않는다"
+mkname nu3
+run "$NU" order-release order-ship "$W"; expect_code 0
+[ "$TC_ON" = 1 ] && {
+  [ "$(mj 'has("renames")')" = false ] || fail_tc "renames 가 생겼다"
+  [ "$(mj '.plugins[2] | "\(.name) \(.source)"')" = "order-ship ./internal-plugins/order-ship" ] || fail_tc "엔트리: $(mj '.plugins[2]')"
+  jq -e '.enabledPlugins["order-ship@x-marketplace"] == true' "$W/.claude/settings.json" >/dev/null || fail_tc "활성화 키"
+}; true
+
+tc TC-W141 "name-update: 기대는 플러그인이 없으면 이름만 바꾼다"
+mkname nu4 0
+run "$NU" order-sync order-sync-v2 "$W"; expect_code 0
+expect_out "버전을 올릴 플러그인 (version-update): order-sync-v2"; expect_not "dependencies"
+
+tc TC-W142 "name-update: --dry-run 은 아무것도 바꾸지 않는다"
+mkname nu5
+run "$NU" --dry-run order-sync order-sync-v2 "$W"; expect_code 0; expect_out "아무것도 바꾸지 않았다"; expect_out "renames[\"order-sync\"]"
+[ "$TC_ON" = 1 ] && { [ -z "$(git -C "$W" status --porcelain)" ] || fail_tc "작업 트리가 바뀌었다: $(git -C "$W" status --porcelain)"; }; true
+
+tc TC-W143 "name-update: 새 이름이 이미 있으면 아무것도 바꾸지 않는다"
+mkname nu6
+run "$NU" order-sync order-report "$W"; expect_code 2; expect_out "이미 있다"
+[ "$TC_ON" = 1 ] && { [ -z "$(git -C "$W" status --porcelain)" ] || fail_tc "작업 트리가 바뀌었다"; }; true
+
+tc TC-W144 "name-update: renames 에 있는 옛 이름은 새 이름으로 쓰지 않는다"
+mkname nu7
+jq '.renames = { "order-legacy": "order-sync" }' "$W/.claude-plugin/marketplace.json" > "$W/m" && mv "$W/m" "$W/.claude-plugin/marketplace.json"; gitq "$W" commit -qam renames
+run "$NU" order-sync order-legacy "$W"; expect_code 2; expect_out "옛 이름은 다시 쓰지 않는다"
+
+tc TC-W145 "name-update: 옛 이름이 없거나 새 이름이 kebab-case 가 아니면 거부한다"
+mkname nu8
+run "$NU" order-none order-x "$W"; expect_code 2; expect_out "플러그인이 없다"
+run "$NU" order-sync Order_Sync "$W"; expect_code 2; expect_out "kebab-case"
+
+tc TC-W146 "name-update: 바꿀 파일에 커밋하지 않은 변경이 있으면 거부한다"
+mkname nu9; jq '.owner = {"name": "x"}' "$W/.claude-plugin/marketplace.json" > "$W/m" && mv "$W/m" "$W/.claude-plugin/marketplace.json"
+run "$NU" order-sync order-sync-v2 "$W"; expect_code 2; expect_out "커밋하지 않은 변경"
+mkname nu10; jq '.description = "x"' "$W/public-plugins/order-report/.claude-plugin/plugin.json" > "$W/m" && mv "$W/m" "$W/public-plugins/order-report/.claude-plugin/plugin.json"
+run "$NU" order-sync order-sync-v2 "$W"; expect_code 2; expect_out "'order-report' 의 plugin.json 에 커밋하지 않은 변경"
+[ -d "$W/public-plugins/order-sync" ] || fail_tc "옛 디렉터리가 옮겨졌다"
+
+tc TC-W147 "name-update: marketplace.json 이 깨져 있으면 아무것도 바꾸지 않는다"
+mkname nu11; echo x >> "$W/.claude-plugin/marketplace.json"
+run "$NU" order-sync order-sync-v2 "$W"; expect_code 2; expect_out "JSON 이 아니다"
+[ -d "$W/public-plugins/order-sync" ] || fail_tc "옛 디렉터리가 옮겨졌다"
+
 flush_tc
 echo
 printf '통과 %d / 실패 %d' "$PASS" "$FAIL"

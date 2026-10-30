@@ -204,6 +204,52 @@ dep_repo dep4 '{ "order-release@x-marketplace": true }'
 printf '{ "name": "order-release", "dependencies": [{ "name": "order-sync", "version": "~0.1.0" }] }' > "$R/internal-plugins/order-release/.claude-plugin/plugin.json"
 run "$R"; expect_code 2; expect_out "order-sync@x-marketplace"
 
+echo "== renames =="
+
+renames_repo() { # $1=이름 $2=renames JSON
+  R="$(make_repo "$1" '{ "name": "order-sync", "source": "./public-plugins/order-sync", "category": "public" },
+                     { "name": "order-release", "source": "./internal-plugins/order-release", "category": "internal" }')"
+  make_plugin "$R" public order-sync; make_plugin "$R" internal order-release
+  jq --argjson r "$2" '.renames = $r' "$R/.claude-plugin/marketplace.json" > "$R/m" && mv "$R/m" "$R/.claude-plugin/marketplace.json"
+}
+git_origin() { # $1=루트 — 지금 상태를 origin/main 으로 둔다
+  git -C "$1" init -q -b main && git -C "$1" add -A \
+    && git -C "$1" -c user.email=t@t -c user.name=t commit -qm base \
+    && git -C "$1" update-ref refs/remotes/origin/main HEAD
+}
+
+tc TC-S34 "옛 이름 → 새 이름 · null 은 통과한다"
+renames_repo ren1 '{ "order-sync-old": "order-sync", "order-gone": null }'
+run "$R"; expect_code 0
+
+tc TC-S35 "renames 키가 지금 등록된 이름이면 막는다"
+renames_repo ren2 '{ "order-sync": null }'
+run "$R"; expect_code 2; expect_out "지금 등록된 플러그인 이름"
+
+tc TC-S36 "renames 에 internal 이름이 있으면 막는다"
+renames_repo ren3 '{ "order-release-old": "order-release" }'
+run "$R"; expect_code 2; expect_out "'order-release': internal 플러그인"
+
+tc TC-S37 "origin/main 에 있던 renames 를 필드째 지워도 막는다"
+renames_repo ren4 '{ "order-sync-old": "order-sync" }'; git_origin "$R"
+jq 'del(.renames)' "$R/.claude-plugin/marketplace.json" > "$R/m" && mv "$R/m" "$R/.claude-plugin/marketplace.json"
+run "$R"; expect_code 2; expect_out "'order-sync-old': origin/main 에 있던 항목"
+
+tc TC-S38 "origin/main 에 있던 renames 키가 사라지면 막는다"
+renames_repo ren5 '{ "order-sync-old": "order-sync" }'; git_origin "$R"
+jq '.renames = {}' "$R/.claude-plugin/marketplace.json" > "$R/m" && mv "$R/m" "$R/.claude-plugin/marketplace.json"
+run "$R"; expect_code 2; expect_out "'order-sync-old': origin/main 에 있던 항목"
+
+tc TC-S39 "origin/main 의 renames 를 남기고 더하면 통과한다"
+renames_repo ren6 '{ "order-sync-old": "order-sync" }'; git_origin "$R"
+jq '.renames["order-sync-v0"] = "order-sync"' "$R/.claude-plugin/marketplace.json" > "$R/m" && mv "$R/m" "$R/.claude-plugin/marketplace.json"
+run "$R"; expect_code 0
+
+tc TC-S40 "renames 가 없으면 보지 않는다"
+renames_repo ren7 'null'
+jq 'del(.renames)' "$R/.claude-plugin/marketplace.json" > "$R/m" && mv "$R/m" "$R/.claude-plugin/marketplace.json"; git_origin "$R"
+run "$R"; expect_code 0
+
 flush_tc
 echo
 printf '통과 %d / 실패 %d\n' "$PASS" "$FAIL"

@@ -11,6 +11,7 @@
 #     - 엔트리 description 은 plugin.json description 과 같다
 #     - common-* 플러그인은 public-plugins/ 에 둔다
 #     - 켜 둔 internal 플러그인이 의존하는 public 플러그인은 .claude/settings.json enabledPlugins 에 키가 있다
+#     - renames 키는 지금 등록된 이름이 아니고, internal 이름이 아니고, origin 기본 브랜치에 있던 키를 지우지 않는다
 #
 #   .claude/hooks/validate-plugin-scope.sh [루트]
 #
@@ -157,6 +158,25 @@ if [ -r "$SETTINGS" ] && jq empty "$SETTINGS" 2>/dev/null; then
       [ -r "$ROOT/public-plugins/$dep/.claude-plugin/plugin.json" ] && printf '%s\x1f%s\n' "$o" "$dep"
     done
   )
+fi
+
+# 4. renames — 이름을 바꾼 공개 플러그인의 사용자 이전 기록. 객체가 아닌 형식 · 순환 · 끝 없는 체인은 claude plugin validate 가 막는다.
+# CLI 가 통과시킨다. 옛 이름을 켜 둔 사용자가 옮겨질지 새 플러그인을 받을지 정해져 있지 않다.
+while IFS= read -r k; do
+  [ -n "$k" ] && ERRORS+=("marketplace.json renames '$k': 지금 등록된 플러그인 이름입니다 — 옛 이름은 다시 쓰지 않습니다")
+done < <(jq -r '[.plugins[]?.name] as $p | (.renames // {}) | keys[] | select(. as $k | $p | index($k))' "$MARKETPLACE")
+while IFS= read -r k; do
+  [ -n "$k" ] || continue
+  [ -r "$ROOT/internal-plugins/$k/.claude-plugin/plugin.json" ] && \
+    ERRORS+=("marketplace.json renames '$k': internal 플러그인입니다 — 배포하지 않으므로 renames 에 두지 않습니다")
+done < <(jq -r '(.renames // {}) | (keys[], (.[] | strings))' "$MARKETPLACE" | sort -u)
+# 아직 옮기지 않은 사용자가 있을 수 있으므로 기록은 추가만 한다.
+base="$(git -C "$ROOT" rev-parse --abbrev-ref origin/HEAD 2>/dev/null || true)"
+[ -n "$base" ] && [ "$base" != "origin/HEAD" ] || base="origin/main"
+if old="$(git -C "$ROOT" show "$base:./.claude-plugin/marketplace.json" 2>/dev/null)"; then
+  while IFS= read -r k; do
+    [ -n "$k" ] && ERRORS+=("marketplace.json renames '$k': $base 에 있던 항목이 사라졌습니다 — renames 는 추가만 합니다")
+  done < <(printf '%s' "$old" | jq -r --slurpfile cur "$MARKETPLACE" '(.renames // {}) | keys[] | select(. as $k | ($cur[0].renames // {}) | has($k) | not)' 2>/dev/null)
 fi
 
 for w in ${WARNINGS+"${WARNINGS[@]}"}; do echo "⚠️  $w" >&2; done

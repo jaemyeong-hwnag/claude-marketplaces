@@ -28,7 +28,7 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 | 파일 내용 형식 (프런트매터 · README) | `plugin-authoring` | `plugin-authoring/references/authoring-rules.md` | `document-create` | `/authoring-validate` |
 | 플러그인 사이의 의존 | `plugin-dependency` | `plugin-dependency/references/dependency-rules.md` | `dependency-update` | `/dependency-validate` |
 | 이슈 → 브랜치 → PR → 머지 (`W-01` ~ `W-10`) | `github-workflow` (public) | `public-plugins/github-workflow/references/workflow-rules.md` | `issue-create` · `pull-request-create` · `pull-request-merge` · `github-template-create` | `/workflow-validate` |
-| 버전 · 설치 확인 · 태그 · 릴리즈, 생성 · 삭제 절차 | `plugin-workflow` | `plugin-workflow/references/workflow-rules.md` | `release-create` · `plugin-create` · `plugin-delete` | `verify-all.sh` |
+| 버전 · 설치 확인 · 태그 · 릴리즈, 생성 · 이름 변경 · 삭제 절차 | `plugin-workflow` | `plugin-workflow/references/workflow-rules.md` | `release-create` · `plugin-create` · `plugin-name-update` · `plugin-delete` | `verify-all.sh` |
 | 배치 · 등록 · 설치 동기화 | 저장소 `.claude/hooks/` | 아래 "마켓플레이스 등록" · `test/README.md` | - | `.claude/hooks/validate-plugin-scope.sh .` |
 
 규칙은 `Write` · `Edit` · `Bash` 훅이 막거나 알린다. **훅이 막으면 우회하지 말고 메시지가 지시한 대로 고친다** (이름이면 사전이 지시한 단어로). 새로 막을 단어는 스크립트가 아니라 `glossary.json` 에 넣는다.
@@ -61,6 +61,7 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 - `common-*` 은 `public-plugins/` 에만 둔다
 - 배포용은 엔트리를 직접 등록한다. 내부용은 등록하지 않는다 — 세션 시작 훅이 한다
 - internal 이 의존하는 public 플러그인은 `.claude/settings.json` `enabledPlugins` 에 `true` 로 커밋한다 — 없으면 설치 뒤 main 이 더러워진다
+- public 플러그인 이름을 바꾸면 `renames` 에 `"<옛>": "<새>"` 를 남긴다 — 설치한 사용자의 설정 키를 Claude Code 가 옮긴다. 추가만 하고, 옛 이름은 다시 쓰지 않는다 (`plugin-name-update` 스킬)
 - 마켓플레이스 이름은 `claude` 로 시작할 수 없다 (공식 마켓플레이스 사칭으로 거부된다)
 
 ## 내부 플러그인

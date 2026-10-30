@@ -1,6 +1,6 @@
 # 플러그인 개발 플로우 테스트
 
-`release-plugins.sh` · `verify-all.sh` · `eval-all.sh` 의 회귀 테스트. `eval-all.sh` 는 `claude plugin eval` 을 스텁으로 대신해 모델을 부르지 않는다.
+`release-plugins.sh` · `verify-all.sh` · `eval-all.sh` · `plugin-name-update.sh` 의 회귀 테스트. `eval-all.sh` 는 `claude plugin eval` 을 스텁으로 대신해 모델을 부르지 않는다.
 브랜치 · main 보호 · PR · 머지 훅의 TC(`TC-W01` ~ `TC-W102`)는 `github-workflow` 로 옮겼다.
 
 ## 실행
@@ -12,7 +12,7 @@ test/workflow-scripts.test.sh TC-W12    # ID 접두사로 필터
 
 **실제 git 저장소**로 돈다 — 임시 bare 저장소를 `origin` 으로 두고 클론해서 머지 커밋 · 태그 상태를 만든다. `gh` · `claude` 는 PATH 스텁이라 GitHub 과 설치 상태를 건드리지 않는다.
 
-## 자동 TC (35건)
+## 자동 TC (45건)
 
 ### G. release · verify-all
 
@@ -64,12 +64,27 @@ test/workflow-scripts.test.sh TC-W12    # ID 접두사로 필터
 | TC-W131 | verify-all: 루트가 .claude/worktrees/ 안이어도 플러그인을 찾는다 |
 | TC-W132 | eval-all: 루트가 .claude/worktrees/ 안이어도 케이스를 찾는다 |
 
+### J. 이름 변경
+
+| ID | 케이스 |
+|---|---|
+| TC-W138 | name-update: public 이름을 바꾸고 renames · 의존 · 활성화 키를 옮긴다 |
+| TC-W139 | name-update: 남은 참조 후보를 내고 CHANGELOG 는 뺀다 |
+| TC-W140 | name-update: internal 은 renames 를 쓰지 않는다 |
+| TC-W141 | name-update: 기대는 플러그인이 없으면 이름만 바꾼다 |
+| TC-W142 | name-update: --dry-run 은 아무것도 바꾸지 않는다 |
+| TC-W143 | name-update: 새 이름이 이미 있으면 아무것도 바꾸지 않는다 |
+| TC-W144 | name-update: renames 에 있는 옛 이름은 새 이름으로 쓰지 않는다 |
+| TC-W145 | name-update: 옛 이름이 없거나 새 이름이 kebab-case 가 아니면 거부한다 |
+| TC-W146 | name-update: 바꿀 파일(기대는 플러그인의 plugin.json 포함)에 커밋하지 않은 변경이 있으면 거부한다 |
+| TC-W147 | name-update: marketplace.json 이 깨져 있으면 아무것도 바꾸지 않는다 |
+
 ## 수동 TC (새 세션 필요)
 
 | ID | 케이스 | 입력 | 기대 |
 |---|---|---|---|
 | TC-WM05 | 의존성이 같이 설치된다 | main 에서 세션 시작 → `claude plugin list` | `github-workflow@jaemyeong-hwnag-plugins` 가 enabled, `Error:` 없음 |
-| TC-WM06 | 스킬이 등록된다 | `/skills` | `release-create` · `plugin-create` · `plugin-delete` |
+| TC-WM06 | 스킬이 등록된다 | `/skills` | `release-create` · `plugin-create` · `plugin-name-update` · `plugin-delete` |
 
 ## 변이 테스트
 
