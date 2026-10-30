@@ -24,9 +24,11 @@
 | 스킬 | 트리거 | 설명 |
 |---|---|---|
 | paper-search | 논문 찾아 · 선행 연구 · 관련 연구 · 최신 연구 · 근거 있어 · paper · literature | 학술 색인 · 프리프린트 · 분야 DB · 국가 DB · 연구 동향 에이전트를 골라 찾는다. 서베이 우선, 깊게면 스노볼링 |
-| company-reference-search | 다른 회사는 · 사례 찾아 · 기술 블로그 · 도입 사례 · 장애 사례 | 기업 블로그 · 발표 · 장애 사례 에이전트를 골라 찾는다. 회사 · 날짜 · 규모를 밝힌다 |
-| technical-document-search | 공식 문서 · 스펙 · 표준 · RFC · 실제로 어떻게 쓰는지 | 공식 문서 · 표준과 코드 · 이슈 · 설계 문서 에이전트를 골라 찾는다. 문서 버전 · 폐기 여부를 밝힌다 |
+| company-case-search | 다른 회사는 · 사례 찾아 · 기술 블로그 · 도입 사례 · 장애 사례 | 기업 블로그 · 발표 · 장애 사례 에이전트를 골라 찾는다. 회사 · 날짜 · 규모를 밝힌다 |
+| technology-usage-search | 공식 문서 · 스펙 · 표준 · RFC · 실제로 어떻게 쓰는지 | 공식 문서 · 표준과 코드 · 이슈 · 설계 문서 에이전트를 골라 찾는다. 문서 버전 · 폐기 여부를 밝힌다 |
 | /reference-validate | 직접 호출 | 파일의 DOI · arXiv ID 존재 · 철회와 URL 상태를 확인한다 (`RS-01` ~ `RS-06`) |
+
+0.2.0 에서 `/reference-search:company-reference-search` 는 `company-case-search`, `/reference-search:technical-document-search` 는 `technology-usage-search` 로 바뀌었다.
 
 ## 포함된 에이전트
 
@@ -34,8 +36,8 @@
 |---|---|
 | academic-index-searcher | 전 분야 학술 색인(OpenAlex · Semantic Scholar · Crossref · Google Scholar 등). 스노볼링을 맡는다 |
 | preprint-searcher | arXiv · bioRxiv · medRxiv · SSRN · OSF 등 프리프린트. 출판본이 나왔는지 확인한다 |
-| field-database-searcher | 의학 · CS · 심리 · 경제 · 교육 · 인문 · 법 · 공학 · 화학 · 물리 · 특허 · 학위논문 DB 중 질문 분야에 맞는 것 |
-| regional-database-searcher | 한국(RISS · KCI · DBpia · ScienceON 등) 우선, 일본 · 중국 · 유럽 · 중남미 DB 를 그 나라 말로 |
+| discipline-database-searcher | 의학 · CS · 심리 · 경제 · 교육 · 인문 · 법 · 공학 · 화학 · 물리 · 특허 · 학위논문 DB 중 질문 분야에 맞는 것 |
+| regional-academic-database-searcher | 한국(RISS · KCI · DBpia · ScienceON 등) 우선, 일본 · 중국 · 유럽 · 중남미 DB 를 그 나라 말로 |
 | research-trend-searcher | Hugging Face Papers · alphaXiv · 학회 Best Paper · 뉴스레터 · Hacker News 의 화제 논문과 주목도 근거 |
 | company-blog-searcher | 국내외 기업 기술 블로그 · 아키텍처 사례 · 산업계 논문 · 기술 레이더 |
 | conference-talk-searcher | 국내외 컨퍼런스 발표 영상 · 슬라이드 |

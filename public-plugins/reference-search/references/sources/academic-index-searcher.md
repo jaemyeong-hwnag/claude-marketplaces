@@ -6,7 +6,7 @@
 
 - 띄운다: 분야가 정해지지 않은 논문 검색, DOI · 서지 확인, 인용 수 · 피인용 논문 확인, 오픈 액세스 사본 찾기.
 - 띄운다: 다른 에이전트가 찾은 논문의 출판 여부 · 게재지를 확인할 때.
-- 띄우지 않는다: 프리프린트만 찾는 요청(`preprint-searcher`), 의학 · CS 등 분야 DB 가 정해진 요청(`field-database-searcher`), 한국어 · 비영어권 논문(`regional-database-searcher`), 화제 논문 · 동향(`research-trend-searcher`).
+- 띄우지 않는다: 프리프린트만 찾는 요청(`preprint-searcher`), 의학 · CS 등 분야 DB 가 정해진 요청(`discipline-database-searcher`), 한국어 · 비영어권 논문(`regional-academic-database-searcher`), 화제 논문 · 동향(`research-trend-searcher`).
 
 ## 출처
 
@@ -33,7 +33,7 @@
 |---|---|---|---|---|
 | Scopus | `scopus.com` | Elsevier 의 초록 · 인용 색인 | 기관 구독 | 사용자 안내만 |
 | Web of Science | `webofscience.com` | Clarivate 의 인용 색인 (SCIE · SSCI · AHCI) | 기관 구독 | 사용자 안내만 |
-| ProQuest | `proquest.com` | 학위논문 · 신문 · 업계지 묶음 | 기관 구독 | 사용자 안내만. 학위논문은 `field-database-searcher` |
+| ProQuest | `proquest.com` | 학위논문 · 신문 · 업계지 묶음 | 기관 구독 | 사용자 안내만. 학위논문은 `discipline-database-searcher` |
 | EBSCO | `ebsco.com` | 분야별 DB 묶음 (CINAHL · EconLit · MLA 등) | 기관 구독 | 사용자 안내만 |
 
 ### 출판사 플랫폼 — 원문 받는 곳

@@ -1,15 +1,15 @@
 # 검색 절차
 
-`paper-search` · `company-reference-search` · `technical-document-search` 세 스킬이 같이 쓰는 절차다. 조항은 [`reference-search-rules.md`](./reference-search-rules.md), 형식은 [`result-schema.md`](./result-schema.md), 근거 번호(`P…`)는 [`reference-search-methods.md`](./reference-search-methods.md).
+`paper-search` · `company-case-search` · `technology-usage-search` 세 스킬이 같이 쓰는 절차다. 조항은 [`reference-search-rules.md`](./reference-search-rules.md), 형식은 [`result-schema.md`](./result-schema.md), 근거 번호(`P…`)는 [`reference-search-methods.md`](./reference-search-methods.md).
 
 ## 1. 요청을 나눈다
 
 | 항목 | 정하는 것 | 기본값 |
 |---|---|---|
 | 찾는 것 | 논문 · 연구 결과 / 기업 사례 / 공식 문서 · 표준 · 코드. 섞여 있으면 전부 | - |
-| 분야 | 의학 · CS · 경제 … 분야에 따라 `field-database-searcher` 가 고를 DB 가 달라진다 | 질문에서 추론 |
+| 분야 | 의학 · CS · 경제 … 분야에 따라 `discipline-database-searcher` 가 고를 DB 가 달라진다 | 질문에서 추론 |
 | 기간 | `--from` 날짜 | 오늘에서 2년 전. "고전 · 원조 논문" 이면 제한 없음 |
-| 언어 · 지역 | 국내 자료가 필요한가 | 질문이 한국어여도 영어 자료를 같이 찾는다. "국내 · 한국" 이 있으면 `regional-database-searcher` · 국내 블로그 · 국내 행사 |
+| 언어 · 지역 | 국내 자료가 필요한가 | 질문이 한국어여도 영어 자료를 같이 찾는다. "국내 · 한국" 이 있으면 `regional-academic-database-searcher` · 국내 블로그 · 국내 행사 |
 | 깊이 | 빠르게 · 보통 · 깊게 (2절) | 요청 복잡도로 정한다 |
 
 ## 2. 깊이와 에이전트 수 (`RS-19` · `P1` · `P3`)
@@ -45,7 +45,7 @@
 | 합칠 묶음 | 얹을 에이전트 |
 |---|---|
 | `preprint` · `research-trend` | `academic-index-searcher` |
-| `field-database` · `regional-database` | `academic-index-searcher` |
+| `discipline-database` · `regional-academic-database` | `academic-index-searcher` |
 | `conference-talk` · `postmortem` | `company-blog-searcher` |
 | `code-usage` | `official-document-searcher` |
 
@@ -55,7 +55,7 @@
 
 | 찾는 것 | 기본 묶음 |
 |---|---|
-| 논문 · 연구 결과 | `academic-index-searcher` · `preprint-searcher` + 분야가 뚜렷하면 `field-database-searcher` + 국내면 `regional-database-searcher` + "요즘 · 동향 · 화제" 면 `research-trend-searcher` | <!-- document-slop-ignore -->
+| 논문 · 연구 결과 | `academic-index-searcher` · `preprint-searcher` + 분야가 뚜렷하면 `discipline-database-searcher` + 국내면 `regional-academic-database-searcher` + "요즘 · 동향 · 화제" 면 `research-trend-searcher` | <!-- document-slop-ignore -->
 | 기업 사례 | `company-blog-searcher` + 발표 자료가 도움이 되면 `conference-talk-searcher` + 장애 · 실패 사례면 `postmortem-searcher`. 산업계 논문이 있을 만한 주제면 `academic-index-searcher` |
 | 기술 레퍼런스 | `official-document-searcher` + 실제 사용 · 알려진 문제가 필요하면 `code-usage-searcher` |
 

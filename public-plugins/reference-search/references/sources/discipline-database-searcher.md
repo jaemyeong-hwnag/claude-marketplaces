@@ -1,4 +1,4 @@
-# field-database-searcher 출처 카탈로그
+# discipline-database-searcher 출처 카탈로그
 
 기준일 2026-10. 분야별 전문 DB(의학 · CS · 심리 · 경제 · 교육 · 인문 · 법 · 공학 · 화학 · 물리 · 수학 · 농업 · 특허 · 학위논문)에서 찾는다.
 
@@ -31,7 +31,7 @@
 
 - 띄운다: 질문이 위 표의 한 분야에 속하고 그 분야 DB 의 색인 · 문법(MeSH, 학회 목록, 특허 분류 등)이 결과를 낫게 할 때.
 - 띄운다: 임상시험 등록 정보, 특허, 학위논문처럼 일반 학술 색인이 약한 자료.
-- 띄우지 않는다: 분야를 가리지 않는 검색(`academic-index-searcher`), 프리프린트만(`preprint-searcher`), 한국 · 일본 · 중국 등 지역 DB(`regional-database-searcher`).
+- 띄우지 않는다: 분야를 가리지 않는 검색(`academic-index-searcher`), 프리프린트만(`preprint-searcher`), 한국 · 일본 · 중국 등 지역 DB(`regional-academic-database-searcher`).
 
 ## 출처
 
@@ -160,7 +160,7 @@
 ### 학위논문
 
 - 학위논문 대부분은 대학 리포지터리에 원문이 있다. 색인에서 찾은 뒤 리포지터리 링크로 간다.
-- 한국 학위논문은 `regional-database-searcher` (RISS · 국회도서관).
+- 한국 학위논문은 `regional-academic-database-searcher` (RISS · 국회도서관).
 
 ## 결과에 붙일 상태
 
