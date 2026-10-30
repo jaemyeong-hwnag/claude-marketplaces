@@ -27,7 +27,7 @@ claude plugin install github-workflow@jaemyeong-hwnag-plugins --scope project
 | issue-create | 작업 시작, 이슈 · 브랜치 · 워크트리 만들기 | 1 · 2 단계 — 타입 판단, 이슈 발행, 기본 브랜치에서 브랜치 · 워크트리 |
 | pull-request-create | PR 올리기, 리베이스, 검증 | 4 ~ 6 단계 — 프로젝트 검증 · 테스트, 리베이스 뒤 재검증, 템플릿 · 라벨 PR |
 | pull-request-merge | 머지, 정리 | 7 · 8 단계 — 머지 커밋, 기본 브랜치 받아오기, 워크트리 · 브랜치 정리, 이슈 닫힘 확인 |
-| /workflow-validate | 직접 호출 | 템플릿 · 현재 브랜치 · 최신 여부 |
+| /github-workflow-validate | 직접 호출 | 템플릿 · 현재 브랜치 · 최신 여부 |
 
 ## 포함된 훅
 
@@ -42,6 +42,7 @@ claude plugin install github-workflow@jaemyeong-hwnag-plugins --scope project
 - `jq` 가 없으면 `git` · `gh` · `claude` 명령을 검사할 수 없어 막는다
 - 서브셸 · `bash -c` · `eval` · `$( )` 안의 명령도 본다. 변수로 조립한 명령(`$CMD`)은 보지 못한다
 - 웹 UI 의 머지 · 푸시는 막지 못한다. 브랜치 보호를 켤 수 있으면 같이 켠다
+- 0.2.0 부터 `/github-workflow:workflow-validate` 는 `/github-workflow:github-workflow-validate` 로 부른다
 
 ## 무엇을 막나
 
