@@ -7,7 +7,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/django-stress-config-validate.sh\"",
-            "timeout": 20
+            "timeout": 20,
+            "onFailure": "block"
           }
         ]
       }
