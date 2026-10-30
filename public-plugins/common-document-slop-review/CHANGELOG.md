@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.1
+
+### Fixed
+- 백그라운드로 띄운 `document-slop-reviewer` 를 띄운 순간(`PostToolUse` 의 `status: "async_launched"`)에 리뷰함으로 쳐서, 판정이 오기 전에 `DS-30` 기록을 지우던 것 (#183). 끝났을 때(`SubagentStop`)만 기록을 지운다. 리뷰 중에 완료 알림을 기다리며 끝나는 응답은 막지 않고 기록을 남긴다
+
 ## 0.1.0
 
 ### Added

@@ -399,6 +399,17 @@ run_hook "$(write_payload "$TMP/g1.md" "$(cat "$TMP/g1.md" 2>/dev/null)" g63)"
 if [ "$TC_ON" = 1 ]; then OUT="$(stop_payload g63 false | DOCUMENT_SLOP_REVIEW_GATE=0 "$SCRIPT" --hook 2>&1)"; CODE=$?; fi
 expect_code 0; expect_no_out
 
+tc TC-D64 "백그라운드로 띄운 document-slop-reviewer 는 끝날 때(SubagentStop)까지 리뷰로 치지 않는다"
+run_hook "$(write_payload "$TMP/g1.md" "$(cat "$TMP/g1.md" 2>/dev/null)" g64)"
+run_hook '{"hook_event_name":"PostToolUse","tool_name":"Agent","session_id":"g64","tool_input":{"subagent_type":"common-document-slop-review:document-slop-reviewer","run_in_background":true},"tool_response":{"isAsync":true,"status":"async_launched"}}'
+run_hook "$(stop_payload g64 false)"; expect_no_out
+[ "$TC_ON" = 1 ] && { [ -s "$CLAUDE_PLUGIN_DATA/gate-g64.list" ] || fail_tc "기다리는 동안 기록이 지워짐"; }
+run_hook '{"hook_event_name":"SubagentStop","session_id":"g64","agent_type":"Explore"}'
+[ "$TC_ON" = 1 ] && { [ -e "$CLAUDE_PLUGIN_DATA/gate-g64.pending" ] || fail_tc "다른 에이전트의 SubagentStop 이 리뷰 중을 지움"; }
+run_hook '{"hook_event_name":"SubagentStop","session_id":"g64","agent_type":"common-document-slop-review:document-slop-reviewer"}'
+[ "$TC_ON" = 1 ] && { [ ! -e "$CLAUDE_PLUGIN_DATA/gate-g64.list" ] && [ ! -e "$CLAUDE_PLUGIN_DATA/gate-g64.pending" ] || fail_tc "SubagentStop 뒤 기록이 남음"; }
+run_hook "$(stop_payload g64 false)"; expect_no_out
+
 flush_tc
 echo ""
 echo "통과 $PASS / 실패 $FAIL$([ "$SKIP" -gt 0 ] && echo " / 건너뜀 $SKIP")"

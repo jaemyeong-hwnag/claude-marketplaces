@@ -1,7 +1,7 @@
 {
   "name": "common-document-slop-review",
   "description": "AI 가 문서를 만들거나 고칠 때마다 slop 을 막는다 — 대화 잔재 · 플레이스홀더 · 챗봇 토큰 · 깨진 링크는 차단, 출처 없는 주장 · 날짜 없는 시점 · 근거 없는 수치 · 상투 표현 · 형식 과잉은 알림. 주장을 파일 · 코드 · 링크로 대조하는 리뷰를 문서를 고친 세션 끝에 요구한다.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "황재명",
     "email": "woaudsla@gmail.com"
