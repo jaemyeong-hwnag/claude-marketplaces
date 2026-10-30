@@ -91,7 +91,7 @@
 | | 담당 | 무엇을 |
 |---|---|---|
 | 정량 | `validate-authoring.sh` | `A-01` ~ `A-09`, `A-20` ~ `A-28` |
-| 판단 | AI (`document-create` 스킬) | description 의 "무엇을 하는가" 가 정확한가, 트리거가 다른 스킬과 겹치지 않는가, 템플릿·예시를 `references/` 로 뺄 때인가, README 한 줄 설명이 description 과 같은 뜻인가 |
+| 판단 | AI (`plugin-document-create` 스킬) | description 의 "무엇을 하는가" 가 정확한가, 트리거가 다른 스킬과 겹치지 않는가, 템플릿·예시를 `references/` 로 뺄 때인가, README 한 줄 설명이 description 과 같은 뜻인가 |
 
 ## 5. 훅
 

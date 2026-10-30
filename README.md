@@ -248,7 +248,7 @@ internal-plugins/plugin-versioning/test/validate-versioning.test.sh
 3. `.claude-plugin/plugin.json` · `README.md` · `CHANGELOG.md` 를 작성한다. 초기 버전은 `0.1.0` 이고 CHANGELOG 에 그 항목이 있어야 한다.
    - 배포용: `marketplace.json` 에 `category: "public"` 으로 등록하고 푸시한다.
    - 내부용: SessionStart 훅이 알아서 등록·설치한다.
-4. README 를 템플릿대로 쓴다 (`document-create` 스킬). 의존성이 있으면 `dependency-update` 스킬.
+4. README 를 템플릿대로 쓴다 (`plugin-document-create` 스킬). 의존성이 있으면 `dependency-update` 스킬.
 5. `verify-all.sh` 로 전부 돌린다.
 
 > 마켓플레이스 이름은 `claude` 로 시작할 수 없다. 공식 마켓플레이스 사칭으로 거부된다.

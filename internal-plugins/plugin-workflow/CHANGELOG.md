@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.7.1
+
+### Fixed
+- `plugin-create` 6단계가 가리키는 스킬 이름을 `plugin-document-create` 로 고쳤다 (#201, `plugin-authoring` 0.2.0 의 이름 변경)
+
 ## 0.7.0
 
 ### Changed

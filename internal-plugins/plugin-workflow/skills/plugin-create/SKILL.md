@@ -32,7 +32,7 @@ jq -r '.plugins[] | "\(.name)\t\(.description)"' .claude-plugin/marketplace.json
 | 3 | 디렉터리 · 필수 파일 | `plugin-directory-create` | `validate-directory-structure.sh <디렉터리>` |
 | 4 | 버전 `0.1.0` · CHANGELOG `## 0.1.0` | `version-update` | `validate-versioning.sh <디렉터리>` |
 | 5 | 규칙 원본 → 검증기 → 테스트 (규칙 원본에 차단 · 경고 조항이 있을 때만) — 조항마다 ID 를 단 TC | 이 스킬 (4절) | `test/*.test.sh` |
-| 6 | 스킬 · 커맨드 · 에이전트 · README | `document-create` | `validate-authoring.sh <디렉터리>` |
+| 6 | 스킬 · 커맨드 · 에이전트 · README | `plugin-document-create` | `validate-authoring.sh <디렉터리>` |
 | 7 | 의존성 (있으면) | `dependency-update` | `validate-dependency.sh --all .` |
 | 8 | 등록 | 이 스킬 (3절) | `.claude/hooks/validate-plugin-scope.sh .` |
 | 9 | eval 케이스 — 스킬 발동 1 · 훅 차단 1 | 이 스킬 (5절) | `eval-all.sh --quick --plugin <이름>` |

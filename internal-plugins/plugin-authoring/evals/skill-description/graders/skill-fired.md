@@ -1,5 +1,5 @@
 ---
 type: tool_used
 tool: Skill
-input_match: '"skill"\s*:\s*"(?:[\w-]+:)?document-create"'
+input_match: '"skill"\s*:\s*"(?:[\w-]+:)?plugin-document-create"'
 ---
