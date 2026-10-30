@@ -1,64 +1,66 @@
 # node-naming
 
-Node.js 프로젝트의 이름을 npm 규칙과 JavaScript 관례로 강제한다 — package.json name, 환경 변수 UPPER_SNAKE_CASE, 클래스 PascalCase, 변수·함수 camelCase, 파일 kebab-case.
+**English** · [한국어](README.ko.md) · [简体中文](README.zh-CN.md)
 
-모양은 훅이 막고, 어떤 단어를 쓸지는 `node-name-create` 스킬이 판단한다. 근거는 npm 의 package.json `name` 규칙 · Airbnb JavaScript Style Guide 의 Naming Conventions · Node.js 와 POSIX 환경 변수 관례다.
+Enforces npm rules and JavaScript conventions on Node.js project names — package.json name, UPPER_SNAKE_CASE environment variables, PascalCase classes, camelCase variables and functions, kebab-case files.
 
-## 설치
+A hook blocks wrong shapes; the `node-name-create` skill decides which words to use. Based on npm's package.json `name` rules · the Naming Conventions of the Airbnb JavaScript Style Guide · Node.js and POSIX environment variable conventions.
+
+## Installation
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
 /plugin install node-naming@jaemyeong-hwnag-plugins
 ```
 
-## 의존성
+## Dependencies
 
-없음
+None
 
-## 포함된 스킬
+## Skills
 
-| 스킬 | 트리거 | 설명 |
+| Skill | Trigger | Description |
 |---|---|---|
-| node-name-create | package.json · npm 패키지 이름 · npm script · 환경 변수 이름 · `.js` · `.mjs` | 모양 표와 단어 선택 판단 (환경 변수 접두사 · 모듈 파일과 export · CLI bin · 이벤트 이름) |
-| /node-naming-validate | 직접 호출 | 프로젝트 전체의 `package.json` · JS 파일 · 환경 변수를 검증해 조항별로 보고한다 |
+| node-name-create | package.json · npm package name · npm script · environment variable name · `.js` · `.mjs` | Shape table and word choice (environment variable prefixes · module files and exports · CLI bin · event names) |
+| /node-naming-validate | Invoked directly | Validates `package.json`, JS files and environment variables across the project and reports by rule |
 
-## 포함된 훅
+## Hooks
 
-| 스크립트 | 이벤트 | 동작 |
+| Script | Event | Behavior |
 |---|---|---|
-| validate-node-naming.sh | PreToolUse (Write\|Edit) | `package.json` · `*.js` · `*.mjs` · `*.cjs` · `*.jsx` (와 TS 의 환경 변수) 편집이 **새로 만든** 위반이면 **차단**, 경고 조항은 알림 |
+| validate-node-naming.sh | PreToolUse (Write\|Edit) | **Blocks** an edit to `package.json` · `*.js` · `*.mjs` · `*.cjs` · `*.jsx` (and environment variables in TS) that **introduces** a violation; warning rules are reported as notices |
 
-## 주의
+## Notes
 
-- 훅은 편집 전과 뒤를 비교해 **늘어난 위반만** 막는다. 레거시 파일의 다른 줄을 고칠 때 기존 이름 때문에 막히지 않는다. 기존 위반은 `/node-naming-validate` 로 찾는다
-- TS 파일(`*.ts` · `*.tsx` · `*.mts` · `*.cts`)은 환경 변수(`ND-03`)만 본다. 식별자는 `typescript-naming` 이 맡는다
-- 변수 · 함수는 `let` · `const` · `var` · `function` 선언의 첫 이름만 본다. 메서드 · 객체 속성 · 매개변수 · 구조 분해는 스킬이 판단한다
-- `const { dbHost } = process.env` 처럼 구조 분해로 읽는 환경 변수는 보지 않는다
-- 편집 뒤 `package.json` 이 올바른 JSON 이 아니면 판정하지 않는다
-- `node_modules/` · `dist/` · `build/` · `out/` · `coverage/` · `.next/` · `generated/` · `vendor/`, `*.min.js` 는 보지 않는다
-- `jq` 가 필요하다
+- The hook compares the file before and after the edit and blocks **only added violations**. Editing other lines of a legacy file is not blocked by existing names. Find existing violations with `/node-naming-validate`
+- In TS files (`*.ts` · `*.tsx` · `*.mts` · `*.cts`) only environment variables (`ND-03`) are checked. Identifiers belong to `typescript-naming`
+- For variables and functions, only the first name of a `let` · `const` · `var` · `function` declaration is checked. Methods, object properties, parameters and destructuring are left to the skill
+- Environment variables read via destructuring, like `const { dbHost } = process.env`, are not checked
+- If `package.json` is not valid JSON after the edit, it is not judged
+- `node_modules/` · `dist/` · `build/` · `out/` · `coverage/` · `.next/` · `generated/` · `vendor/` and `*.min.js` are skipped
+- Requires `jq`
 
-## 규칙 요약
+## Rule summary
 
-| 조항 | 대상 | 규칙 | 판정 |
+| Rule | Target | Rule | Verdict |
 |---|---|---|---|
-| `ND-01` | `package.json` 최상위 `name` | npm 규칙 (214자 이하 · 소문자 · `.` `_` 로 시작 X · URL-safe · `@scope/name`) | 차단 |
-| `ND-02` | `package.json` 의 `scripts` 키 | 소문자 · 숫자를 `-` 와 `:` 로 (`test:unit`) | 경고 |
-| `ND-03` | `process.env.NAME` · `process.env['NAME']` | UPPER_SNAKE_CASE (`npm_*` · 프록시 변수 예외) | 차단 |
-| `ND-04` | JS 클래스 | PascalCase | 차단 |
-| `ND-05` | JS `let` · `const` · `var` · `function` | 소문자가 섞인 snake_case 금지 → camelCase | 차단 |
-| `ND-06` | JS 파일 이름 | kebab-case, 또는 export 이름을 딴 camelCase · PascalCase. 밑줄만 경고 | 경고 |
+| `ND-01` | Top-level `name` in `package.json` | npm rules (≤ 214 chars · lowercase · no leading `.` `_` · URL-safe · `@scope/name`) | Blocked |
+| `ND-02` | `scripts` keys in `package.json` | Lowercase and digits joined by `-` and `:` (`test:unit`) | Warning |
+| `ND-03` | `process.env.NAME` · `process.env['NAME']` | UPPER_SNAKE_CASE (exceptions: `npm_*` · proxy variables) | Blocked |
+| `ND-04` | JS class | PascalCase | Blocked |
+| `ND-05` | JS `let` · `const` · `var` · `function` | No snake_case with lowercase → camelCase | Blocked |
+| `ND-06` | JS file name | kebab-case, or camelCase · PascalCase after the export name. Only underscores warned | Warning |
 
-원본: [`references/node-naming-rules.md`](references/node-naming-rules.md)
+Source: [`references/node-naming-rules.md`](references/node-naming-rules.md)
 
-## 사용
+## Usage
 
 ```bash
-scripts/validate-node-naming.sh src package.json     # 파일 · 디렉터리
-scripts/validate-node-naming.sh --all .              # 프로젝트 전체
-test/validate-node-naming.test.sh                    # 회귀 테스트
+scripts/validate-node-naming.sh src package.json     # files · directories
+scripts/validate-node-naming.sh --all .              # whole project
+test/validate-node-naming.test.sh                    # regression tests
 ```
 
-## 변경 이력
+## Changelog
 
-[`CHANGELOG.md`](CHANGELOG.md) 참조.
+See [`CHANGELOG.md`](CHANGELOG.md).

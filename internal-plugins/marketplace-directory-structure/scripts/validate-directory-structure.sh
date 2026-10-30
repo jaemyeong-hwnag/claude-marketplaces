@@ -18,7 +18,8 @@ PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 RULES="$PLUGIN_ROOT/references/directory-structure-rules.md"
 
 # 규칙 원본은 references/directory-structure-rules.md 다. 여기는 그 기계 검증이다.
-PLUGIN_ROOT_FILES="README.md README.ko.md README.zh-CN.md CHANGELOG.md LICENSE .gitignore"
+README_FILES="README.md README.ko.md README.zh-CN.md"
+PLUGIN_ROOT_FILES="$README_FILES CHANGELOG.md LICENSE .gitignore"
 PLUGIN_DIRS=".claude-plugin skills hooks scripts commands references agents test evals"
 MARKETPLACE_FILES="marketplace.json tags.json categories.json plugins.json keywords.json"
 
@@ -115,7 +116,9 @@ validate_plugin_dir() {
 
   manifest="$dir/.claude-plugin/plugin.json"
   [ -r "$manifest" ]        || err "$name: .claude-plugin/plugin.json 이 없습니다 (P-01)"
-  [ -r "$dir/README.md" ]   || err "$name: README.md 가 없습니다 (P-01)"
+  for f in $README_FILES; do
+    [ -r "$dir/$f" ] || err "$name: $f 가 없습니다 (P-01)"
+  done
   [ -r "$dir/CHANGELOG.md" ]|| err "$name: CHANGELOG.md 가 없습니다 (P-01)"
 
   if [ -r "$manifest" ]; then
@@ -183,7 +186,9 @@ validate_marketplace() {
   fi
   jq empty "$root/.claude-plugin/marketplace.json" 2>/dev/null || err "marketplace.json: JSON 파싱 실패"
 
-  [ -r "$root/README.md" ]    || err "마켓플레이스 루트: README.md 가 없습니다 (R-02)"
+  for f in $README_FILES; do
+    [ -r "$root/$f" ] || err "마켓플레이스 루트: $f 가 없습니다 (R-02)"
+  done
   [ -r "$root/CHANGELOG.md" ] || err "마켓플레이스 루트: CHANGELOG.md 가 없습니다 (R-02)"
   [ -r "$root/CLAUDE.md" ]    || warn "마켓플레이스 루트: CLAUDE.md 가 없습니다 (R-05)"
 

@@ -1,88 +1,90 @@
 # domain-document-sync
 
-도메인 지식 문서를 **3계층**(카탈로그 `_index` → 도메인 메타 `_meta` → 개념 concept)으로 두고 코드와 맞춰 둔다 — 언어 · 프레임워크 무관한 코드 분석으로 문서 생성, 필요한 도메인만 읽기, 편집 규약 주입, 코드 변경 시 문서 동기 게이트.
+**English** · [한국어](README.ko.md) · [简体中文](README.zh-CN.md)
 
-어떤 코드가 어느 도메인인지는 스크립트가 아니라 각 도메인의 `_meta.md` 프런트매터 `code:` 글롭이 말한다. 그래서 Java · TypeScript · Python · Go … 무엇이든, 모노레포든 단일 모듈이든 같은 규칙으로 돈다.
+Keeps domain knowledge documents in **3 layers** (catalog `_index` → domain meta `_meta` → concept) and in sync with the code — document generation from language- · framework-agnostic code analysis, reading only the domains needed, editing protocol injection, and a document sync gate on code changes.
+
+Which code belongs to which domain is stated not by a script but by the `code:` globs in each domain's `_meta.md` front matter. So Java · TypeScript · Python · Go … anything, monorepo or single module, runs under the same rules.
 
 ```
 docs/domain/
-  _index.md            # 카탈로그 — 도메인당 1행, 트리거(말 · 식별자 · 경로 · 증상)
+  _index.md            # catalog — 1 row per domain, triggers (words · identifiers · paths · symptoms)
   order/
-    _meta.md           # code: 글롭 · 관계 · 파트 표(언제 어느 파일)
-    entities.md        # concept — 규칙 · 엔티티 · 흐름
+    _meta.md           # code: globs · relations · part table (when to read which file)
+    entities.md        # concept — rules · entities · flows
     flows.md
 ```
 
-## 설치
+## Installation
 
 ```bash
 claude plugin marketplace add jaemyeong-hwnag/claude-marketplaces
 claude plugin install domain-document-sync@jaemyeong-hwnag-plugins --scope project
 ```
 
-설치한 뒤 문서가 없으면 "도메인 문서 만들어줘" 로 `domain-document-create` 를 부른다. 문서 루트가 없는 동안 훅은 아무것도 하지 않는다.
+After installing, if there are no documents, call `domain-document-create` with "Create domain documents". While the document root does not exist, the hooks do nothing.
 
-필요한 것: `git`, `jq`. 없으면 훅이 조용히 통과한다 (fail-open).
+Requires: `git`, `jq`. Without them, the hooks pass silently (fail-open).
 
-## 의존성
+## Dependencies
 
-없음
+None
 
-## 포함된 스킬
+## Skills
 
-| 스킬 | 트리거 | 설명 |
+| Skill | Triggers | Description |
 |---|---|---|
-| domain-document-get | 도메인 규칙 · 어느 도메인 · 영향 도메인 | `_index → _meta → concept` 순으로 필요한 파트만 읽는다 |
-| domain-document-create | 도메인 문서 만들기 · 도메인 정리 · 새 도메인 | 코드베이스를 언어 무관하게 분석해 도메인을 나누고 3계층을 만든다 |
-| domain-document-update | 문서 갱신 · 동기 게이트 차단 | 코드 변경을 concept 에 반영하고 바뀐 경우만 `_meta` · `_index` 를 맞춘다. 면제 절차 |
-| /domain-document-validate | 직접 호출 | 문서 트리 검증 (`D-01` ~ `D-08`) + 도메인별 코드 매핑 |
+| domain-document-get | domain rules · which domain · affected domains | Reads only the needed parts in `_index → _meta → concept` order |
+| domain-document-create | create domain documents · organize domains · new domain | Analyzes the codebase language-agnostically, splits domains, and creates the 3 layers |
+| domain-document-update | update documents · sync gate block | Reflects code changes into concepts and adjusts `_meta` · `_index` only when they changed. Exemption procedure |
+| /domain-document-validate | Invoked directly | Validates the document tree (`D-01` – `D-08`) + code mapping per domain |
 
-## 포함된 훅
+## Hooks
 
-| 스크립트 | 이벤트 | 동작 |
+| Script | Event | Behavior |
 |---|---|---|
-| domain-document-sync.sh session | SessionStart | 문서 루트가 있으면 카탈로그 위치 · 도메인 목록 · 읽기 순서를 **주입**. 7일 지난 상태 파일 정리 |
-| domain-document-sync.sh snapshot | UserPromptSubmit | 요청 시작 때 도메인별 코드 · 문서 지문을 저장하고 지난 면제를 지운다 |
-| domain-document-sync.sh pre-edit | PreToolUse (Edit\|Write\|MultiEdit) | 문서 루트를 고칠 때 3계층 규약을 **주입** (카탈로그 · 메타 · concept · 새 도메인별) |
-| domain-document-sync.sh post-edit | PostToolUse (Edit\|Write\|MultiEdit) | concept 이 300줄을 넘거나(`D-07`) `_meta` 파트 표에 없으면(`D-05`) **알림** |
-| domain-document-sync.sh stop | Stop | 이번 요청에서 코드가 바뀐 도메인에 문서 변경이 없으면 완료를 **차단** (`S-01`). 한 번 되돌린 뒤에는 경고만 |
+| domain-document-sync.sh session | SessionStart | If the document root exists, **injects** the catalog location · domain list · reading order. Cleans up state files older than 7 days |
+| domain-document-sync.sh snapshot | UserPromptSubmit | Saves per-domain code · document fingerprints at request start and clears past exemptions |
+| domain-document-sync.sh pre-edit | PreToolUse (Edit\|Write\|MultiEdit) | When editing the document root, **injects** the 3-layer protocol (per catalog · meta · concept · new domain) |
+| domain-document-sync.sh post-edit | PostToolUse (Edit\|Write\|MultiEdit) | **Notifies** when a concept exceeds 300 lines (`D-07`) or is missing from the `_meta` part table (`D-05`) |
+| domain-document-sync.sh stop | Stop | **Blocks** completion if a domain whose code changed in this request has no document change (`S-01`). After one block, only warns |
 
-## 주의
+## Notes
 
-- `S-01` 은 요청 시작 때의 HEAD 대비 작업 트리(변경 + untracked)로 판정한다. 요청 안에서 커밋해도 잡고, 질문만 한 요청은 막지 않는다. 문서도 이번 요청에서 바뀌어야 한다
-- 프로젝트 아래 워크트리(`.claude/worktrees/{x}` 등)도 그 작업 트리 기준으로 판정한다
-- 상태 · 면제 파일은 프로젝트 `.claude/domain-document-sync/` 에 둔다 — 스스로 ignore 하고, Bash 샌드박스 안에서도 쓸 수 있다
-- 도메인 지식이 그대로인 변경(리팩터 · 테스트 · 포맷)은 사용자에게 알린 뒤 면제한다 — 차단 메시지에 면제 파일 경로가 나온다. 면제는 그 요청에만 유효하다
-- `code:` 를 넓게 쓰면(`src/**`) 모든 변경이 그 도메인 문서를 요구한다. `map` 으로 걸리는 파일 수를 보고 좁힌다
-- 경로는 한글 · 공백이 있어도 된다. 심볼릭 링크로 들어온 프로젝트 경로도 알아본다
-- 설정은 프로젝트 `.claude/settings.json` 의 `env` 에 — `DOMAIN_DOCUMENT_ROOT`(기본 `docs/domain`), `DOMAIN_DOCUMENT_MAX_LINES`(기본 `300`)
+- `S-01` judges by the working tree (changes + untracked) against HEAD at request start. It catches commits made within the request and does not block requests that only asked questions. The documents must also change in this request
+- Worktrees under the project (`.claude/worktrees/{x}` etc.) are also judged against their own working tree
+- State · exemption files live in the project's `.claude/domain-document-sync/` — they ignore themselves and can be written from inside the Bash sandbox
+- Changes that leave domain knowledge unchanged (refactors · tests · formatting) are exempted after telling the user — the block message shows the exemption file path. An exemption is valid only for that request
+- Broad `code:` globs (`src/**`) make every change require that domain's documents. Check the matched file count with `map` and narrow them
+- Paths may contain Korean characters · spaces. Project paths reached through symbolic links are also recognized
+- Configuration goes in `env` of the project's `.claude/settings.json` — `DOMAIN_DOCUMENT_ROOT` (default `docs/domain`), `DOMAIN_DOCUMENT_MAX_LINES` (default `300`)
 
-## 무엇을 막나
+## What it blocks
 
-| | 조항 |
+| | Rules |
 |---|---|
-| 트리 (`validate`) | `D-01` 루트 · `_index.md` · `D-02` 도메인마다 `_meta.md` · `D-03` slug kebab-case · `D-04` 카탈로그 등재 · `D-05` 메타 파트 표 등재 · `D-06` 상대 링크 |
-| 경고 | `D-07` concept 300줄 · `D-08` 걸리는 파일이 없는 `code:` 글롭 |
-| 동기 (Stop 훅) | `S-01` 도메인 코드가 바뀌면 그 도메인 문서도 바뀐다 |
+| Tree (`validate`) | `D-01` root · `_index.md` · `D-02` `_meta.md` per domain · `D-03` kebab-case slug · `D-04` listed in catalog · `D-05` listed in meta part table · `D-06` relative links |
+| Warnings | `D-07` concept 300 lines · `D-08` `code:` glob matching no files |
+| Sync (Stop hook) | `S-01` when a domain's code changes, its documents change too |
 
-## 파일
+## Files
 
-| 경로 | 역할 |
+| Path | Role |
 |---|---|
-| `references/domain-document-rules.md` | 규칙 원본 — 3계층, 조항, `code:` 글롭 문법, 게이트 동작, 읽기 · 쓰기 절차, 설정 |
-| `references/templates.md` | `_index` · `_meta` · concept 골격, concept 나누는 법 |
-| `scripts/domain-document-sync.sh` | 훅 다섯 모드 + CLI `validate` · `map` |
-| `test/` | 회귀 테스트와 TC 명세 |
-| `evals/` | `claude plugin eval` 케이스 — 도메인 조회 순서(`domain-lookup`) · 문서 편집 규약 주입(`edit-protocol-injected`) |
+| `references/domain-document-rules.md` | Source of rules — 3 layers, rules, `code:` glob syntax, gate behavior, read · write procedures, configuration |
+| `references/templates.md` | `_index` · `_meta` · concept skeletons, how to split concepts |
+| `scripts/domain-document-sync.sh` | Five hook modes + CLI `validate` · `map` |
+| `test/` | Regression tests and TC specs |
+| `evals/` | `claude plugin eval` cases — domain lookup order (`domain-lookup`) · document editing protocol injection (`edit-protocol-injected`) |
 
-## 사용
+## Usage
 
 ```bash
-scripts/domain-document-sync.sh validate .   # 문서 트리 검증
-scripts/domain-document-sync.sh map .        # 도메인 → code 글롭 → 걸리는 파일 수
-test/domain-document-sync.test.sh            # 회귀 테스트
+scripts/domain-document-sync.sh validate .   # validate the document tree
+scripts/domain-document-sync.sh map .        # domain → code globs → matched file count
+test/domain-document-sync.test.sh            # regression tests
 ```
 
-## 변경 이력
+## Changelog
 
-[`CHANGELOG.md`](CHANGELOG.md) 참조.
+See [`CHANGELOG.md`](CHANGELOG.md).

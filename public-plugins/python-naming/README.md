@@ -1,62 +1,64 @@
 # python-naming
 
-Python 코드의 이름을 PEP 8 로 강제한다 — 모듈 파일 소문자 snake_case, 클래스 CapWords, 함수·메서드 snake_case, 매개변수·변수 mixedCase 경고, 예외 클래스 Error 접미사.
+**English** · [한국어](README.ko.md) · [简体中文](README.zh-CN.md)
 
-모양은 훅이 막고, 어떤 단어를 쓸지는 `python-name-create` 스킬이 판단한다. 근거는 PEP 8 의 Naming Conventions 절과 pep8-naming(flake8 플러그인)의 `N8xx` 규칙이다.
+Enforces PEP 8 naming on Python code — lowercase snake_case module files, CapWords classes, snake_case functions and methods, warnings for mixedCase parameters and variables, `Error` suffix on exception classes.
 
-## 설치
+A hook blocks wrong shapes; the `python-name-create` skill decides which words to use. Based on the Naming Conventions section of PEP 8 and the `N8xx` rules of pep8-naming (a flake8 plugin).
+
+## Installation
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
 /plugin install python-naming@jaemyeong-hwnag-plugins
 ```
 
-## 의존성
+## Dependencies
 
-없음
+None
 
-## 포함된 스킬
+## Skills
 
-| 스킬 | 트리거 | 설명 |
+| Skill | Trigger | Description |
 |---|---|---|
-| python-name-create | 파이썬 코드 작성 · 모듈 · 클래스 · 함수 · 변수 이름 짓기 | 모양 표와 단어 선택 판단 (줄임말 · 내장 이름 가리기 · 밑줄 접두사 · boolean · 컬렉션 · TypeVar) |
-| /python-naming-validate | 직접 호출 | 프로젝트 전체 `*.py` 를 검증해 조항별로 보고한다 |
+| python-name-create | Writing Python code · naming modules, classes, functions, variables | Shape table and word choice (abbreviations · shadowing builtins · underscore prefixes · boolean · collections · TypeVar) |
+| /python-naming-validate | Invoked directly | Validates every `*.py` in the project and reports by rule |
 
-## 포함된 훅
+## Hooks
 
-| 스크립트 | 이벤트 | 동작 |
+| Script | Event | Behavior |
 |---|---|---|
-| validate-python-naming.sh | PreToolUse (Write\|Edit) | `*.py` 편집이 **새로 만든** 위반이면 **차단**, 경고 조항은 알림 |
+| validate-python-naming.sh | PreToolUse (Write\|Edit) | **Blocks** a `*.py` edit that **introduces** a violation; warning rules are reported as notices |
 
-## 주의
+## Notes
 
-- 훅은 편집 전과 뒤를 비교해 **늘어난 위반만** 막는다. 레거시 파일의 다른 줄을 고칠 때 기존 이름 때문에 막히지 않는다. 기존 위반은 `/python-naming-validate` 로 찾는다
-- 줄 끝 `# noqa` 나 `# noqa: N8xx` 가 있는 줄은 보지 않는다 (pep8-naming 과 같은 탈출구). unittest 의 `setUp` 류 · `visit_X` · `do_GET` · `@override` 가 붙은 메서드는 막지 않는다
-- 문법 트리가 아니라 줄 단위로 읽는다. 매개변수 · 변수 · 예외 클래스는 오탐 가능성이 있어 경고만 한다
-- `venv/` · `.venv/` · `site-packages/` · `__pycache__/` · `build/` · `dist/` · `.tox/` · `.eggs/` · `migrations/` · `alembic/versions/` 는 보지 않는다
-- `jq` 가 필요하다
+- The hook compares the file before and after the edit and blocks **only added violations**. Editing other lines of a legacy file is not blocked by existing names. Find existing violations with `/python-naming-validate`
+- Lines ending with `# noqa` or `# noqa: N8xx` are skipped (the same escape hatch as pep8-naming). unittest's `setUp` family, `visit_X`, `do_GET` and methods decorated with `@override` are not blocked
+- Reads line by line, not a syntax tree. Parameters, variables and exception classes can produce false positives, so they are warnings only
+- `venv/` · `.venv/` · `site-packages/` · `__pycache__/` · `build/` · `dist/` · `.tox/` · `.eggs/` · `node_modules/` · `migrations/` · `alembic/versions/` are skipped
+- Requires `jq`
 
-## 규칙 요약
+## Rule summary
 
-| 조항 | 대상 | 규칙 | 판정 |
+| Rule | Target | Rule | Verdict |
 |---|---|---|---|
-| `PY-01` | 모듈 파일 이름 | 소문자 snake_case (`__init__.py` 허용) | 차단 |
-| `PY-02` | `class` | CapWords (앞 밑줄 허용) | 차단 |
-| `PY-03` | `def` · `async def` | snake_case (앞 밑줄 · dunder · unittest · `visit_X` 허용) | 차단 |
-| `PY-04` | 매개변수 | snake_case — mixedCase 경고 | 경고 |
-| `PY-05` | 대입 대상 | mixedCase 경고 (UPPER_SNAKE 상수 허용) | 경고 |
-| `PY-06` | 예외 클래스 | `Error` 로 끝난다 | 경고 |
+| `PY-01` | Module file name | Lowercase snake_case (`__init__.py` allowed) | Blocked |
+| `PY-02` | `class` | CapWords (leading underscore allowed) | Blocked |
+| `PY-03` | `def` · `async def` | snake_case (leading underscore · dunder · unittest · `visit_X` allowed) | Blocked |
+| `PY-04` | Parameters | snake_case — mixedCase warned | Warning |
+| `PY-05` | Assignment targets | mixedCase warned (UPPER_SNAKE constants allowed) | Warning |
+| `PY-06` | Exception class | Ends with `Error` | Warning |
 
-원본: [`references/python-naming-rules.md`](references/python-naming-rules.md)
+Source: [`references/python-naming-rules.md`](references/python-naming-rules.md)
 
-## 사용
+## Usage
 
 ```bash
-scripts/validate-python-naming.sh app             # 디렉터리
-scripts/validate-python-naming.sh --all .         # 프로젝트 전체
-test/validate-python-naming.test.sh               # 회귀 테스트
+scripts/validate-python-naming.sh app             # directory
+scripts/validate-python-naming.sh --all .         # whole project
+test/validate-python-naming.test.sh               # regression tests
 ```
 
-## 변경 이력
+## Changelog
 
-[`CHANGELOG.md`](CHANGELOG.md) 참조.
+See [`CHANGELOG.md`](CHANGELOG.md).

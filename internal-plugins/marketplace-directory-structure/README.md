@@ -1,94 +1,96 @@
 # marketplace-directory-structure
 
-마켓플레이스 루트와 개별 플러그인의 **디렉터리 구조**를 강제한다.
+**English** · [한국어](README.ko.md) · [简体中文](README.zh-CN.md)
 
-다루는 것은 **무엇을 어디에 두는가** 하나뿐이다. 이름이 올바른지(`plugin-naming`), public 인지 internal 인지와 등록이 맞는지(저장소 `.claude/hooks/`)는 이 플러그인의 관심사가 아니다.
+Enforces the **directory structure** of the marketplace root and of each plugin.
 
-## 설치
+It handles only **what goes where**. Whether a name is correct (`plugin-naming`), and whether a plugin is public or internal and registered correctly (repository `.claude/hooks/`), are not this plugin's concern.
 
-이 저장소에서는 SessionStart 훅(`.claude/hooks/sync-internal-plugins.sh`)이 등록·활성화·설치한다.
-internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 곳에서 쓰려면 `public-plugins/` 로 옮긴다.
+## Installation
 
-## 의존성
+In this repository, the SessionStart hook (`.claude/hooks/sync-internal-plugins.sh`) registers, enables, and installs it.
+As an internal plugin it is not distributed to other repositories. To use it elsewhere, move it to `public-plugins/`.
 
-없음
+## Dependencies
 
-## 포함된 스킬
+None
 
-| 스킬 | 트리거 | 설명 |
+## Skills
+
+| Skill | Trigger | Description |
 |---|---|---|
-| plugin-directory-create | 플러그인 만들기, 구성요소를 어디에 둘지 | 디렉터리 구조 규칙대로 플러그인과 구성요소를 만든다 |
-| /directory-structure-validate | 직접 호출 | 루트와 모든 플러그인의 구조를 검증한다 |
+| plugin-directory-create | Creating a plugin, where to put a component | Creates the plugin and its components following the directory structure rules |
+| /directory-structure-validate | Invoke directly | Validates the structure of the root and every plugin |
 
-## 포함된 훅
+## Hooks
 
-| 스크립트 | 이벤트 | 동작 |
+| Script | Event | Behavior |
 |---|---|---|
-| validate-directory-structure.sh | PreToolUse (Write\|Edit) | 플러그인 안의 경로가 규칙에 없는 위치면 **차단** |
+| validate-directory-structure.sh | PreToolUse (Write\|Edit) | **Blocks** a path inside a plugin that is not an allowed location |
 
-## 파일
+## Files
 
-| 경로 | 역할 |
+| Path | Role |
 |---|---|
-| `references/directory-structure-rules.md` | 구조 규칙 원본. 단일 기준 (`R-0x` 루트 / `P-0x` 플러그인) |
-| `scripts/validate-directory-structure.sh` | 기계 검증. 훅과 CLI 겸용 |
-| `test/` | 회귀 테스트와 TC 명세 |
-| `evals/` | `claude plugin eval` 케이스 — 위치 안내 스킬 발동 · `docs/` 차단. `plugin-workflow` 의 `eval-all.sh` 로 돈다 |
+| `references/directory-structure-rules.md` | Source of the structure rules. Single source of truth (`R-0x` root / `P-0x` plugin) |
+| `scripts/validate-directory-structure.sh` | Mechanical validation. Serves both the hook and the CLI |
+| `test/` | Regression tests and TC specs |
+| `evals/` | `claude plugin eval` cases — location skill trigger · `docs/` blocked. Run by `plugin-workflow`'s `eval-all.sh` |
 
-## 동작
+## Behavior
 
-`Write` / `Edit` 시 경로가 플러그인 안(`public-plugins/<이름>/...` · `internal-plugins/<이름>/...`)이면 **그 위치에 그 파일을 둘 수 있는지** 검사하고, 위반이면 종료 코드 2 로 차단한다.
+On `Write` / `Edit`, if the path is inside a plugin (`public-plugins/<name>/...` · `internal-plugins/<name>/...`), it checks **whether that file may go in that location**; a violation is blocked with exit code 2.
 
-| 경로 | 결과 |
+| Path | Result |
 |---|---|
-| `internal-plugins/order-sync/scripts/run.sh` | 통과 |
-| `internal-plugins/order-sync/hooks/run.sh` | 차단 — `hooks/` 는 매니페스트(`*.json`)만 |
-| `internal-plugins/order-sync/docs/guide.md` | 차단 — 알 수 없는 디렉터리 |
-| `internal-plugins/order-sync/NOTES.md` | 차단 — 루트에는 README·CHANGELOG·LICENSE·.gitignore 만 |
-| `.agent-tasks/order/plan.md` | 반응하지 않음 |
+| `internal-plugins/order-sync/scripts/run.sh` | Pass |
+| `internal-plugins/order-sync/hooks/run.sh` | Blocked — `hooks/` holds manifests (`*.json`) only |
+| `internal-plugins/order-sync/docs/guide.md` | Blocked — unknown directory |
+| `internal-plugins/order-sync/NOTES.md` | Blocked — the root holds only README·README.ko·README.zh-CN·CHANGELOG·LICENSE·.gitignore |
+| `.agent-tasks/order/plan.md` | Ignored |
 
-훅은 **위치만** 본다. 필수 파일이 다 있는지(`README.md`, `CHANGELOG.md`, `SKILL.md` …)는 파일을 하나씩 만드는 도중에는 판정할 수 없으므로 CLI 전체 검사에서 본다.
+The hook checks **location only**. Whether all required files exist (`README.md`, `CHANGELOG.md`, `SKILL.md` …) cannot be judged while files are being created one by one, so the full CLI check covers it.
 
 ## CLI
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/scripts/validate-directory-structure.sh" --all .            # 루트 + 모든 플러그인
-"${CLAUDE_PLUGIN_ROOT}/scripts/validate-directory-structure.sh" --marketplace .    # 루트만
+"${CLAUDE_PLUGIN_ROOT}/scripts/validate-directory-structure.sh" --all .            # root + all plugins
+"${CLAUDE_PLUGIN_ROOT}/scripts/validate-directory-structure.sh" --marketplace .    # root only
 "${CLAUDE_PLUGIN_ROOT}/scripts/validate-directory-structure.sh" internal-plugins/order-sync
 "${CLAUDE_PLUGIN_ROOT}/scripts/validate-directory-structure.sh" internal-plugins/order-sync/docs/guide.md
 ```
 
-종료 코드: `0` 통과 / `2` 위반 / `1` 실행 오류.
+Exit codes: `0` pass / `2` violation / `1` execution error.
 
-## 규칙 요약
+## Rule summary
 
-충돌하면 [`references/directory-structure-rules.md`](references/directory-structure-rules.md) 가 우선한다.
+On conflict, [`references/directory-structure-rules.md`](references/directory-structure-rules.md) wins.
 
-플러그인 루트: `.claude-plugin/plugin.json` · `README.md` · `CHANGELOG.md` 는 필수. 번역 `README.ko.md` · `README.zh-CN.md` 를 둘 수 있다.
+Plugin root: `.claude-plugin/plugin.json` · `README.md` · `README.ko.md` · `README.zh-CN.md` · `CHANGELOG.md` are required. The only files allowed at the root are `README.md` · `README.ko.md` · `README.zh-CN.md` · `CHANGELOG.md` · `LICENSE` · `.gitignore`.
 
-| 디렉터리 | 둘 수 있는 것 |
+| Directory | Allowed |
 |---|---|
 | `.claude-plugin/` | `plugin.json` |
-| `skills/` | `{skill-name}/SKILL.md` (디렉터리 안쪽은 자유) |
+| `skills/` | `{skill-name}/SKILL.md` (anything inside the directory) |
 | `hooks/` | `*.json` |
 | `scripts/` | `*.sh` |
 | `commands/` | `*.md` |
 | `references/` | `*.md` `*.json` |
 | `agents/` | `*.md` |
 | `test/` | `*.test.sh` `README.md` |
-| `evals/` | `{case-name}/` 디렉터리. 그 안은 Claude Code eval 형식(`prompt.md` · `graders/*.md` · `case.yaml` · 픽스처)을 따르므로 자유 |
+| `evals/` | `{case-name}/` directories. Their contents follow the Claude Code eval format (`prompt.md` · `graders/*.md` · `case.yaml` · fixtures), so anything goes |
 
-마켓플레이스 루트: `.claude-plugin/marketplace.json` · `README.md` · `CHANGELOG.md` 필수, `.claude-plugin/` 에는 `marketplace.json` `tags.json` `categories.json` `plugins.json` `keywords.json` 만, 플러그인은 `public-plugins/<이름>/` · `internal-plugins/<이름>/` 바로 아래에만.
+Marketplace root: `.claude-plugin/marketplace.json` · `README.md` · `README.ko.md` · `README.zh-CN.md` · `CHANGELOG.md` required; `.claude-plugin/` holds only `marketplace.json` `tags.json` `categories.json` `plugins.json` `keywords.json`; plugins go directly under `public-plugins/<name>/` · `internal-plugins/<name>/` only.
 
-## 테스트
+## Tests
 
 ```bash
-test/validate-directory-structure.test.sh          # 전체
-test/validate-directory-structure.test.sh TC-D1    # ID 접두사로 필터
+test/validate-directory-structure.test.sh          # all
+test/validate-directory-structure.test.sh TC-D1    # filter by ID prefix
 ```
 
-TC 명세는 [`test/README.md`](test/README.md).
+TC specs: [`test/README.md`](test/README.md).
 
-## 변경 이력
+## Changelog
 
-[`CHANGELOG.md`](CHANGELOG.md) 참조.
+See [`CHANGELOG.md`](CHANGELOG.md).

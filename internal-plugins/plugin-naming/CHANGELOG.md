@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.17.1
+
+### Changed
+- README 를 영어(기본) `README.md` · 한국어 `README.ko.md` · 중국어 간체 `README.zh-CN.md` 로 나눴다 (#229)
+
+### Fixed
+- README 서술 2건을 코드에 맞췄다 — 전수 검토 (#229)
+
 ## 0.17.0
 
 ### Changed

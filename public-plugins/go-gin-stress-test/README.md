@@ -1,68 +1,70 @@
 # go-gin-stress-test
 
-Go · Gin 서버를 부하 측정할 때 프레임워크 몫을 맡는다 — Prometheus 지연 히스토그램 · in-flight · 런타임 계측, 측정을 무효로 만드는 설정(debug 모드 · `-race` 빌드 · pprof 공개 · GOMAXPROCS 고정) 탐지, GOMAXPROCS · GOMEMLIMIT · 서버 타임아웃 · DB 풀 손잡이 점검, `go test -bench` · `benchstat` 마이크로벤치마크.
+**English** · [한국어](README.ko.md) · [简体中文](README.zh-CN.md)
 
-부하 모델 · 판정 통계 · 대상 호스트 안전은 `common-stress-test` 가 맡는다. 근거는 Gin 소스(`mode.go` · `gin.go` · `render/html.go`) · Go 1.25 릴리스 노트 · GODEBUG 문서 · `net/http` · `database/sql` · `net/http/pprof` 문서 · Go GC 가이드 · race detector 문서 · Prometheus "Histograms and summaries" · client_golang 소스 · benchstat 문서다.
+Handles the framework's share when load-testing a Go · Gin server — Prometheus latency histogram · in-flight · runtime instrumentation, detection of settings that invalidate a measurement (debug mode · `-race` build · exposed pprof · pinned GOMAXPROCS), GOMAXPROCS · GOMEMLIMIT · server timeout · DB pool knob checks, `go test -bench` · `benchstat` microbenchmarks.
 
-## 설치
+Load model · verdict statistics · target host safety belong to `common-stress-test`. Evidence: Gin source (`mode.go` · `gin.go` · `render/html.go`) · Go 1.25 release notes · GODEBUG docs · `net/http` · `database/sql` · `net/http/pprof` docs · Go GC guide · race detector docs · Prometheus "Histograms and summaries" · client_golang source · benchstat docs.
+
+## Installation
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
 /plugin install go-gin-stress-test@jaemyeong-hwnag-plugins
 ```
 
-## 의존성
+## Dependencies
 
-- `common-stress-test` — 부하 스크립트 작성(`stress-test-create`) · 결과 판정(`stress-result-review`) · 대상 호스트 안전
+- `common-stress-test` — writing load scripts (`stress-test-create`) · judging results (`stress-result-review`) · target host safety
 
-## 포함된 스킬
+## Skills
 
-| 스킬 | 트리거 | 설명 |
+| Skill | Trigger | Description |
 |---|---|---|
-| gin-stress-test-apply | Gin 부하 테스트 · golang 성능 · GIN_MODE · pprof · GOMAXPROCS · benchstat | 무효 설정 제거 → 서버 측 계측 → 손잡이 기록 → 마이크로벤치마크 |
+| gin-stress-test-apply | Gin load test · golang performance · GIN_MODE · pprof · GOMAXPROCS · benchstat | Remove invalidating settings → server-side instrumentation → record knobs → microbenchmarks |
 
-## 포함된 훅
+## Hooks
 
-| 스크립트 | 이벤트 | 동작 |
+| Script | Event | Behavior |
 |---|---|---|
-| gin-stress-config-validate.sh | PreToolUse (Bash) | 부하 도구 실행(`k6 run` · `locust` · `jmeter` · `gatling` · `wrk` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `autocannon` · `docker run … grafana/k6`)일 때만 프로젝트를 검사해 **경고**로 알린다. 막지 않는다 |
+| gin-stress-config-validate.sh | PreToolUse (Bash) | Only when running a load tool (`k6 run` · `k6 cloud` · `locust` · `jmeter` · `gatling` · `wrk` · `wrk2` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `autocannon`, `docker run` · compose with those images, the gatling task of `mvn` · `gradle`), checks the project and reports **warnings**. Does not block |
 
-## 주의
+## Notes
 
-- 줄 단위로 본다. 문법 분석기가 없어 `//` 로 시작하는 줄만 주석으로 빼고, 블록 주석 · 문자열 안의 코드처럼 보이는 글자도 읽는다
-- 환경 변수는 `Dockerfile*` · `Containerfile*` · `*.yml` · `*.yaml` · `.env*` 에서만 읽는다. Helm 템플릿 · 코드에서 조합한 값 · 실행 인자는 보지 않는다 — 떠 있는 프로세스의 `/metrics` 로 확인한다
-- `_test.go` · `vendor/` · `testdata/` 는 보지 않는다. `go test -race` 는 대상이 아니다
-- 이름에 `dev` · `local` · `test` 가 단어로 든 파일(`.env.local` · `docker-compose.dev.yml`)과 CI 파일(`.github/` · `.gitlab-ci.yml`)은 보지 않는다
-- pprof 주소가 변수면 루프백인지 알 수 없어 경고로 낮춘다
-- `jq` 가 필요하다 (훅 모드)
+- Reads line by line. With no parser, only lines starting with `//` are treated as comments; block comments · code-like text inside strings are read too
+- Environment variables are read only from `Dockerfile*` · `Containerfile*` · `*.yml` · `*.yaml` · `.env*`. Helm templates · values assembled in code · runtime arguments are not read — check `/metrics` of the running process
+- `_test.go` · `vendor/` · `testdata/` are skipped. `go test -race` is out of scope
+- Files whose name contains the word `dev` · `local` · `test` (`.env.local` · `docker-compose.dev.yml`) and CI files (`.github/` · `.gitlab-ci.yml`) are skipped
+- If the pprof address is a variable, loopback cannot be determined, so it is lowered to a warning
+- Requires `jq` (hook mode)
 
-## 규칙 요약
+## Rule summary
 
-| 조항 | 규칙 | 판정 |
+| Clause | Rule | Verdict |
 |---|---|---|
-| `GIN-01` | debug 모드로 띄우지 않는다 | 차단 |
-| `GIN-02` | release 모드를 어딘가에서 지정한다 | 경고 |
-| `GIN-03` | 요청마다 접근 로그(`gin.Default` · `gin.Logger`)는 운영과 같을 때만 | 경고 |
-| `GIN-04` | pprof 를 공개 주소에 열지 않는다 | 차단 / 경고 |
-| `GIN-05` | `-race` 빌드로 부하를 재지 않는다 | 차단 / 경고 |
-| `GIN-06` | `GOMAXPROCS` 를 손으로 고정하지 않는다 | 경고 |
-| `GIN-07` | 컨테이너 배포면 `go.mod` 의 `go` ≥ 1.25 | 경고 |
-| `GIN-08` | 앱 서버는 타임아웃 있는 `http.Server` | 경고 |
-| `GIN-09` | `SetMaxOpenConns` · `SetMaxIdleConns` 를 둔다 | 경고 |
-| `GIN-10` | 지연은 Histogram 으로 (Summary `Objectives` X) | 경고 |
-| `GIN-11` | 메트릭 라벨에 원시 경로 X → `c.FullPath()` | 경고 |
-| `GIN-12` | GC 를 끄면 `GOMEMLIMIT` 도 | 경고 |
-| `GIN-20` ~ `GIN-26` | 풀 크기 · 메모리 한도 · 프로파일 · Little · 마이크로벤치마크 · 요청당 CPU | AI 판단 |
+| `GIN-01` | Do not start in debug mode | Block |
+| `GIN-02` | Set release mode somewhere | Warning |
+| `GIN-03` | Per-request access logs (`gin.Default` · `gin.Logger`) only when same as production | Warning |
+| `GIN-04` | Do not open pprof on a public address | Block / Warning |
+| `GIN-05` | Do not measure load with a `-race` build | Block / Warning |
+| `GIN-06` | Do not pin `GOMAXPROCS` by hand | Warning |
+| `GIN-07` | For container deployments, `go` in `go.mod` ≥ 1.25 | Warning |
+| `GIN-08` | App servers use `http.Server` with timeouts | Warning |
+| `GIN-09` | Set `SetMaxOpenConns` · `SetMaxIdleConns` | Warning |
+| `GIN-10` | Latency as Histogram (not Summary `Objectives`) | Warning |
+| `GIN-11` | No raw paths in metric labels → `c.FullPath()` | Warning |
+| `GIN-12` | If GC is off, also set `GOMEMLIMIT` | Warning |
+| `GIN-20` ~ `GIN-26` | Pool size · memory limit · profiles · Little · microbenchmarks · CPU per request | AI judgment |
 
-원본: [`references/gin-stress-rules.md`](references/gin-stress-rules.md)
+Source: [`references/gin-stress-rules.md`](references/gin-stress-rules.md)
 
-## 사용
+## Usage
 
 ```bash
-scripts/gin-stress-config-validate.sh .          # 프로젝트 검사 — 종료 2 면 차단 조항 위반
-test/gin-stress-config-validate.test.sh          # 회귀 테스트
+scripts/gin-stress-config-validate.sh .          # check the project — exit 2 means a blocking clause was violated
+test/gin-stress-config-validate.test.sh          # regression tests
 ```
 
-## 변경 이력
+## Changelog
 
-[`CHANGELOG.md`](CHANGELOG.md) 참조.
+See [`CHANGELOG.md`](CHANGELOG.md).

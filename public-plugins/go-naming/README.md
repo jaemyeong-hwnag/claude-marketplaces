@@ -1,62 +1,64 @@
 # go-naming
 
-Go 코드의 이름을 Go 컨벤션으로 강제한다 — 패키지 소문자 한 단어, 함수·타입·변수·상수·필드 MixedCaps(밑줄 금지), 이니셜리즘 대문자, 게터 `Get` 생략, 파일 이름 소문자, 리시버 짧은 약자.
+**English** · [한국어](README.ko.md) · [简体中文](README.zh-CN.md)
 
-모양은 훅이 막고, 어떤 단어를 쓸지는 `go-name-create` 스킬이 판단한다. 근거는 Effective Go 의 Names 절 · Go Code Review Comments · Go 블로그 "Package names" · staticcheck ST1003 이다.
+Enforces Go naming conventions on Go code — single lowercase word packages, MixedCaps for functions, types, variables, constants and fields (no underscores), uppercase initialisms, no `Get` on getters, lowercase file names, short receiver names.
 
-## 설치
+A hook blocks wrong shapes; the `go-name-create` skill decides which words to use. Based on the Names section of Effective Go · Go Code Review Comments · the Go blog post "Package names" · staticcheck ST1003.
+
+## Installation
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
 /plugin install go-naming@jaemyeong-hwnag-plugins
 ```
 
-## 의존성
+## Dependencies
 
-없음
+None
 
-## 포함된 스킬
+## Skills
 
-| 스킬 | 트리거 | 설명 |
+| Skill | Trigger | Description |
 |---|---|---|
-| go-name-create | Go 코드 작성 · 패키지 · 함수 · 타입 · 리시버 이름 짓기 | 모양 표와 단어 선택 판단 (패키지 이름 반복 · `-er` 인터페이스 · 짧은 지역 변수 · 공개 여부) |
-| /go-naming-validate | 직접 호출 | 프로젝트 전체 `*.go` 를 검증해 조항별로 보고한다 |
+| go-name-create | Writing Go code · naming packages, functions, types, receivers | Shape table and word choice (package name stutter · `-er` interfaces · short local variables · exported or not) |
+| /go-naming-validate | Invoked directly | Validates every `*.go` in the project and reports by rule |
 
-## 포함된 훅
+## Hooks
 
-| 스크립트 | 이벤트 | 동작 |
+| Script | Event | Behavior |
 |---|---|---|
-| validate-go-naming.sh | PreToolUse (Write\|Edit) | `*.go` 편집이 **새로 만든** 위반이면 **차단**, 경고 조항은 알림 |
+| validate-go-naming.sh | PreToolUse (Write\|Edit) | **Blocks** a `*.go` edit that **introduces** a violation; warning rules are reported as notices |
 
-## 주의
+## Notes
 
-- 훅은 편집 전과 뒤를 비교해 **늘어난 위반만** 막는다. 레거시 파일의 다른 줄을 고칠 때 기존 이름 때문에 막히지 않는다. 기존 위반은 `/go-naming-validate` 로 찾는다
-- 문법 분석기 없이 줄 단위로 본다. 지역 변수 · 매개변수 · `:=` 는 보지 않고, 한 줄에 쓴 구조체(`struct{ A_b int }`)의 필드도 보지 않는다
-- 상수도 MixedCaps 다 — `MAX_SIZE` 는 막힌다 (`MaxSize`). cgo · syscall 상수처럼 C 이름을 따라야 하면 생성 파일로 두거나 기존 파일에 둔다
-- `vendor/` · `testdata/` 와 `// Code generated ... DO NOT EDIT.` 표시가 있는 파일은 보지 않는다
-- `jq` 가 필요하다
+- The hook compares the file before and after the edit and blocks **only added violations**. Editing other lines of a legacy file is not blocked by existing names. Find existing violations with `/go-naming-validate`
+- Reads line by line without a parser. Local variables, parameters and `:=` are not checked, nor fields of a struct written on one line (`struct{ A_b int }`)
+- Constants are MixedCaps too — `MAX_SIZE` is blocked (`MaxSize`). If you must follow C names, as with cgo · syscall constants, keep them in a generated file or an existing file
+- `vendor/` · `testdata/` · `node_modules/` and files marked `// Code generated ... DO NOT EDIT.` are skipped
+- Requires `jq`
 
-## 규칙 요약
+## Rule summary
 
-| 조항 | 대상 | 규칙 | 판정 |
+| Rule | Target | Rule | Verdict |
 |---|---|---|---|
-| `GO-01` | `package` 이름 | 소문자 한 단어 (`_test` 접미사 허용) | 차단 |
-| `GO-02` | 함수 · 메서드 · 타입 · 최상위 var/const · 구조체 필드 | 밑줄 없는 MixedCaps (`_test.go` 의 `Test*` 등 허용) | 차단 |
-| `GO-03` | 이름 안의 이니셜리즘 | `userID` · `HTTPClient` (`userId` X) | 경고 |
-| `GO-04` | 매개변수 없는 `GetX()` 메서드 | 게터에 `Get` 을 붙이지 않는다 (`Owner()`) | 경고 |
-| `GO-05` | 파일 이름 | 소문자 · 숫자 · 밑줄 (`order_service.go`) | 경고 |
-| `GO-06` | 메서드 리시버 | `this` · `self` X → `func (o *Order)` | 경고 |
+| `GO-01` | `package` name | Single lowercase word (`_test` suffix allowed) | Blocked |
+| `GO-02` | Function · method · type · top-level var/const · struct field | MixedCaps without underscores (`Test*` etc. in `_test.go` allowed) | Blocked |
+| `GO-03` | Initialisms in names | `userID` · `HTTPClient` (not `userId`) | Warning |
+| `GO-04` | `GetX()` method with no parameters | No `Get` on getters (`Owner()`) | Warning |
+| `GO-05` | File name | Lowercase · digits · underscores (`order_service.go`) | Warning |
+| `GO-06` | Method receiver | Not `this` · `self` → `func (o *Order)` | Warning |
 
-원본: [`references/go-naming-rules.md`](references/go-naming-rules.md)
+Source: [`references/go-naming-rules.md`](references/go-naming-rules.md)
 
-## 사용
+## Usage
 
 ```bash
-scripts/validate-go-naming.sh ./internal     # 디렉터리
-scripts/validate-go-naming.sh --all .        # 프로젝트 전체
-test/validate-go-naming.test.sh              # 회귀 테스트
+scripts/validate-go-naming.sh ./internal     # directory
+scripts/validate-go-naming.sh --all .        # whole project
+test/validate-go-naming.test.sh              # regression tests
 ```
 
-## 변경 이력
+## Changelog
 
-[`CHANGELOG.md`](CHANGELOG.md) 참조.
+See [`CHANGELOG.md`](CHANGELOG.md).

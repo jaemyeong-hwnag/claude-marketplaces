@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.6.0
+
+### Changed
+- README 세 언어 `README.md`(영어, 기본) · `README.ko.md` · `README.zh-CN.md` 를 필수로 본다 — 플러그인 루트(`P-01`) · 마켓플레이스 루트(`R-02`). 번역이 하나라도 없으면 막는다 (#229)
+- README 를 영어 · 한국어 · 중국어 간체로 나눴다 (#229)
+
 ## 0.5.0
 
 ### Added

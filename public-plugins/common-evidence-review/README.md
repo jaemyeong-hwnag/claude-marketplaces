@@ -1,98 +1,100 @@
 # common-evidence-review
 
-AI 가 한 변경과 주장이 진짜 필요한지 · 맞는지를 작성 맥락 없는 검증자가 실행 근거로 판정한다 — 결론을 뺀 열린 질문만 넘김, 근거 먼저 · 없으면 판정 불가, 버그 주장은 수정 전 실패 · 후 통과 재현, 테스트 약화(skip · 단언 감소) 알림, 코드를 고치고 검증 없이 끝내면 한 번 되돌림.
+**English** · [한국어](README.ko.md) · [简体中文](README.zh-CN.md)
 
-작성한 모델이 자기 결과를 다시 읽는 것은 검증이 되지 않는다. 그리고 검증자에게 작성자의 결론을 보여 주면 판정이 그쪽으로 끌린다. 그래서 검증은 다른 문맥이 하고, 검증자는 결론을 받지 않는다.
+A verifier with no authoring context judges, from execution evidence, whether the AI's changes and claims are really needed and correct — it receives only open questions with the conclusion removed, evidence comes first and none means undecidable, bug claims are reproduced as failing before the fix and passing after, test weakening (skip · fewer assertions) is flagged, and ending after editing code without verification is turned back once.
 
-| 층 | 언제 | 하는 것 |
+A model re-reading its own output is not verification. And showing the verifier the author's conclusion pulls the verdict toward it. So verification runs in a different context, and the verifier never receives the conclusion.
+
+| Layer | When | What it does |
 |---|---|---|
-| 1. 기계 검사 | 테스트 파일을 고칠 때마다 | skip · focus 표지가 늘거나 단언이 줄면 알린다 (`E-20`) |
-| 2. 독립 판정 | 리뷰할 때 | 요청 원문 · 바뀐 파일 · 결론 없는 질문만 받은 검증자가 변경마다 필요성 · 정확성을 판정한다 (`E-01` ~ `E-11`) |
-| 3. 완료 게이트 | 요청이 끝날 때 | 코드 · 설정을 고쳤는데 2층을 건너뛰었으면 한 번 되돌린다 (`E-30`) |
+| 1. Mechanical check | Every time a test file is edited | Flags when skip · focus markers increase or assertions decrease (`E-20`) |
+| 2. Independent verdict | On review | A verifier that receives only the original request · changed files · conclusion-free questions judges each change for necessity · correctness (`E-01` ~ `E-11`) |
+| 3. Completion gate | When a request ends | If code · config was changed and layer 2 was skipped, turns the stop back once (`E-30`) |
 
-## 설치
+## Installation
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
 /plugin install common-evidence-review@jaemyeong-hwnag-plugins
 ```
 
-## 의존성
+## Dependencies
 
-없음
+None
 
-## 포함된 스킬
+## Skills
 
-| 스킬 | 트리거 | 설명 |
+| Skill | Trigger | Description |
 |---|---|---|
-| evidence-review | 진짜 필요해? · 사실확인 · 검증해줘 · 맞는지 확인 · 불필요한 변경 | 주장을 결론 없는 열린 질문으로 바꿔 검증자에게 넘기고, 판정대로 고침 · 되돌림 · `미확인` 표시를 한다. 재검증 2회 상한 |
-| /evidence-validate | 직접 호출 | 기본 브랜치 대비 변경에서 테스트 약화 신호(`E-20`)를 찾는다. `--strict` 면 신호가 있을 때 exit 2 |
+| evidence-review | Is this really needed? · fact-check · verify this · check if it's right · unnecessary change | Turns claims into conclusion-free open questions for the verifier, then fixes · reverts · marks `미확인` (unverified) per the verdict. Re-verification capped at 2 |
+| /evidence-validate | Manual | Finds test-weakening signals (`E-20`) in changes against the default branch and in untracked files. With `--strict`, exits 2 when there are signals |
 
-## 포함된 에이전트
+## Agents
 
-| 에이전트 | 설명 |
+| Agent | Description |
 |---|---|
-| evidence-reviewer | 요청 원문 · 바뀐 파일 · 질문만 받는다. 변경마다 필요성(`필요함` · `불필요함` · `판정 불가`)과 정확성(`맞음` · `틀림` · `판정 불가`)을 근거 → 판정 순으로 낸다. 코드를 고치지 않고, 수정 전 동작은 임시 워크트리에서 돌린다 |
+| evidence-reviewer | Receives only the original request · changed files · questions. For each change, gives necessity (`필요함` needed · `불필요함` unneeded · `판정 불가` undecidable) and correctness (`맞음` correct · `틀림` wrong · `판정 불가` undecidable), evidence first, then verdict. Does not modify code; runs pre-change behavior in a temporary worktree |
 
-## 포함된 훅
+## Hooks
 
-| 스크립트 | 이벤트 | 동작 |
+| Script | Event | Behavior |
 |---|---|---|
-| evidence-validate.sh | UserPromptSubmit | 요청 원문을 기록한다. 게이트가 검증자에게 넘길 기준이다 |
-| evidence-validate.sh | PostToolUse (Write\|Edit\|MultiEdit) | 바꾼 파일 · 줄 수를 기록하고, 테스트 파일이면 `E-20` 신호를 **알린다** |
-| evidence-validate.sh | PostToolUse (Agent\|Task) | `evidence-reviewer` 가 동기로 끝나면 검증함, 백그라운드로 뜨면 검증 중으로 표시한다 |
-| evidence-validate.sh | SubagentStop | 백그라운드 `evidence-reviewer` 가 끝나면 검증함으로 표시한다 |
-| evidence-validate.sh | Stop | 코드 · 설정을 고쳤는데 검증하지 않았으면 종료를 한 번 되돌린다 (`E-30`). 되돌림 메시지에 바꾼 파일 · 요청 기록 · 최종 답의 주장 후보를 넣는다 |
+| evidence-validate.sh | UserPromptSubmit | Records the original request. This is the baseline the gate hands to the verifier |
+| evidence-validate.sh | PostToolUse (Write\|Edit\|MultiEdit) | Records changed files · line counts, and **flags** `E-20` signals for test files |
+| evidence-validate.sh | PostToolUse (Agent\|Task) | Marks verified when `evidence-reviewer` finishes synchronously, or verifying when it launches in the background |
+| evidence-validate.sh | SubagentStop | Marks verified when a background `evidence-reviewer` finishes |
+| evidence-validate.sh | Stop | If code · config was changed without verification, turns the stop back once (`E-30`). The message includes changed files · the request record · claim candidates from the final answer. Does not block while a background `evidence-reviewer` is verifying |
 
-## 주의
+## Notes
 
-- **검증자에게 작성자의 이유 · 요약 · 커밋 메시지를 넘기지 않는다.** "무시하라" 고 덧붙여도 판정이 끌린다.
-- 검증자는 `sonnet` 으로 돈다. 작성자와 다른 모델이면 자기 선호 편향이 줄어든다.
-- 검증자는 테스트 · 스크립트를 실행한다. 프로젝트 명령을 돌릴 수 있는 권한이 있어야 판정이 `판정 불가` 로 빠지지 않는다.
-- `불필요함` 은 "요청 문장에 대응하지 않고 되돌려도 깨지는 것이 없다" 는 뜻이다. 사용자가 원했을 수 있는 변경이면 스킬이 되돌리기 전에 묻는다.
-- 완료 게이트
-  - 한 요청에서 프로젝트 안 코드 · 설정을 3줄 이상 바꿨을 때만 돈다. `EVIDENCE_REVIEW_MIN_LINES` 로 바꾼다.
-  - 문서(`.md` 등)는 세지 않는다 — `common-document-slop-review` 의 몫이다. `requirements.txt` · `CMakeLists.txt` 같은 설정은 센다.
-  - Bash 로 바꾼 파일은 훅이 보지 못한다.
-  - 한 요청에서 두 번 막지 않는다. 다만 검증 뒤에 또 고치면 그 편집으로 다시 판정한다. 끄려면 `EVIDENCE_REVIEW_GATE=0`
-- `E-20` 은 알림이다. 테스트를 일부러 바꾼 것일 수 있어서 막지 않는다.
-- 스크립트는 bash · jq · grep 을 쓰고, `--diff` 에는 git 을 쓴다. jq 가 없으면 훅은 조용히 통과한다.
+- **Do not pass the author's reasons · summary · commit message to the verifier.** Adding "ignore this" still pulls the verdict.
+- The verifier runs on `sonnet`. A model different from the author reduces self-preference bias.
+- The verifier runs tests · scripts. It needs permission to run project commands, or verdicts fall to `판정 불가` (undecidable).
+- `불필요함` (unneeded) means "it does not correspond to any sentence of the request, and reverting it breaks nothing". If the user may have wanted the change, the skill asks before reverting.
+- Completion gate
+  - Runs only when a request changed 3 or more lines of code · config inside the project. Change with `EVIDENCE_REVIEW_MIN_LINES`.
+  - Docs (`.md` etc.) are not counted — that is `common-document-slop-review`'s job. Config such as `requirements.txt` · `CMakeLists.txt` is counted.
+  - Files changed via Bash are invisible to the hook.
+  - Does not block twice in one request. But editing again after verification re-judges on that edit. Disable with `EVIDENCE_REVIEW_GATE=0`
+- `E-20` is a notice. It does not block, since the test may have been changed on purpose.
+- The script uses bash · jq · grep, and git for `--diff`. Without jq the hook passes silently.
 
-## 규칙 요약
+## Rule summary
 
-| 조항 | 내용 | 판정 |
+| Clause | Content | Verdict |
 |---|---|---|
-| `E-01` ~ `E-03` | 다른 문맥이 검증 · 결론을 넘기지 않음 · 주장은 열린 질문으로 | AI (스킬) |
-| `E-04` ~ `E-09` | 근거 먼저 · 필요성 · 정확성 · 버그는 재현으로 · 테스트 자체 검사 · 지어낸 지적 금지 | AI (에이전트) |
-| `E-10` | 검증자는 작업 트리를 바꾸지 않음 | AI (에이전트) |
-| `E-11` | 틀림은 고침 · 불필요함은 되돌림 · 판정 불가는 `미확인` · 재검증 2회 | AI (스킬) |
-| `E-20` | 테스트 파일의 skip · focus 표지 증가 · 단언 감소 | 알림 |
-| `E-30` | 코드 · 설정을 고친 요청이 검증 없이 끝나면 한 번 되돌림 | 게이트 |
+| `E-01` ~ `E-03` | Verify in another context · do not pass the conclusion · claims become open questions | AI (skill) |
+| `E-04` ~ `E-09` | Evidence first · necessity · correctness · bugs by reproduction · inspect the tests themselves · no invented findings | AI (agent) |
+| `E-10` | The verifier does not change the working tree | AI (agent) |
+| `E-11` | Wrong → fix · unneeded → revert · undecidable → `미확인` · re-verify up to 2 times | AI (skill) |
+| `E-20` | Increase of skip · focus markers · decrease of assertions in test files | Notice |
+| `E-30` | A request that changed code · config and ends without verification is turned back once | Gate |
 
-원본: [`references/evidence-rules.md`](references/evidence-rules.md) · 근거: [`references/evidence-methods.md`](references/evidence-methods.md)
+Source: [`references/evidence-rules.md`](references/evidence-rules.md) · Evidence: [`references/evidence-methods.md`](references/evidence-methods.md)
 
-## 사용
+## Usage
 
 ```bash
-scripts/evidence-validate.sh --diff            # 기본 브랜치 대비 테스트 약화 신호
-scripts/evidence-validate.sh --diff --strict   # 신호가 있으면 exit 2 (CI)
-test/evidence-validate.test.sh                 # 회귀 테스트
+scripts/evidence-validate.sh --diff            # test-weakening signals against the default branch
+scripts/evidence-validate.sh --diff --strict   # exit 2 if there are signals (CI)
+test/evidence-validate.test.sh                 # regression tests
 ```
 
-## 근거
+## Evidence
 
-| 조항 | 근거 |
+| Clause | Evidence |
 |---|---|
-| 자기 검증 무효 | Huang et al. ICLR 2024 · Kamoi et al. TACL 2024 · Self-Correction Bench |
-| 결론을 넘기지 않음 | 앵커링 CIKM 2026 · 보안 코드 리뷰 맥락 편향 · Chain-of-Verification · sycophancy |
-| 근거 먼저 · 판정 불가 | CRITIC · Wang et al. ACL 2024 · Anthropic evals |
-| 필요성 분리 | 과잉 편집 EMNLP 2026 · "Solved Issues" ICSE 2026 |
-| 재현 | SWT-Bench · Agentless · SWE-Doctor · Refute-or-Promote |
-| 테스트 약화 | ImpossibleBench · SWE-Bench+ · Anthropic 장기 실행 하네스 |
-| 검증자 하나 | 다중 에이전트 토론 비교 연구 (ICML 2024 · NeurIPS 2025) |
+| Self-verification is invalid | Huang et al. ICLR 2024 · Kamoi et al. TACL 2024 · Self-Correction Bench |
+| Do not pass the conclusion | Anchoring CIKM 2026 · contextual bias in security code review · Chain-of-Verification · sycophancy |
+| Evidence first · undecidable | CRITIC · Wang et al. ACL 2024 · Anthropic evals |
+| Separate necessity | Over-editing EMNLP 2026 · "Solved Issues" ICSE 2026 |
+| Reproduction | SWT-Bench · Agentless · SWE-Doctor · Refute-or-Promote |
+| Test weakening | ImpossibleBench · SWE-Bench+ · Anthropic long-running agent harness |
+| A single verifier | Comparative studies of multi-agent debate (ICML 2024 · NeurIPS 2025) |
 
-각 항목의 출처 · 확인 수준은 `references/evidence-methods.md` 에 있다.
+Sources and confirmation level for each item are in `references/evidence-methods.md`.
 
-## 변경 이력
+## Changelog
 
-[`CHANGELOG.md`](CHANGELOG.md) 참조.
+See [`CHANGELOG.md`](CHANGELOG.md).

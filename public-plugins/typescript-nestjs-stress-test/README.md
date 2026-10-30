@@ -1,65 +1,67 @@
 # typescript-nestjs-stress-test
 
-NestJS 서버 부하 측정을 준비한다 — prom-client 지연 히스토그램 · in-flight 게이지 계측, `nest start` · ts-node · debug 로그 같은 무효 설정 탐지, Express/Fastify 어댑터 · 요청 스코프 · DB 풀 손잡이 확인, tinybench 마이크로벤치마크.
+**English** · [한국어](README.ko.md) · [简体中文](README.zh-CN.md)
 
-부하 모델 · 판정 통계 · 대상 호스트 안전은 `common-stress-test` 가 맡고, 이 플러그인은 NestJS 서버 쪽만 본다. 근거는 Nest 문서(CLI · Logger · Injection scopes · Request lifecycle · Performance), Fastify · Prometheus · prom-client 문서와 Docker 실측이다.
+Prepares a NestJS server for load measurement — prom-client latency histogram · in-flight gauge instrumentation, detection of invalidating settings such as `nest start` · ts-node · debug logging, checks of Express/Fastify adapter · request scope · DB pool knobs, tinybench microbenchmarks.
 
-## 설치
+Load model · verdict statistics · target host safety belong to `common-stress-test`; this plugin looks only at the NestJS server side. Evidence: Nest docs (CLI · Logger · Injection scopes · Request lifecycle · Performance), Fastify · Prometheus · prom-client docs, and Docker measurements.
+
+## Installation
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
 /plugin install typescript-nestjs-stress-test@jaemyeong-hwnag-plugins
 ```
 
-## 의존성
+## Dependencies
 
-- `common-stress-test` — 부하 스크립트 작성(`stress-test-create`) · 결과 판정(`stress-result-review`) · 회귀 통계
+- `common-stress-test` — writing load scripts (`stress-test-create`) · judging results (`stress-result-review`) · regression statistics
 
-## 포함된 스킬
+## Skills
 
-| 스킬 | 트리거 | 설명 |
+| Skill | Trigger | Description |
 |---|---|---|
-| nestjs-stress-test-apply | NestJS 성능 측정 · 부하 테스트 준비 · nestjs-prometheus · Scope.REQUEST · Fastify 어댑터 | 무효 설정 제거, 히스토그램 · in-flight 계측, 손잡이 확인, 마이크로벤치마크 |
+| nestjs-stress-test-apply | NestJS performance measurement · load test preparation · nestjs-prometheus · Scope.REQUEST · Fastify adapter | Remove invalidating settings, histogram · in-flight instrumentation, knob checks, microbenchmarks |
 
-## 포함된 훅
+## Hooks
 
-| 스크립트 | 이벤트 | 동작 |
+| Script | Event | Behavior |
 |---|---|---|
-| nestjs-stress-config-validate.sh | PreToolUse (Bash) | 명령이 부하 도구(k6 · locust · wrk · autocannon · `docker run grafana/k6` …)면 프로젝트를 검사해 **알린다**. 막지 않는다 |
+| nestjs-stress-config-validate.sh | PreToolUse (Bash) | When the command is a load tool (k6 · locust · wrk · autocannon · `docker run grafana/k6` …), checks the project and **reports**. Does not block |
 
-## 주의
+## Notes
 
-- 훅은 경고만 한다. 부하 대상 호스트를 막는 것은 `common-stress-test` 의 훅이다
-- 운영 기동 명령은 Dockerfile · compose · Procfile 에서 찾고, 없으면 `package.json` 의 `start:prod` (없으면 `start`) 를 본다. `npm run x` 는 한 단계 풀어 본다
-- 이름에 단어로 `dev` · `local` · `test` 가 든 Dockerfile · compose 는 보지 않는다 (`loadtest` · `perftest` 는 본다)
-- 문법 분석기 없이 줄 단위로 본다. `logger` 옵션을 변수로 넘기면 값을 따라가지 않는다
-- `@nestjs/core` 가 `package.json` 에 없으면 아무것도 보지 않는다. 모노레포는 CLI 에 앱 디렉터리를 인자로 준다. 훅은 명령이 도는 디렉터리(`cd` 포함)부터 위로 가장 가까운 앱을 본다
-- `jq` 가 필요하다
+- The hook only warns. Blocking load target hosts is done by the `common-stress-test` hook
+- The production startup command is looked up in Dockerfile · compose · Procfile; if there is none, `start:prod` in `package.json` (or `start` if absent) is read. `npm run x` is expanded one level
+- Dockerfile · compose whose name contains the word `dev` · `local` · `test` are skipped (`loadtest` · `perftest` are read)
+- Reads line by line without a parser. If the `logger` option is passed as a variable, its value is not followed
+- If `@nestjs/core` is not in `package.json`, nothing is checked. For a monorepo, pass the app directory to the CLI as an argument. The hook looks at the nearest app upward from the directory the command runs in (including `cd`)
+- Requires `jq`
 
-## 규칙 요약
+## Rule summary
 
-| 조항 | 내용 | 판정 |
+| Clause | Content | Verdict |
 |---|---|---|
-| `NST-01` | `nest start` (`--watch` · `--debug`) 로 띄우지 않는다 → `node dist/main` | 차단 |
-| `NST-02` | ts-node · tsx 로 `.ts` 를 직접 실행하지 않는다 | 경고 |
-| `NST-03` | Nest 로그 레벨에 debug · verbose 를 켜지 않는다 (logger 옵션이 없으면 기본 6레벨 전부) | 경고 |
-| `NST-04` | `FastifyAdapter({ logger: true })` 로 재지 않는다 | 경고 |
-| `NST-05` | Fastify 어댑터의 `listen` 에 `'0.0.0.0'` | 경고 |
-| `NST-06` | 지연은 Histogram — Summary 금지 | 경고 |
-| `NST-07` · `NST-08` | 지연 히스토그램 · in-flight 게이지가 있다 | 경고 |
-| `NST-09` | `Scope.REQUEST` 는 비용을 재고 쓴다 | 경고 |
-| `NST-10` ~ `NST-13` | 계측 위치 · 어댑터 · 프로세스 수 · DB 풀 | AI 판단 |
-| `NST-20` | 마이크로벤치마크는 tinybench · mitata + 반복 분포 | AI 판단 |
+| `NST-01` | Do not start with `nest start` (`--watch` · `--debug`) → `node dist/main` | Block |
+| `NST-02` | Do not run `.ts` directly with ts-node · tsx | Warning |
+| `NST-03` | Do not enable debug · verbose in the Nest log levels (without a logger option, all 6 default levels are on) | Warning |
+| `NST-04` | Do not measure with `FastifyAdapter({ logger: true })` | Warning |
+| `NST-05` | `'0.0.0.0'` in `listen` of the Fastify adapter | Warning |
+| `NST-06` | Latency as Histogram — no Summary | Warning |
+| `NST-07` · `NST-08` | A latency histogram · in-flight gauge exist | Warning |
+| `NST-09` | Use `Scope.REQUEST` only after measuring its cost | Warning |
+| `NST-10` ~ `NST-13` | Instrumentation point · adapter · process count · DB pool | AI judgment |
+| `NST-20` | Microbenchmarks with tinybench · mitata + repeated distributions | AI judgment |
 
-원본: [`references/nestjs-stress-rules.md`](references/nestjs-stress-rules.md) · 레시피: [`references/nestjs-stress-recipes.md`](references/nestjs-stress-recipes.md)
+Source: [`references/nestjs-stress-rules.md`](references/nestjs-stress-rules.md) · Recipes: [`references/nestjs-stress-recipes.md`](references/nestjs-stress-recipes.md)
 
-## 사용
+## Usage
 
 ```bash
-scripts/nestjs-stress-config-validate.sh .            # 프로젝트 검사 (0 통과 · 2 위반 · 1 오류)
-test/nestjs-stress-config-validate.test.sh            # 회귀 테스트
+scripts/nestjs-stress-config-validate.sh .            # check the project (0 pass · 2 violation · 1 error)
+test/nestjs-stress-config-validate.test.sh            # regression tests
 ```
 
-## 변경 이력
+## Changelog
 
-[`CHANGELOG.md`](CHANGELOG.md) 참조.
+See [`CHANGELOG.md`](CHANGELOG.md).

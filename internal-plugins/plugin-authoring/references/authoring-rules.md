@@ -45,8 +45,24 @@
 
 ## 3. README
 
+플러그인마다 `README.md`(영어, 기본) · `README.ko.md`(한국어) · `README.zh-CN.md`(중국어 간체) 세 개를 둔다 (파일이 있는지는 구조 `P-01`). 셋은 같은 내용 · 같은 절 순서 · 같은 표다.
+아래 템플릿은 한국어판이다. 다른 언어는 절 제목만 이 표대로 바꾼다.
+
+| 한국어 | 영어 | 중국어 간체 |
+|---|---|---|
+| `## 설치` | `## Installation` | `## 安装` |
+| `## 의존성` | `## Dependencies` | `## 依赖` |
+| `## 포함된 스킬` | `## Skills` | `## 技能` |
+| `## 포함된 에이전트` | `## Agents` | `## 代理` |
+| `## 포함된 훅` | `## Hooks` | `## 钩子` |
+| `## 주의` | `## Notes` | `## 注意事项` |
+| `## 변경 이력` | `## Changelog` | `## 变更记录` |
+| 의존성 없음 — `없음` | `None` | `无` |
+
 ```markdown
 # {plugin-name}
+
+[English](README.md) · **한국어** · [简体中文](README.zh-CN.md)
 
 {한 줄 설명}
 
@@ -78,6 +94,10 @@
 | `A-26` | `## 포함된 훅` 에 `hooks.json` 의 이벤트가 모두 나온다 | 차단 |
 | `A-27` | `## 의존성` 에 `dependencies` 의 이름이 모두 나온다. 없으면 "없음" | 차단 |
 | `A-28` | public 플러그인의 `## 설치` 에 `{name}@` 설치 명령이 있다 | 차단 |
+| `A-29` | 세 언어 README 가 저마다 나머지 두 언어 파일을 링크한다 (`](README.md)` · `](README.ko.md)` · `](README.zh-CN.md)`) | 차단 |
+| `A-30` | 마켓플레이스 루트 README 세 개가 모든 public 플러그인을 `](public-plugins/{name})` 링크로 싣는다 (`--all` 에서만) | 차단 |
+
+`A-20` ~ `A-28` 은 세 언어 파일마다 그 언어의 절 제목으로 따로 본다 — 번역 하나만 구성요소 표가 낡아도 잡힌다.
 
 표와 실제 구성요소를 대조하는 `A-24` ~ `A-27` 이 핵심이다. 스킬을 추가하고 README 를 잊으면 잡힌다 — `V-06` 이 CHANGELOG 누락을 잡는 것과 같은 구조다.
 
@@ -90,15 +110,15 @@
 
 | | 담당 | 무엇을 |
 |---|---|---|
-| 정량 | `validate-authoring.sh` | `A-01` ~ `A-09`, `A-20` ~ `A-28` |
-| 판단 | AI (`plugin-document-create` 스킬) | description 의 "무엇을 하는가" 가 정확한가, 트리거가 다른 스킬과 겹치지 않는가, 템플릿·예시를 `references/` 로 뺄 때인가, README 한 줄 설명이 description 과 같은 뜻인가 |
+| 정량 | `validate-authoring.sh` | `A-01` ~ `A-09`, `A-20` ~ `A-30` |
+| 판단 | AI (`plugin-document-create` 스킬) | description 의 "무엇을 하는가" 가 정확한가, 트리거가 다른 스킬과 겹치지 않는가, 템플릿·예시를 `references/` 로 뺄 때인가, README 한 줄 설명이 description 과 같은 뜻인가, 세 언어 README 의 본문이 같은 뜻인가 |
 
 ## 5. 훅
 
 | 이벤트 | 대상 | 동작 |
 |---|---|---|
 | `PreToolUse(Write)` | `skills/*/SKILL.md` · `commands/*.md` · `agents/*.md` | 새 내용에서 `A-01` ~ `A-04` 를 보고 **차단** |
-| `PostToolUse(Write\|Edit)` | 플러그인 안의 README · 스킬 · 커맨드 · 에이전트 · `hooks.json` · `plugin.json` · `references/` | 그 플러그인 전체를 검사해 **알린다** |
+| `PostToolUse(Write\|Edit)` | 플러그인 안의 README(세 언어) · 스킬 · 커맨드 · 에이전트 · `hooks.json` · `plugin.json` · `references/` | 그 플러그인 전체를 검사해 **알린다** |
 
 README 대조(`A-24` ~ `A-27`)는 막지 않는다. 스킬을 만들고 README 를 고치는 데 두 번의 편집이 필요하다 — `plugin-versioning` 의 `V-06` 과 같은 이유다. `--all` 에서는 막는다.
 

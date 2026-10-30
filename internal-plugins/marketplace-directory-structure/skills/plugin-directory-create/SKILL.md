@@ -18,7 +18,7 @@ description: 플러그인의 디렉터리와 파일 위치를 정할 때 사용�
    | 파일 | 내용 |
    |---|---|
    | `.claude-plugin/plugin.json` | `name` 은 디렉터리명과 같아야 한다. `hooks` 필드로 `./hooks/hooks.json` 을 가리키지 않는다 (P-09) |
-   | `README.md` | 템플릿(설치 · 의존성 · 포함된 스킬/에이전트/훅 · 변경 이력)을 따른다 — `plugin-document-create` 스킬 (`plugin-authoring`) |
+   | `README.md` · `README.ko.md` · `README.zh-CN.md` | 영어(기본) · 한국어 · 중국어 간체. 템플릿(설치 · 의존성 · 포함된 스킬/에이전트/훅 · 변경 이력)을 따른다 — `plugin-document-create` 스킬 (`plugin-authoring`) |
    | `CHANGELOG.md` | `## 0.1.0` 초기 항목 |
 
 4. **구성요소를 필요한 것만 추가한다.** 아래 표에 없는 디렉터리는 만들지 않는다.

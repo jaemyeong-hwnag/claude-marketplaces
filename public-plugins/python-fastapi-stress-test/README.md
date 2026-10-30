@@ -1,67 +1,69 @@
 # python-fastapi-stress-test
 
-FastAPI 서버 부하 측정을 준비한다 — 지연 히스토그램 · in-flight 게이지 계측(멀티 워커면 prometheus 멀티프로세스 모드), 개발 서버 · 리로드 · debug 같은 무효 설정 탐지, 워커 · 스레드 토큰 · DB 풀 손잡이, pyperf 마이크로벤치마크.
+**English** · [한국어](README.ko.md) · [简体中文](README.zh-CN.md)
 
-부하 모델 · 지표 · 통계 판정은 `common-stress-test` 가 맡고, 이 플러그인은 FastAPI · Uvicorn · Gunicorn · prometheus_client 에만 해당하는 것을 담는다. 근거는 FastAPI · Starlette · Uvicorn · AnyIO · prometheus client_python · SQLAlchemy · pyperf 공식 문서와 소스, Docker 실측이다.
+Prepares a FastAPI server for load measurement — latency histogram · in-flight gauge instrumentation (prometheus multiprocess mode with multiple workers), detection of invalidating settings such as the dev server · reload · debug, worker · thread token · DB pool knobs, pyperf microbenchmarks.
 
-## 설치
+Load model · metrics · statistical verdicts belong to `common-stress-test`; this plugin holds only what is specific to FastAPI · Uvicorn · Gunicorn · prometheus_client. Evidence: FastAPI · Starlette · Uvicorn · AnyIO · prometheus client_python · SQLAlchemy · pyperf official docs and source, and Docker measurements.
+
+## Installation
 
 ```bash
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
 /plugin install python-fastapi-stress-test@jaemyeong-hwnag-plugins
 ```
 
-## 의존성
+## Dependencies
 
-- `common-stress-test` — 부하 스크립트 작성 · 결과 판정 · 대상 호스트 안전
+- `common-stress-test` — writing load scripts · judging results · target host safety
 
-## 포함된 스킬
+## Skills
 
-| 스킬 | 트리거 | 설명 |
+| Skill | Trigger | Description |
 |---|---|---|
-| fastapi-stress-test-apply | FastAPI 부하 테스트 · uvicorn 성능 · `/metrics` · 워커 수 · pyperf | 무효 설정 제거, 계측 적용, 손잡이로 포화점 예측, 마이크로벤치마크 |
+| fastapi-stress-test-apply | FastAPI load test · uvicorn performance · `/metrics` · worker count · pyperf | Remove invalidating settings, apply instrumentation, predict the saturation point from knobs, microbenchmarks |
 
-## 포함된 훅
+## Hooks
 
-| 스크립트 | 이벤트 | 동작 |
+| Script | Event | Behavior |
 |---|---|---|
-| fastapi-stress-config-validate.sh | PreToolUse (Bash) | 부하 도구(`k6 run` · `locust` · `jmeter` · `gatling` · `wrk` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `autocannon` · `docker run … grafana/k6`)를 실행할 때 프로젝트를 검사해 **알린다**. 막지 않는다 |
+| fastapi-stress-config-validate.sh | PreToolUse (Bash) | When running a load tool (`k6 run` · `k6 cloud` · `locust` · `jmeter` · `gatling` · `wrk` · `wrk2` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `autocannon`, `docker run` · compose with those images, the gatling task of `mvn` · `gradle`), checks the project and **reports**. Does not block |
 
-## 주의
+## Notes
 
-- 훅은 FastAPI 프로젝트(`fastapi` 가 의존성 파일이나 `*.py` 에 있다)에서만 알린다
-- 스크립트는 줄 단위 리터럴만 본다. `debug=settings.debug` · `--workers "$N"` 처럼 변수로 정한 값은 보지 않는다 — 스킬이 판단한다
-- `#` 주석 줄, 테스트 파일(`test_*.py` · `*_test.py` · `conftest.py`), `.venv/` · `venv/` · `site-packages/` · `node_modules/` · `build/` · `dist/` 는 보지 않는다
-- `FAS-01` 은 이름에 `dev` · `local` · `test` 가 단어로 든 파일, Makefile 의 그 이름 대상, CI 파일(`.github/` · `.gitlab-ci.yml`)을 보지 않는다. 그 밖의 개발용 구성(`docker-compose.override.yml` 등)은 함께 보고된다. 어느 구성으로 측정하는지는 사람이 정한다
-- `jq` 가 필요하다
+- The hook reports only in FastAPI projects (`fastapi` appears in a dependency file or `*.py`)
+- The script reads only line-level literals. Values set through variables, such as `debug=settings.debug` · `--workers "$N"`, are not read — the skill judges them
+- `#` comment lines, test files (`test_*.py` · `*_test.py` · `conftest.py`), and `.venv/` · `venv/` · `site-packages/` · `node_modules/` · `build/` · `dist/` are skipped
+- `FAS-01` skips files whose name contains the word `dev` · `local` · `test`, Makefile targets with those names, and CI files (`.github/` · `.gitlab-ci.yml`). Other development setups (`docker-compose.override.yml`, etc.) are reported too. A person decides which setup is measured
+- Requires `jq`
 
-## 규칙 요약
+## Rule summary
 
-| 조항 | 내용 | 판정 |
+| Clause | Content | Verdict |
 |---|---|---|
-| `FAS-01` | `fastapi dev` · `--reload` 로 측정하지 않는다 | 차단 |
-| `FAS-02` | 워커 ≥ 2 + prometheus 면 `PROMETHEUS_MULTIPROC_DIR` | 차단 |
-| `FAS-03` | Gunicorn + 멀티프로세스면 `child_exit` 에서 `mark_process_dead` | 경고 |
-| `FAS-04` | `debug=True` 로 측정하지 않는다 | 경고 |
-| `FAS-05` | 로그 레벨 `debug` · `trace` 로 측정하지 않는다 | 경고 |
-| `FAS-06` | `uvicorn.workers.UvicornWorker` → `uvicorn_worker.UvicornWorker` | 경고 |
-| `FAS-07` | `async def` 안에서 블로킹 호출을 하지 않는다 | 경고 |
-| `FAS-08` | 서버 측 계측과 in-flight 게이지가 있다 | 경고 |
-| `FAS-09` | 지연은 `Histogram` 으로 잰다 (`Summary` X) | 경고 |
-| `FAS-10` ~ `FAS-13` | 버킷 · 스레드 토큰 40 · DB 풀 · 워커 수 | AI 판단 |
-| `FAS-20` | 마이크로벤치마크는 pyperf `compare_to` · 반복 분포로 판정 | AI 판단 |
+| `FAS-01` | Do not measure with `fastapi dev` · `--reload` | Block |
+| `FAS-02` | Workers ≥ 2 + prometheus requires `PROMETHEUS_MULTIPROC_DIR` | Block |
+| `FAS-03` | Gunicorn + multiprocess calls `mark_process_dead` in `child_exit` | Warning |
+| `FAS-04` | Do not measure with `debug=True` | Warning |
+| `FAS-05` | Do not measure with log level `debug` · `trace` | Warning |
+| `FAS-06` | `uvicorn.workers.UvicornWorker` → `uvicorn_worker.UvicornWorker` | Warning |
+| `FAS-07` | No blocking calls inside `async def` | Warning |
+| `FAS-08` | Server-side instrumentation and an in-flight gauge exist | Warning |
+| `FAS-09` | Measure latency with `Histogram` (not `Summary`) | Warning |
+| `FAS-10` ~ `FAS-13` | Buckets · thread tokens 40 · DB pool · worker count | AI judgment |
+| `FAS-20` | Microbenchmarks are judged with pyperf `compare_to` · repeated distributions | AI judgment |
 
-"차단" 은 CLI 종료 코드 `2` 다. 훅은 부하 명령을 막지 않는다.
+"Block" means CLI exit code `2`. The hook does not block load commands.
 
-원본: [`references/fastapi-stress-rules.md`](references/fastapi-stress-rules.md)
+Source: [`references/fastapi-stress-rules.md`](references/fastapi-stress-rules.md)
 
-## 사용
+## Usage
 
 ```bash
-scripts/fastapi-stress-config-validate.sh .         # 프로젝트 검사
-test/fastapi-stress-config-validate.test.sh         # 회귀 테스트
+scripts/fastapi-stress-config-validate.sh .         # check the project
+test/fastapi-stress-config-validate.test.sh         # regression tests
 ```
 
-## 변경 이력
+## Changelog
 
-[`CHANGELOG.md`](CHANGELOG.md) 참조.
+See [`CHANGELOG.md`](CHANGELOG.md).

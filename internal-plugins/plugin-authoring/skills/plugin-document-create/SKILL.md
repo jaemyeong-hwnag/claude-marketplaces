@@ -51,10 +51,13 @@ description: {무엇을 하는가 한 문장}. {~할 때 사용한다}. 트리�
 
 ## 4. README
 
-순서대로. 템플릿에 없는 절은 `## 변경 이력` 앞 어디든 둘 수 있다.
+`README.md`(영어, 기본) · `README.ko.md` · `README.zh-CN.md` 세 개를 같은 내용 · 같은 절 순서 · 같은 표로 쓴다. 하나를 고치면 셋 다 고친다.
+순서대로. 템플릿에 없는 절은 마지막 절(변경 이력) 앞 어디든 둘 수 있다. 아래는 한국어판이고, 절 제목 대응은 규칙 원본 3절의 표를 따른다.
 
 ```markdown
 # {plugin-name}
+
+[English](README.md) · **한국어** · [简体中文](README.zh-CN.md)
 
 {한 줄 설명 — plugin.json description 과 같은 뜻}
 
@@ -68,7 +71,9 @@ description: {무엇을 하는가 한 문장}. {~할 때 사용한다}. 트리�
 ## 변경 이력            CHANGELOG.md 참조
 ```
 
-**표는 실제 구성요소와 같아야 한다** (`A-24` ~ `A-27`). 스킬 · 커맨드 · 에이전트 · 훅 이벤트 · 의존성을 추가하거나 지웠으면 README 표도 같이 고친다.
+언어 전환 줄은 자기 언어를 굵게, 나머지 두 언어를 링크한다 (`A-29`). 공개 플러그인을 새로 만들었으면 루트 README 세 개의 수록 표에도 `public-plugins/{name}` 을 가리키는 링크로 넣는다 (`A-30`).
+
+**표는 세 언어 모두 실제 구성요소와 같아야 한다** (`A-24` ~ `A-27`). 스킬 · 커맨드 · 에이전트 · 훅 이벤트 · 의존성을 추가하거나 지웠으면 README 표도 같이 고친다.
 저장하면 `PostToolUse` 훅이 어긋난 것을 알려 준다.
 
 설치 절 — internal 은 "SessionStart 훅이 설치한다", public 은 `/plugin install {name}@jaemyeong-hwnag-plugins` (`A-28`).

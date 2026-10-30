@@ -7,7 +7,7 @@
 #   plugin-browser.sh related <플러그인|기능어> 연관
 #   plugin-browser.sh installed                설치된 것
 #   plugin-browser.sh show <플러그인>          상세
-#   plugin-browser.sh facets [tag|keyword|category|marketplace|has]   관점별 개수
+#   plugin-browser.sh facets [tag|domain|technology|keyword|has|installed]   관점별 개수
 #   plugin-browser.sh render [파일|-]          엔진 JSON 을 그리기만
 #
 # 화면  --width N · --ascii · --color auto|always|never · --plain (번호 입력) · --no-pick (그리기만)
