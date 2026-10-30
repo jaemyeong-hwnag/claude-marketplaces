@@ -7,7 +7,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/validate-git-secret.sh\"",
-            "timeout": 60
+            "timeout": 60,
+            "onFailure": "block"
           }
         ]
       },
@@ -17,7 +18,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/validate-git-secret.sh\"",
-            "timeout": 20
+            "timeout": 20,
+            "onFailure": "block"
           }
         ]
       }

@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.4
+
+### Fixed
+- `PreToolUse` 훅 두 개(`Bash` · `Write|Edit|MultiEdit`)에 `"onFailure": "block"` — 스크립트가 깨지면 git commit · push 와 파일 작성을 검사 없이 통과시키던 것 (#156, `plugin-enforcement-effectiveness` `EF-07`)
+
 ## 0.1.3
 
 ### Fixed
