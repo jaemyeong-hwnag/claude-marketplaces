@@ -15,7 +15,7 @@ PSI="${CLAUDE_PLUGIN_ROOT}/scripts/plugin-search-install.sh"
 
 ## 1. 무엇을 설치할지 정한다
 
-직전 조회(`plugin-search` · `project-plugin-search`)의 결과를 파일로 남겨 두고 그 `rank` 로 고른다.
+직전 조회(`plugin-search` · `plugin-project-requirement-search`)의 결과를 파일로 남겨 두고 그 `rank` 로 고른다.
 
 ```bash
 "$PSI" search 테스트 커버리지 > /tmp/psi-list.json        # 또는 project . / related …

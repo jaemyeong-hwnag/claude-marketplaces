@@ -32,7 +32,7 @@ claude plugin install plugin-search-install@jaemyeong-hwnag-plugins --scope proj
 | 스킬 | 트리거 | 설명 |
 |---|---|---|
 | plugin-search | 플러그인 찾아 · ~하는 플러그인 있어? · 비슷한 플러그인 | 요청을 질의 문법으로 바꿔 `search` · `related` 를 돌리고 이유와 함께 보인다 |
-| project-plugin-search | 이 프로젝트에 뭐 깔아야 해 · 빠진 플러그인 · 온보딩 | `project` 결과를 필수(선언 · 의존)와 추천(신호)으로 나눠 상태 · 근거와 보인다 |
+| plugin-project-requirement-search | 이 프로젝트에 뭐 깔아야 해 · 빠진 플러그인 · 온보딩 | `project` 결과를 필수(선언 · 의존)와 추천(신호)으로 나눠 상태 · 근거와 보인다 |
 | plugin-install | 깔아줘 · 전부 설치 · 1번 3번만 · 이거 빼고 | 전부 · 일부 · 조회만과 범위를 정하고 dry-run → 설치 → 재시작 안내 |
 
 ## MCP 서버
@@ -56,6 +56,7 @@ claude mcp add plugin-search -e PLUGIN_SEARCH_MARKETPLACE=jaemyeong-hwnag-plugin
 
 ## 주의
 
+- 0.3.0 부터 스킬 `project-plugin-search` 는 `plugin-project-requirement-search` 다 — `/plugin-search-install:plugin-project-requirement-search` 로 부른다
 - **설치는 기본 `--scope project`** 다 — 프로젝트 `.claude/settings.json` 이 바뀐다. 개인 도구면 `--scope user`
 - 대상 마켓을 판별하지 못하거나 그 마켓이 등록돼 있지 않으면 멈춘다 — `PLUGIN_SEARCH_MARKETPLACE` 로 지정한다
 - 원격 source(github · url) 플러그인은 설치 전에는 스킬 · 훅을 모른다 (`componentsKnown: false`). 이름 · 설명 · 태그로만 찾힌다
