@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.17.0
+
+### Changed
+- `name-create` 는 이름을 낸 뒤 스스로 판단하지 않고 늘 `naming-reviewer` 에 목적 문장과 후보만 넘겨 판정받는다. 에이전트를 쓸 수 없으면 `판정 불가` 로 보고한다 (#208, `plugin-enforcement-effectiveness` `EF-41`). 규칙 3절 판단 담당도 `naming-reviewer` 로 맞췄다
+
 ## 0.16.0
 
 ### Added

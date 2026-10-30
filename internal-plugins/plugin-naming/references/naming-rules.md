@@ -111,7 +111,7 @@ kotlin-spring-api-naming-validate
 | | 담당 | 무엇을 |
 |---|---|---|
 | 정량 | `validate-naming.sh` (차단) | kebab-case, 최소 두 단어 · 64자, 슬롯별 단어 수, 슬롯 순서, `deny` 단어, 끝 단어 미등록 |
-| 판단 | AI (`naming-reviewer`, `name-create`) | 이름이 **무엇을 가리키는지 알 수 있는가**, 목적이 드러나는가, 범위가 맞는가, 범용 단어가 아닌가, 설명과 이름이 맞는가 |
+| 판단 | AI (`naming-reviewer` — `name-create` 가 이름을 낸 뒤 늘 부른다) | 이름이 **무엇을 가리키는지 알 수 있는가**, 목적이 드러나는가, 범위가 맞는가, 범용 단어가 아닌가, 설명과 이름이 맞는가 |
 
 ### AI 가 판단할 것
 
