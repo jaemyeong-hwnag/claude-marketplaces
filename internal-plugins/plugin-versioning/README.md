@@ -18,7 +18,7 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 �
 
 | 스킬 | 트리거 | 설명 |
 |---|---|---|
-| version-update | 버전 올리기, 릴리즈, CHANGELOG, 태그 | semver 등급 판정과 릴리즈 순서 |
+| version-update | 버전 올리기, CHANGELOG | semver 등급 판정과 버전 올리는 순서 |
 | /versioning-validate | 직접 호출 | 저장소 전체와 이번 변경 범위(`--since`)의 버전 정합성을 검증한다 |
 
 ## 포함된 훅

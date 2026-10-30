@@ -1,6 +1,6 @@
 ---
 name: version-update
-description: 플러그인 버전을 올리거나 릴리즈할 때 사용한다. 변경을 커밋·배포하기 전에 버전을 얼마나 올릴지 정할 때, CHANGELOG 를 쓸 때, 1.0.0 으로 올릴 시점을 판단할 때 적용한다. 트리거 — "버전 올려", "릴리즈", "CHANGELOG", "버전 뭐로", "patch minor major", "bump version". semver 등급 판정과 plugin.json · CHANGELOG · marketplace 엔트리 · git 태그의 정합성을 강제한다.
+description: 플러그인 버전을 올릴 때 사용한다. 변경을 커밋하기 전에 버전을 얼마나 올릴지 정할 때, CHANGELOG 를 쓸 때, 1.0.0 으로 올릴 시점을 판단할 때 적용한다. 트리거 — "버전 올려", "CHANGELOG", "버전 뭐로", "patch minor major", "bump version". semver 등급 판정과 plugin.json · CHANGELOG · marketplace 엔트리의 정합성을 강제한다. 태그 · 릴리즈는 release-create 가 한다.
 ---
 
 # 버전 올리기
@@ -43,7 +43,7 @@ description: 플러그인 버전을 올리거나 릴리즈할 때 사용한다. 
 3. marketplace.json 엔트리가 version 을 선언하고 있으면 같이 올린다
 4. 검증 — --all 과 --since origin/main
 5. 커밋 → PR → 머지
-6. 태그 — main 에서, 머지 뒤, 설치 확인 뒤
+6. 태그 · 릴리즈 — 머지 뒤 release-create
 ```
 
 CHANGELOG 를 먼저 쓰면 중간 상태가 규칙을 한 번도 어기지 않는다. 거꾸로 `plugin.json` 을 먼저 저장하면 `PostToolUse` 훅이 CHANGELOG 항목이 없다고 알린다 — 그 알림이 안전망이다.
@@ -75,18 +75,9 @@ CHANGELOG 를 먼저 쓰면 중간 상태가 규칙을 한 번도 어기지 않�
 
 둘 다 종료 코드 0 이어야 커밋한다. `--since` 는 이번 변경에서 파일이 바뀐 플러그인이 모두 버전을 올렸는지 본다 (`V-14`). `V-09`(엔트리 불일치)가 나오면 **엔트리 쪽을 고친다** — 설치 시점에는 `plugin.json` 이 이긴다.
 
-## 5. 태그를 단다
+## 5. 태그 · 릴리즈
 
-**main 에서, PR 이 머지된 뒤, 설치 확인이 끝난 뒤에** 단다. 절차 전체는 `release-create` 스킬(`plugin-workflow`)이 한다.
-
-```bash
-claude plugin tag --push
-```
-
-CLI 가 `{플러그인명}--v{버전}` 형식으로 만들고, `plugin.json` 과 marketplace 엔트리가 일치하는지 함께 검증한다.
-직접 달아야 하면 형식을 지킨다: `git tag plugin-versioning--v0.1.0`.
-
-브랜치에서 달지 않는다. 리베이스가 SHA 를 바꿔서 태그가 머지 뒤 어디에도 없는 커밋을 가리키게 된다. 태그가 매니페스트보다 앞서면 `V-13` 에 걸린다.
+이 스킬에서 달지 않는다. 태그 · 릴리즈는 머지 뒤 `release-create` 스킬(`plugin-workflow`)로 한다.
 
 ## 하지 않을 것
 
