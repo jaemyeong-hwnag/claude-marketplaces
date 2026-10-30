@@ -1,6 +1,6 @@
 ---
 name: stress-result-review
-description: 부하·스트레스 테스트 결과를 정량 판정할 때 사용한다. 단계 결과로 지속 가능 용량·knee·USL·Little 정합성을 내고, 두 버전 비교는 Mann-Whitney U·Cliff's delta 로 회귀를 판정한다. 트리거 — "결과 분석", "몇 rps 까지", "병목", "p99", "느려졌나", "성능 회귀", "summary.json", "stats.csv".
+description: 부하·스트레스 테스트 결과를 정량 판정할 때 사용한다. 단계 결과로 지속 가능 용량·knee·USL·Little 정합성을 내고, 두 버전 비교는 Mann-Whitney U·Cliff's delta 로 회귀를 판정한다. 트리거 — "결과 분석", "측정 결과로 몇 rps 까지", "병목", "p99", "느려졌나", "성능 회귀", "summary.json", "stats.csv".
 ---
 
 # 스트레스 테스트 결과 판정
