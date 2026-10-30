@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.5
+
+### Fixed
+- `UserPromptSubmit`(`snapshot`) · `PreToolUse`(`pre-edit`) 훅에 `"onFailure": "block"` — 스크립트가 깨지면 요청 시작 기준 저장 · 편집 전 프로토콜 주입 없이 통과하던 것 (#159, `plugin-enforcement-effectiveness` `EF-07`)
+
 ## 0.1.4
 
 ### Fixed
