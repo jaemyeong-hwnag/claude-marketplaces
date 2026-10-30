@@ -50,6 +50,13 @@ test/sync-internal-plugins.test.sh    # 내부 플러그인 동기화 (TC-Y)
 | TC-S31 | 의존성 키가 있으면 통과한다 | 통과 (0) |
 | TC-S32 | 꺼 둔 internal 의 의존성은 보지 않는다 | 통과 (0) |
 | TC-S33 | 객체로 선언한 의존성도 본다 | 차단 (2) |
+| TC-S34 | 옛 이름 → 새 이름 · null 은 통과한다 | 통과 (0) |
+| TC-S35 | renames 키가 지금 등록된 이름이면 막는다 | 차단 (2) |
+| TC-S36 | renames 에 internal 이름이 있으면 막는다 | 차단 (2) |
+| TC-S37 | origin/main 에 있던 renames 를 필드째 지워도 막는다 | 차단 (2) |
+| TC-S38 | origin/main 에 있던 renames 키가 사라지면 막는다 | 차단 (2) |
+| TC-S39 | origin/main 의 renames 를 남기고 더하면 통과한다 | 통과 (0) |
+| TC-S40 | renames 가 없으면 보지 않는다 | 통과 (0) |
 
 ## TC-Y · 내부 플러그인 동기화 (`.claude/hooks/sync-internal-plugins.sh`)
 
@@ -108,6 +115,14 @@ test/sync-internal-plugins.test.sh    # 내부 플러그인 동기화 (TC-Y)
 ## 의존성의 활성화 키
 
 internal 플러그인이 public 플러그인에 의존하면, 설치할 때 Claude Code 가 의존성을 같이 설치하고 `.claude/settings.json` 의 `enabledPlugins` 에 키를 더한다. 그 키가 커밋에 없으면 main 에서 동기화 훅이 돈 뒤 작업 트리가 더러워지고 `release-plugins.sh` 가 멈춘다 (#16). 그래서 켜 둔 internal 플러그인의 의존성 키를 미리 요구한다 (TC-S30 ~ S33).
+
+## renames
+
+`marketplace.json` 의 `renames` 는 이름을 바꾼 공개 플러그인의 사용자를 새 이름으로 옮긴다. 순환 · 끝 없는 체인은 `claude plugin validate` 가 막고, 여기서는 CLI 가 통과시키는 것을 막는다.
+
+- 키가 지금 등록된 이름이면 막는다 — 옛 이름을 켜 둔 사용자가 옮겨질지 그 이름의 새 플러그인을 받을지 정해져 있지 않다 (TC-S35)
+- internal 이름은 두지 않는다 — 배포하지 않는다 (TC-S36)
+- origin 기본 브랜치에 있던 키를 지우면 막는다 — 아직 옮기지 않은 사용자가 깨진다 (TC-S37 · S38)
 
 ## 설치 기준과 워크트리
 

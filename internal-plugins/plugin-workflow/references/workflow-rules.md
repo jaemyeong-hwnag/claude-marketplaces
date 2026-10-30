@@ -11,7 +11,7 @@
 |---|---|---|---|
 | 1 | 이슈 발행 | `issue-create` | github-workflow |
 | 2 | 워크트리 + 브랜치 | `issue-create` · `branch-create.sh` | github-workflow |
-| 3 | 작업 — 새 플러그인 · 삭제면 해당 스킬 | `plugin-create` · `plugin-delete` | ★ plugin-workflow |
+| 3 | 작업 — 새 플러그인 · 이름 변경 · 삭제면 해당 스킬 | `plugin-create` · `plugin-name-update` · `plugin-delete` | ★ plugin-workflow |
 | 4 | ★ 버전 올림 — 파일이 바뀐 플러그인마다 CHANGELOG → `plugin.json` | `version-update` | ★ plugin-versioning |
 | 5 | 검증 · 테스트 — **`verify-all.sh`** | `pull-request-create` | github-workflow (명령은 ★) |
 | 6 | 리베이스 → 5 다시 | `pull-request-create` | github-workflow |
@@ -37,6 +37,7 @@
 |---|---|---|
 | `verify-all.sh` | 5 · 6 | 검증기 · 회귀 테스트 · `claude plugin validate --strict` 를 경로 규칙으로 찾아 전부 |
 | `release-plugins.sh` | 10 | 현재 `version` 의 `{name}--v{version}` 태그가 없는 플러그인마다, 이 저장소의 설치본이 그 `version` 인지 확인하고 `claude plugin tag --push` → `gh release create` |
+| `plugin-name-update.sh` | 3 | 이름 변경 — 디렉터리 · `plugin.json` · 엔트리 · public 이면 `renames` · 기대는 플러그인의 `dependencies` · `enabledPlugins` 키. 남은 참조는 후보만 낸다 |
 | `eval-all.sh` | 필요할 때 | 모든 플러그인의 eval 케이스를 케이스 단위로, `--no-publish` |
 
 ## 4. 부트스트랩 예외

@@ -1,6 +1,6 @@
 # plugin-workflow
 
-플러그인 마켓플레이스가 GitHub 플로우에 **더하는 단계**를 맡는다 — 플러그인 생성 · 삭제 순서, 검증 전체 실행, 설치 확인 뒤 플러그인별 태그 · 릴리즈, eval 실행.
+플러그인 마켓플레이스가 GitHub 플로우에 **더하는 단계**를 맡는다 — 플러그인 생성 · 이름 변경 · 삭제 순서, 검증 전체 실행, 설치 확인 뒤 플러그인별 태그 · 릴리즈, eval 실행.
 
 이슈 · 브랜치 · PR · 머지 규칙(`W-01` ~ `W-10`)과 그 훅은 의존하는 `github-workflow` 가 본다. 이름 · 위치 · 버전 · 작성 형식 · 의존 관계는 각 플러그인이 본다.
 
@@ -21,6 +21,7 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다.
 |---|---|---|
 | release-create | 릴리즈, 태그, 배포 | 9 · 10 단계 — main 에서 설치 확인, 버전이 바뀐 플러그인마다 태그 · 릴리즈 |
 | plugin-create | 새 플러그인 만들기 | 필요성 판단 → 이름 → 디렉터리 → 버전 → README → 의존성 → 등록 → eval → 검증 → 설치 확인 |
+| plugin-name-update | 플러그인 이름 변경 | 사용자 확인 → 새 이름 → `--dry-run` → 실행 → 남은 참조 판단 → 버전 → 재설치 안내 → 새 이름 첫 태그. public 은 `renames` 를 남긴다 |
 | plugin-delete | 플러그인 삭제 · 비활성화 | 역참조 확인 → 의존 끊기 → 디렉터리 · 등록 정리. 태그는 남긴다 |
 
 ## 파일
@@ -30,9 +31,10 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다.
 | `references/workflow-rules.md` | 이 마켓플레이스가 더하는 단계 (`github-workflow` 단계와의 순서) |
 | `scripts/verify-all.sh` | 검증기 · 회귀 테스트 · `claude plugin validate` 를 경로 규칙으로 찾아 전부 |
 | `scripts/release-plugins.sh` | 버전이 바뀐 플러그인마다 태그 · 릴리즈 (`--dry-run`) |
+| `scripts/plugin-name-update.sh` | 이름 변경 — 디렉터리 · `plugin.json` · 엔트리 · `renames` · 기대는 플러그인의 `dependencies` · `enabledPlugins` 키를 바꾸고 남은 참조 후보를 낸다 (`--dry-run`) |
 | `scripts/eval-all.sh` | 모든 플러그인의 eval 케이스를 케이스 단위로 — 필요한 권한만 주고, 리포트는 게시하지 않는다 (`--quick`) |
 | `test/` | 회귀 테스트와 TC 명세 |
-| `evals/` | `claude plugin eval` 케이스 — 생성 · 삭제 스킬 발동 |
+| `evals/` | `claude plugin eval` 케이스 — 생성 · 이름 변경 · 삭제 스킬 발동 |
 
 ## 주의
 
