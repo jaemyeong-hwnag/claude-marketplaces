@@ -1,5 +1,5 @@
 ---
-description: 이름을 지어 달라는 요청에 name-create 가 발동하고 kebab-case 이름을 낸다
+description: 이름을 지어 달라는 요청에 name-create 가 발동하고 목적 문장 · 뺀 개념과 함께 kebab-case 이름을 낸다
 tags: [trigger]
 max_turns: 8
 allowed_tools: [Read, Glob, Grep, Skill]

@@ -21,7 +21,7 @@ TOPLEVEL_GLOSSARY="internal-plugins/plugin-naming/references/glossary.json"
 GLOSSARY=""
 
 KEBAB_RE='^[a-z0-9]+(-[a-z0-9]+)*$'
-# 슬롯은 {대상}-{범위}-{관심사}-{목적} 네 개이고, 슬롯마다 1 ~ 3 단어다 (kotlin-spring = 대상 한 슬롯).
+# 슬롯은 {대상}-{범위}-{관심사}-{행위} 네 개이고, 슬롯마다 1 ~ 3 단어다 (kotlin-spring = 대상 한 슬롯).
 # 대상과 범위는 같은 등급이라 기계가 경계를 모른다 — 둘을 합쳐 6 단어까지 보고, 나누는 건 AI 가 판단한다.
 MAX_SLOT_WORDS=3
 MAX_SUBJECT_WORDS=$((MAX_SLOT_WORDS * 2))
@@ -72,7 +72,7 @@ load_glossary() {
   USE_CATEGORY="$(jq -r 'to_entries[] | .key as $c | .value[] | [.use, $c] | @tsv' "$GLOSSARY")"
 }
 
-# 슬롯 등급: 1 대상·범위 / 2 관심사 / 3 목적. 왼쪽에서 오른쪽으로 커지기만 해야 한다.
+# 슬롯 등급: 1 대상·범위 / 2 관심사 / 3 행위. 왼쪽에서 오른쪽으로 커지기만 해야 한다.
 slot_rank() { # $1=단어 → 등급
   local c
   c="$(printf '%s\n' "$USE_CATEGORY" | awk -F'\t' -v w="$1" '$1 == w { print $2; exit }')"
@@ -83,10 +83,10 @@ slot_rank() { # $1=단어 → 등급
   esac
 }
 slot_label() { # $1=등급 → 이름
-  case "$1" in 3) echo "목적" ;; 2) echo "관심사" ;; *) echo "대상·범위" ;; esac
+  case "$1" in 3) echo "행위" ;; 2) echo "관심사" ;; *) echo "대상·범위" ;; esac
 }
 # 단어를 슬롯별로 묶어 보여준다. $1=단어들(공백 구분) $2=등급들(공백 구분)
-# → "대상·범위 [kotlin-spring-api] 관심사 [naming] 목적 [validate]"
+# → "대상·범위 [kotlin-spring-api] 관심사 [naming] 행위 [validate]"
 slot_breakdown() {
   local -a ws=($1) rs=($2)
   local r i out="" part
@@ -148,13 +148,13 @@ validate_name() {
     ERRORS+=("$label: 관심사가 $n2 단어입니다 — 슬롯마다 ${MAX_SLOT_WORDS} 단어까지만 쓰세요 ($breakdown)")
   fi
   if [ "$n3" -gt "$MAX_SLOT_WORDS" ]; then
-    ERRORS+=("$label: 목적이 $n3 단어입니다 — 슬롯마다 ${MAX_SLOT_WORDS} 단어까지만 쓰세요 ($breakdown)")
+    ERRORS+=("$label: 행위가 $n3 단어입니다 — 슬롯마다 ${MAX_SLOT_WORDS} 단어까지만 쓰세요 ($breakdown)")
   fi
 
   # 단독 사용 금지: 한 단어짜리 이름은 종류를 불문하고 막는다.
   # 언어·프레임워크·범용 단어를 목록으로 열거하지 않아도 구조로 전부 걸린다.
   if [ "${#segs[@]}" -lt 2 ]; then
-    ERRORS+=("$label: 한 단어 이름은 쓸 수 없습니다 — {대상}-{범위}-{관심사}-{목적} 중 최소 두 단어를 쓰세요 (예: ${name}-naming)")
+    ERRORS+=("$label: 한 단어 이름은 쓸 수 없습니다 — {대상}-{범위}-{관심사}-{행위} 중 최소 두 단어를 쓰세요 (예: ${name}-naming)")
   fi
 
   # 맥락 중복
@@ -188,7 +188,7 @@ validate_name() {
     ERRORS+=("$label: '$seg' 은 glossary 의 deny 단어입니다 → '$use' 를 쓰세요 ($cat: $meaning)")
   done
 
-  # 끝 단어는 {관심사} 또는 {목적} 이므로 반드시 사전에 등록돼 있어야 한다.
+  # 끝 단어는 {관심사} 또는 {행위} 이므로 반드시 사전에 등록돼 있어야 한다.
   # 앞 단어({대상}·{범위})는 도메인 고유명사(spring, notion, order)라 사전이 통제하지 않는다.
   if [ "${#segs[@]}" -ge 2 ]; then
     local last="${segs[${#segs[@]}-1]}"
@@ -196,17 +196,17 @@ validate_name() {
       if [ "${#last}" -le 3 ]; then
         ERRORS+=("$label: 끝 단어 '$last' 이 사전에 없습니다 — 줄임말이면 전체 단어를 쓰고, 공식 약어라면 glossary 에 등록하세요")
       else
-        ERRORS+=("$label: 끝 단어 '$last' 이 사전에 없습니다 — 끝 단어는 {관심사} 또는 {목적} 이므로 glossary-update 스킬로 먼저 등록하세요")
+        ERRORS+=("$label: 끝 단어 '$last' 이 사전에 없습니다 — 끝 단어는 {관심사} 또는 {행위} 이므로 glossary-update 스킬로 먼저 등록하세요")
       fi
     fi
   fi
 
-  # 슬롯 순서: {대상}-{범위}-{관심사}-{목적} 순으로만 놓을 수 있다
+  # 슬롯 순서: {대상}-{범위}-{관심사}-{행위} 순으로만 놓을 수 있다
   local prev_rank=0 cur_rank i2
   for ((i2 = 0; i2 < ${#segs[@]}; i2++)); do
     cur_rank="${ranks[$i2]}"
     if [ "$cur_rank" -lt "$prev_rank" ]; then
-      ERRORS+=("$label: 슬롯 순서 위반 — '${segs[$i2]}'($(slot_label "$cur_rank"))가 $(slot_label "$prev_rank") 뒤에 왔습니다. {대상}-{범위}-{관심사}-{목적} 순으로 쓰세요")
+      ERRORS+=("$label: 슬롯 순서 위반 — '${segs[$i2]}'($(slot_label "$cur_rank"))가 $(slot_label "$prev_rank") 뒤에 왔습니다. {대상}-{범위}-{관심사}-{행위} 순으로 쓰세요")
       break
     fi
     prev_rank="$cur_rank"

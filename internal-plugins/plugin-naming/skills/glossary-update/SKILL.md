@@ -32,7 +32,7 @@ jq -r --arg w "$W" 'to_entries[] | .key as $c | .value[]
 
 | 카테고리 | 슬롯 | 예 |
 |---|---|---|
-| `action` · `role` | 목적 | `validate`, `create`, `reviewer` |
+| `action` · `role` | 행위 | `validate`, `create`, `reviewer` |
 | `quality` | 관심사 | `naming`, `coverage`, `standard` |
 | 그 밖 (`artifact`·`platform`·`abbreviation`·`time`) | 대상·범위 | `plugin`, `document`, `git` |
 

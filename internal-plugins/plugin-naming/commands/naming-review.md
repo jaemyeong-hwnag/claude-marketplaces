@@ -12,7 +12,7 @@ allowed-tools: Bash, Read, Grep, Glob
    - 대상별: `"${CLAUDE_PLUGIN_ROOT}/scripts/validate-naming.sh" <대상>`
    - 전체: `"${CLAUDE_PLUGIN_ROOT}/scripts/validate-naming.sh" --all .`
    - 사전: `"${CLAUDE_PLUGIN_ROOT}/scripts/validate-naming.sh" --glossary`
-3. `${CLAUDE_PLUGIN_ROOT}/references/naming-rules.md` 를 읽고, 훅이 잡지 못하는 항목(의도 전달, 대상-관심사 순서, 기존 이름과의 일관성)을 사람 기준으로 판정한다.
+3. `${CLAUDE_PLUGIN_ROOT}/references/naming-rules.md` 를 읽고, 훅이 잡지 못하는 항목(의도 전달, 목적 문장의 핵심어가 이름에 있는가, 대상-관심사 순서, 기존 이름과의 일관성)을 사람 기준으로 판정한다.
 4. 이름마다 `통과 / 수정필요` 와 위반 조항, 대안을 보고한다. 파일은 고치지 않는다.
 
 깊은 판정이 필요하면 `naming-reviewer` 에이전트에 위임한다.

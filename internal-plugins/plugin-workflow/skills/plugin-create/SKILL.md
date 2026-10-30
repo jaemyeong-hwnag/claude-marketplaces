@@ -27,7 +27,7 @@ jq -r '.plugins[] | "\(.name)\t\(.description)"' .claude-plugin/marketplace.json
 
 | # | 단계 | 맡는 스킬 | 확인 |
 |---|---|---|---|
-| 1 | 이름 | `name-create` — 비슷한 이름은 `naming-reviewer` | `validate-naming.sh <이름>` |
+| 1 | 이름 | `name-create` 로 목적 문장 · 후보를 내고, 늘 `naming-reviewer` 에 목적 문장과 후보를 넘겨 판정받는다 | `validate-naming.sh <이름>` · `naming-reviewer` 통과 |
 | 2 | 배치 — `public-plugins/` 또는 `internal-plugins/` | 이 스킬 (3절) | - |
 | 3 | 디렉터리 · 필수 파일 | `plugin-directory-create` | `validate-directory-structure.sh <디렉터리>` |
 | 4 | 버전 `0.1.0` · CHANGELOG `## 0.1.0` | `version-update` | `validate-versioning.sh <디렉터리>` |
@@ -70,7 +70,7 @@ claude plugin details <이름>@jaemyeong-hwnag-plugins    # Hooks (N) 이 hooks.
 ## 체크리스트
 
 - [ ] 기존 플러그인에 더하는 것으로 안 되는 이유가 있다
-- [ ] 이름 — 규칙 통과, 기존 이름과 헷갈리지 않는다
+- [ ] 이름 — 규칙 통과, 목적 문장의 핵심어가 이름에 있다, `naming-reviewer` 통과, 기존 이름과 헷갈리지 않는다
 - [ ] 배치 — public / internal, common 이면 public
 - [ ] 필수 파일 셋, 버전 `0.1.0`, CHANGELOG `## 0.1.0`
 - [ ] README 템플릿, 표 = 실제 구성요소

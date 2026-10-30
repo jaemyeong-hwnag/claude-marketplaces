@@ -442,7 +442,7 @@ run plugin-document-naming-review; expect_code 0
 
 tc TC-091 "대상이 여러 단어(언어-프레임워크)여도 통과한다"
 run kotlin-spring-api-naming-validate; expect_code 0
-expect_out "대상·범위 \[kotlin-spring-api\] 관심사 \[naming\] 목적 \[validate\]"
+expect_out "대상·범위 \[kotlin-spring-api\] 관심사 \[naming\] 행위 \[validate\]"
 
 tc TC-092 "슬롯마다 세 단어, 전체 열두 단어까지 통과한다"
 run rust-axum-order-file-date-api-test-naming-standard-get-list-sync; expect_code 0
@@ -451,9 +451,9 @@ tc TC-096 "관심사가 네 단어면 막고 슬롯 구분을 보여준다"
 run kotlin-spring-naming-coverage-test-structure-validate
 expect_code 2; expect_out "관심사가 4 단어입니다"; expect_out "관심사 \[naming-coverage-test-structure\]"
 
-tc TC-097 "목적이 네 단어면 막는다"
+tc TC-097 "행위가 네 단어면 막는다"
 run plugin-naming-create-review-sync-validate
-expect_code 2; expect_out "목적이 4 단어입니다"
+expect_code 2; expect_out "행위가 4 단어입니다"
 
 tc TC-098 "대상·범위가 일곱 단어면 막는다"
 run kotlin-spring-boot-order-api-config-document-naming
@@ -462,15 +462,15 @@ expect_code 2; expect_out "대상·범위가 7 단어입니다"; expect_out "대
 tc TC-099 "대상·범위가 여섯 단어면 통과한다"
 run kotlin-spring-boot-order-api-config-naming; expect_code 0
 
-tc TC-093 "목적이 관심사보다 앞에 오면 막는다"
+tc TC-093 "행위가 관심사보다 앞에 오면 막는다"
 run review-standard
-expect_code 2; expect_out "슬롯 순서 위반"; expect_out "'standard'(관심사)가 목적 뒤에"
+expect_code 2; expect_out "슬롯 순서 위반"; expect_out "'standard'(관심사)가 행위 뒤에"
 
-tc TC-094 "목적이 대상보다 앞에 오면 막는다"
+tc TC-094 "행위가 대상보다 앞에 오면 막는다"
 run glossary-update-plugin
-expect_code 2; expect_out "'plugin'(대상·범위)가 목적 뒤에"
+expect_code 2; expect_out "'plugin'(대상·범위)가 행위 뒤에"
 
-tc TC-095 "대상-관심사-목적 순서는 통과한다"
+tc TC-095 "대상-관심사-행위 순서는 통과한다"
 run document-naming-validate; expect_code 0
 
 section "== K. 끝 단어 사전 강제 =="
@@ -543,7 +543,7 @@ expect_out "plugin 'plugin-directory-structure'"; expect_out "skill 'structure-r
 
 tc TC-131 "판단 요청이 단어별 슬롯 구분을 보여준다"
 run_stdin '{"hook_event_name":"PreToolUse","tool_input":{"file_path":"/x/internal-plugins/plugin-directory-structure/README.md"}}'
-expect_out "대상·범위 \\[plugin-directory\\] 관심사 \\[structure\\] 목적 \\[-\\]"
+expect_out "대상·범위 \\[plugin-directory\\] 관심사 \\[structure\\] 행위 \\[-\\]"
 
 mkdir -p "$TMP/judge/public-plugins/order-sync/skills/order-create" "$TMP/judge/public-plugins/order-sync/agents"
 : > "$TMP/judge/public-plugins/order-sync/skills/order-create/SKILL.md"
