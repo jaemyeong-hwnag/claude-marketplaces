@@ -57,6 +57,17 @@
           }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/design-soundness-validate.sh\" --hook",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

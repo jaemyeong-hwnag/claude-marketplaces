@@ -43,7 +43,8 @@ UI · 시각 디자인은 대상이 아니다. 다른 프로젝트에 설치해 
 | design-soundness-validate.sh | UserPromptSubmit | 요청 원문을 기록한다(요구 출처). 설계 신호어가 있으면 설계 요청으로 표시한다 |
 | design-soundness-validate.sh | PreToolUse (ExitPlanMode) | 검토 없이 플랜 모드를 나가면 한 번 **막고** 계획 파일 · 기계 신호를 알린다 (`DD-31`) |
 | design-soundness-validate.sh | PostToolUse (Write\|Edit\|MultiEdit) | 설계 문서면 새 기계 신호를 **알린다**. 설계 요청 뒤 첫 코드 편집이면 검토를 알린다 (`DD-32`) |
-| design-soundness-validate.sh | PostToolUse (Agent\|Task) | `design-soundness-reviewer` 가 돌면 검토함으로 표시한다 |
+| design-soundness-validate.sh | PostToolUse (Agent\|Task) | `design-soundness-reviewer` 가 동기로 끝나면 검토함, 백그라운드로 뜨면 검토 중으로 표시한다 |
+| design-soundness-validate.sh | SubagentStop | 백그라운드 `design-soundness-reviewer` 가 끝나면 검토함으로 표시한다. 검토 중에는 플랜 모드 게이트가 같은 계획도 막는다 |
 | design-soundness-validate.sh | Stop | 설계 문서를 고쳤는데 검토하지 않았으면 종료를 한 번 되돌린다 (`DD-30`) |
 
 ## 주의
@@ -56,7 +57,7 @@ UI · 시각 디자인은 대상이 아니다. 다른 프로젝트에 설치해 
 - `DD-24` 는 용어 절이 결정 절보다 앞에 있거나 결정 절이 없을 때만 본다 — 문서 끝의 용어집은 참고용이다. 한국어 용어는 부분 문자열로 찾는다.
 - `DD-21` 은 mermaid 의 간선만 본다. 중첩 상태 · `--x` · `--o` · `---` 간선은 보지 않는다.
 - 플랜 모드 게이트
-  - 같은 계획으로 다시 나가면 막지 않는다. `DESIGN_SOUNDNESS_PLAN_GATE=0` 으로 이것만 끈다.
+  - 같은 계획으로 다시 나가면 막지 않는다. 단 백그라운드 검증자가 아직 판정 중이면 같은 계획도 막는다. `DESIGN_SOUNDNESS_PLAN_GATE=0` 으로 이것만 끈다.
   - `claude -p`(비대화)에는 `ExitPlanMode` 도구가 없어 돌지 않는다 (2026-10-30, Claude Code 2.1.314 에서 확인).
 - `DESIGN_SOUNDNESS_GATE=0` 이면 세 게이트를 모두 끈다. 기계 신호는 그대로 알린다.
 - 대화 속 설계는 막지 않고 알린다. 어디까지가 설계인지 기계가 가르지 못한다.

@@ -1,7 +1,7 @@
 {
   "name": "common-evidence-review",
   "description": "AI 가 한 변경과 주장이 진짜 필요한지 · 맞는지를 작성 맥락 없는 검증자가 실행 근거로 판정한다 — 결론을 뺀 열린 질문만 넘김, 근거 먼저 · 없으면 판정 불가, 버그 주장은 수정 전 실패 · 후 통과 재현, 테스트 약화(skip · 단언 감소) 알림, 코드를 고치고 검증 없이 끝내면 한 번 되돌림.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "황재명",
     "email": "woaudsla@gmail.com"

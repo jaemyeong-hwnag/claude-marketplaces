@@ -11,7 +11,7 @@ test/evidence-validate.test.sh TC-E2    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. bash · jq · git 만 쓴다. 기록은 임시 `CLAUDE_PLUGIN_DATA` 에 쓴다.
 
-## 자동 TC (32건)
+## 자동 TC (33건)
 
 조항마다 걸려야 하는 것과 걸리면 안 되는 것을 같이 둔다.
 
@@ -53,6 +53,7 @@ test/evidence-validate.test.sh TC-E2    # ID 접두사로 필터
 | TC-E23 | 기록된 테스트 약화 신호를 게이트 메시지에 넣는다 |
 | TC-E23b | requirements.txt · CMakeLists.txt 는 문서가 아니라 설정으로 센다 |
 | TC-E24 | EVIDENCE_REVIEW_MIN_LINES 로 문턱을 바꾼다 |
+| TC-E25 | 백그라운드로 띄운 evidence-reviewer 는 끝날 때(SubagentStop)까지 검증으로 치지 않는다 |
 
 ### C. CLI --diff
 

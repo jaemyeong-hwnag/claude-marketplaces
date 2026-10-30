@@ -45,7 +45,9 @@ edit_p() { # $1=경로 $2=old $3=new [$4=session]
   jq -n --arg f "$1" --arg o "$2" --arg n "$3" --arg s "${4:-s1}" --arg w "$W" \
     '{hook_event_name: "PostToolUse", tool_name: "Edit", session_id: $s, cwd: $w, tool_input: {file_path: $f, old_string: $o, new_string: $n}}'
 }
-agent_p() { jq -n --arg t "$1" --arg s "${2:-s1}" '{hook_event_name: "PostToolUse", tool_name: "Agent", session_id: $s, tool_input: {subagent_type: $t, prompt: "x"}}'; }
+agent_p() { jq -n --arg t "$1" --arg s "${2:-s1}" '{hook_event_name: "PostToolUse", tool_name: "Agent", session_id: $s, tool_input: {subagent_type: $t, prompt: "x"}, tool_response: {status: "completed"}}'; }
+async_p() { jq -n --arg t "$1" --arg s "${2:-s1}" '{hook_event_name: "PostToolUse", tool_name: "Agent", session_id: $s, tool_input: {subagent_type: $t, prompt: "x", run_in_background: true}, tool_response: {isAsync: true, status: "async_launched", agentId: "a1"}}'; }
+substop_p() { jq -n --arg t "$1" --arg s "${2:-s1}" '{hook_event_name: "SubagentStop", session_id: $s, agent_type: $t, agent_id: "a1", stop_hook_active: false}'; }
 prompt_p() { jq -n --arg p "$1" --arg s "${2:-s1}" --arg w "$W" '{hook_event_name: "UserPromptSubmit", session_id: $s, cwd: $w, prompt: $p}'; }
 stop_p() { jq -n --arg s "${1:-s1}" --argjson a "${2:-false}" --arg w "$W" '{hook_event_name: "Stop", session_id: $s, cwd: $w, stop_hook_active: $a}'; }
 plan_p() { # $1=plan 본문 [$2=planFilePath] [$3=session]
@@ -230,13 +232,13 @@ tc TC-D19 "줄 끝 ; · <--> · 점선 라벨 · 라벨 안 화살표 · 다이�
 loop() { put "$W/a.md" "$FULL
 \`\`\`mermaid
 $1
-\`\`\`"; run "$W/a.md"; expect_out "출구 없는 루프) — A, B"; }
+\`\`\`"; run "$W/a.md"; expect_out "출구 없는 루프) — A, B"; expect_not "— A, B,"; expect_not ", A, B"; }
 loop $'---\ntitle: x --> y\n---\nflowchart LR\n  A --> B\n  B --> A'
 loop $'flowchart LR\n  A --> B;\n  B --> A;'
 loop $'flowchart LR\n  A <--> B'
-loop $'flowchart LR\n  A[go --> now] --> B\n  B("x --> y") --> A'; expect_not "now"; expect_not "y"
+loop $'flowchart LR\n  A[go --> now] --> B\n  B("x --> y") --> A'
 loop $'flowchart LR\n  A -. 재시도 .-> B\n  B --> A'
-loop $'flowchart LR\n  %% A --> Z\n  A --> B\n  B --> A'; expect_not "Z"
+loop $'flowchart LR\n  %% A --> Z\n  A --> B\n  B --> A'
 put "$W/a.md" "$FULL
 \`\`\`mermaid
 stateDiagram-v2
@@ -518,6 +520,15 @@ tc TC-D78 "바꾼 줄은 고치기 전 · 후 중 큰 쪽으로 센다"
 put "$DOC" "$FULL"; run_hook "$(edit_p "$DOC" $'a\nb\nc' 'z')"; run_hook "$(stop_p)"
 expect_out '"decision": "block"'
 
+tc TC-D79 "백그라운드 검증자를 기다리며 끝내면 막지 않고 기록을 남긴다 · 끝난 뒤 종료는 통과"
+put "$DOC" "$FULL"; run_hook "$(write_p "$DOC" $'a\nb\nc')"
+run_hook "$(async_p design-soundness-reviewer)"; run_hook "$(stop_p)"; expect_no_out
+[ "$TC_ON" = 1 ] && { [ -s "$CLAUDE_PLUGIN_DATA/s1.edits" ] || fail_tc "기록이 지워짐"; }
+run_hook "$(substop_p common-design-soundness-review:design-soundness-reviewer)"; run_hook "$(stop_p)"; expect_no_out
+run_hook "$(write_p "$DOC" $'a\nb\nc')"; run_hook "$(async_p design-soundness-reviewer)"; run_hook "$(substop_p Explore)"
+run_hook "$(prompt_p '<task-notification>done</task-notification>')"; run_hook "$(stop_p)"; expect_no_out
+[ "$TC_ON" = 1 ] && { [ -e "$CLAUDE_PLUGIN_DATA/s1.pending" ] || fail_tc "다른 에이전트의 SubagentStop 이 검토 중을 지움"; }
+
 section "I. 플랜 모드 게이트 (DD-31)"
 
 tc TC-D80 "검토 없는 ExitPlanMode 는 exit 2 로 막고 계획 파일 · 신호를 알린다"
@@ -556,6 +567,14 @@ tc TC-D86 "새 요청은 앞 요청의 검토 · 차단 기록을 잇지 않는�
 run_hook "$(agent_p design-soundness-reviewer)"; run_hook "$(prompt_p '다른 계획 세워줘')"
 run_hook "$(plan_p "$PLAN")"; expect_code 2
 
+tc TC-D87 "백그라운드 검증자가 끝나기 전에는 같은 계획이어도 막고, SubagentStop 뒤에는 통과"
+run_hook "$(plan_p "$PLAN")"; expect_code 2
+run_hook "$(async_p design-soundness-reviewer)"
+run_hook "$(plan_p "$PLAN")"; expect_code 2; expect_out "설계 검토 중"
+run_hook "$(substop_p design-soundness-reviewer)"
+run_hook "$(plan_p "$PLAN
+- 판정 반영")"; expect_code 0
+
 section "J. 설계 뒤 첫 코드 편집 (DD-32)"
 
 tc TC-D90 "설계 요청 뒤 첫 코드 편집에서 한 번만 알린다"
@@ -580,6 +599,10 @@ run_hook "$(prompt_p '<task-notification>설계</task-notification>')"; expect_n
 tc TC-D94 "requirements.txt 는 설정으로 센다 · designated 는 설계 요청이 아니다"
 run_hook "$(prompt_p '의존성 설계해줘')"; run_hook "$(write_p "$W/requirements.txt" 'x')"; expect_out "DD-32"
 run_hook "$(prompt_p 'the designated hitter fix')"; run_hook "$(write_p "$W/src/a.js" 'x')"; expect_no_out
+
+tc TC-D95 "검증자가 백그라운드로 도는 동안의 코드 편집에는 알리지 않는다"
+run_hook "$(prompt_p '취소 플로우 설계하고 구현해줘')"; run_hook "$(async_p design-soundness-reviewer)"
+run_hook "$(write_p "$W/src/a.js" 'x')"; expect_no_out
 
 section "K. fail-open"
 
