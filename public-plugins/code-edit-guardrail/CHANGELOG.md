@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.2
+
+### Fixed
+- `UserPromptSubmit`(`reset`) · `PreToolUse`(`shared`) 훅에 `"onFailure": "block"` — 스크립트가 깨지면 편집 기록 초기화 · 공유자원 확인(`G-03`) 없이 통과하던 것 (#157, `plugin-enforcement-effectiveness` `EF-07`)
+
 ## 0.1.1
 
 ### Fixed
