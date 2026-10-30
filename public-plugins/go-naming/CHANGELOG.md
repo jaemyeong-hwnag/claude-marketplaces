@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.3
+
+### Fixed
+- `PreToolUse` 훅에 `"onFailure": "block"` — 스크립트가 깨지면 Go 이름 검사 없이 쓰기가 통과하던 것 (#150, `plugin-enforcement-effectiveness` `EF-07`)
+
 ## 0.1.2
 
 ### Fixed
