@@ -185,6 +185,13 @@
       "meaning": "설정 파일 또는 설정 값"
     },
     {
+      "use": "design",
+      "deny": [
+        "blueprint"
+      ],
+      "meaning": "구현 방법을 정한 구조 · 플로우 · 결정"
+    },
+    {
       "use": "directory",
       "deny": [
         "dir",
@@ -349,6 +356,13 @@
         "fluff"
       ],
       "meaning": "요청한 일을 진척시키지 않는 저품질 생성 콘텐츠"
+    },
+    {
+      "use": "soundness",
+      "deny": [
+        "validity"
+      ],
+      "meaning": "주장 · 결정 · 흐름이 근거와 요구에 비추어 앞뒤가 맞는 정도"
     },
     {
       "use": "standard",

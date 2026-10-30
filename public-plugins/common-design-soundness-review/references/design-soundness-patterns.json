@@ -1,0 +1,23 @@
+{
+  "sections": {
+    "document": [
+      { "name": "문제 · 목적", "re": "문제|목적|배경|동기|(^|[^a-z])(problems?|context|motivation|goals?|purpose|background)([^a-z]|$)" },
+      { "name": "요구 · 품질 속성", "re": "요구|요건|품질|제약|(^|[^a-z])(requirements?|quality|qualities|constraints?|nfrs?)([^a-z]|$)" },
+      { "name": "결정", "re": "결정|설계|접근|방안|해법|(^|[^a-z])(decisions?|design|approach|solutions?)([^a-z]|$)" },
+      { "name": "고려한 대안", "re": "대안|선택지|비교|(^|[^a-z])(alternatives?|options?|considered)([^a-z]|$)" },
+      { "name": "위험 · 트레이드오프", "re": "위험|리스크|트레이드오프|단점|한계|(^|[^a-z])(risks?|trade-?offs?|drawbacks?|consequences?)([^a-z]|$)" },
+      { "name": "확인 방법", "re": "확인|검증|테스트|측정|(^|[^a-z])(confirmation|verification|validation|tests?|testing|metrics?)([^a-z]|$)" }
+    ],
+    "plan": [
+      { "name": "목표 · 요구", "re": "목표|목적|요구|배경|문제|(^|[^a-z])(goals?|context|requirements?|problems?|background)([^a-z]|$)" },
+      { "name": "접근 · 결정", "re": "접근|결정|설계|변경|구현|단계|(^|[^a-z])(approach|decisions?|design|changes?|steps?|implementation)([^a-z]|$)" },
+      { "name": "위험", "re": "위험|리스크|주의|한계|(^|[^a-z])(risks?|trade-?offs?|caveats?|edge cases?)([^a-z]|$)" },
+      { "name": "확인 방법", "re": "확인|검증|테스트|(^|[^a-z])(verification|validation|tests?|testing|verify)([^a-z]|$)" }
+    ]
+  },
+  "requirement_section_re": "요구|요건|품질|제약|목표|(^|[^a-z])(requirements?|quality|qualities|constraints?|goals?|nfrs?)([^a-z]|$)",
+  "decision_section_re": "결정|설계|접근|방안|해법|변경|구현|(^|[^a-z])(decisions?|design|approach|solutions?|changes?|implementation)([^a-z]|$)",
+  "glossary_section_re": "용어|정의|(^|[^a-z])(glossary|terms|terminology|definitions?)([^a-z]|$)",
+  "quality_words_re": "빠르|빠른|신속|안정적|안정성|확장 가능|확장성|고가용|가용성|견고|효율적|낮은 지연|(^|[^a-z])(fast|faster|quick|quickly|scalable|scalability|highly available|robust|efficient|performant|low latency|reliable|reliability)([^a-z]|$)",
+  "design_request_re": "설계|아키텍처|구조를? 잡|구조 잡|플로우|흐름을? 짜|어떻게 만들|어떻게 구현|(^|[^a-z])(design|designs|designing|architecture|architect)([^a-z]|$)"
+}
