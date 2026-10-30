@@ -1,5 +1,5 @@
 ---
-name: release-create
+name: plugin-release-create
 description: 플러그인 PR 이 머지된 뒤 릴리즈할 때 사용한다. main 에서의 설치 확인, 버전이 바뀐 플러그인의 태그·GitHub 릴리즈를 할 때 적용한다. 트리거 — "릴리즈해", "태그 달아", "배포", "플러그인 릴리즈". 설치 확인 뒤에만, main 에서만 태그를 단다.
 ---
 

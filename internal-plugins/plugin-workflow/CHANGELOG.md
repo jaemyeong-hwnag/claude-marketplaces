@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.7.0
+
+### Changed
+- 스킬 `release-create` → `plugin-release-create` (#202). 무엇의 릴리즈인지 이름으로 말하고 다른 스킬처럼 `plugin-` 으로 시작한다. 옛 이름으로 부르던 곳은 새 이름으로 부른다. 스크립트 `release-plugins.sh` 는 그대로
+
 ## 0.6.0
 
 ### Changed

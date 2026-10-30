@@ -1,6 +1,6 @@
 ---
 name: version-update
-description: 플러그인 버전을 올릴 때 사용한다. 변경을 커밋하기 전에 버전을 얼마나 올릴지 정할 때, CHANGELOG 를 쓸 때, 1.0.0 으로 올릴 시점을 판단할 때 적용한다. 트리거 — "버전 올려", "CHANGELOG", "버전 뭐로", "patch minor major", "bump version". semver 등급 판정과 plugin.json · CHANGELOG · marketplace 엔트리의 정합성을 강제한다. 태그 · 릴리즈는 release-create 가 한다.
+description: 플러그인 버전을 올릴 때 사용한다. 변경을 커밋하기 전에 버전을 얼마나 올릴지 정할 때, CHANGELOG 를 쓸 때, 1.0.0 으로 올릴 시점을 판단할 때 적용한다. 트리거 — "버전 올려", "CHANGELOG", "버전 뭐로", "patch minor major", "bump version". semver 등급 판정과 plugin.json · CHANGELOG · marketplace 엔트리의 정합성을 강제한다. 태그 · 릴리즈는 plugin-release-create 가 한다.
 ---
 
 # 버전 올리기
@@ -43,7 +43,7 @@ description: 플러그인 버전을 올릴 때 사용한다. 변경을 커밋하
 3. marketplace.json 엔트리가 version 을 선언하고 있으면 같이 올린다
 4. 검증 — --all 과 --since origin/main
 5. 커밋 → PR → 머지
-6. 태그 · 릴리즈 — 머지 뒤 release-create
+6. 태그 · 릴리즈 — 머지 뒤 plugin-release-create
 ```
 
 CHANGELOG 를 먼저 쓰면 중간 상태가 규칙을 한 번도 어기지 않는다. 거꾸로 `plugin.json` 을 먼저 저장하면 `PostToolUse` 훅이 CHANGELOG 항목이 없다고 알린다 — 그 알림이 안전망이다.
@@ -77,7 +77,7 @@ CHANGELOG 를 먼저 쓰면 중간 상태가 규칙을 한 번도 어기지 않�
 
 ## 5. 태그 · 릴리즈
 
-이 스킬에서 달지 않는다. 태그 · 릴리즈는 머지 뒤 `release-create` 스킬(`plugin-workflow`)로 한다.
+이 스킬에서 달지 않는다. 태그 · 릴리즈는 머지 뒤 `plugin-release-create` 스킬(`plugin-workflow`)로 한다.
 
 ## 하지 않을 것
 
