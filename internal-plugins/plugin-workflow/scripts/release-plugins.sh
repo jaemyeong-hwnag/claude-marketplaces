@@ -1,29 +1,34 @@
 #!/usr/bin/env bash
 # 플로우 11 단계 — 머지 뒤 main 에서, 현재 version 의 태그가 없는 플러그인마다 태그를 달고 GitHub 릴리즈를 만든다.
 #
-#   release-plugins.sh [--dry-run] [--since <ref>] [루트]
+#   release-plugins.sh [--dry-run] [--since <ref>] [--notes-dir <dir>] [루트]
 #
 #   대상     현재 version 의 {name}--v{version} 태그가 없는 플러그인 — 머지를 여러 번 한 뒤 돌려도 빠지지 않는다
-#   --since <ref>  대상을 이 ref 이후 version 이 바뀐 플러그인으로 좁힌다
-#   --dry-run      무엇을 할지만 보여준다. 태그·푸시·릴리즈를 하지 않는다
+#   --since <ref>     대상을 이 ref 이후 version 이 바뀐 플러그인으로 좁힌다
+#   --dry-run         무엇을 할지만 보여준다. 태그·푸시·릴리즈를 하지 않는다. --notes-dir 를 주면 번역 원문 {name}.ko.md 를 쓴다
+#   --notes-dir <dir> 번역 {name}.en.md · {name}.zh-CN.md 가 있는 곳. 실제 실행에는 필수 (노트는 English · 한국어 · 简体中文)
 #
 # 시작 전에 전부 확인하고, 하나라도 걸리면 아무것도 하지 않는다.
 #   main 인가 · 작업 트리가 깨끗한가 · origin/main 과 같은가 · 설치본에 Error 가 없는가 ·
-#   이 저장소의 설치본 version 이 이번 version 인가 · CHANGELOG 에 그 버전 절이 있는가
+#   이 저장소의 설치본 version 이 이번 version 인가 · CHANGELOG 에 그 버전 절이 있는가 · 영어 · 중국어 번역이 있는가
 #
 # 종료 코드: 0 성공(또는 할 것 없음) / 2 확인 실패 / 1 실행 오류
 set -uo pipefail
 
-DRY=0; SINCE=""; ROOT=""
+DRY=0; SINCE=""; ROOT=""; LANG_DIR=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1; shift ;;
     --since) SINCE="${2:-}"; shift 2 ;;
+    --notes-dir) LANG_DIR="${2:-}"; shift 2 ;;
     -*) echo "release-plugins: 알 수 없는 옵션 $1" >&2; exit 1 ;;
     *) ROOT="$1"; shift ;;
   esac
 done
 ROOT="$(cd "${ROOT:-${CLAUDE_PROJECT_DIR:-$(pwd)}}" && pwd)"
+if [ -n "$LANG_DIR" ]; then
+  mkdir -p "$LANG_DIR" 2>/dev/null; LANG_DIR="$(cd "$LANG_DIR" 2>/dev/null && pwd)" || { echo "release-plugins: --notes-dir 를 열 수 없다" >&2; exit 1; }
+fi
 MAIN="main"
 fail() { echo "❌ $*" >&2; exit 2; }
 command -v jq >/dev/null 2>&1 || { echo "release-plugins: jq 가 필요합니다" >&2; exit 1; }
@@ -111,7 +116,29 @@ for t in "${TARGETS[@]}"; do
     on { print }
   ' "$dir/CHANGELOG.md" > "$NOTES_DIR/$name.md" 2>/dev/null
   [ -n "$(grep -v '^[[:space:]]*$' "$NOTES_DIR/$name.md")" ] || fail "$dir/CHANGELOG.md 에 '## $ver' 절이 없거나 비어 있다"
+  [ -n "$LANG_DIR" ] && [ "$DRY" = 1 ] && cp "$NOTES_DIR/$name.md" "$LANG_DIR/$name.ko.md"
 done
+
+# 노트 번역 — 한국어는 늘 CHANGELOG 에서 뽑고, 영어 · 중국어 간체는 --notes-dir 에서 받는다
+has_text() { [ -f "$1" ] && [ -n "$(grep -v '^[[:space:]]*$' "$1")" ]; }
+MISSING=""
+for t in "${TARGETS[@]}"; do
+  IFS='|' read -r name ver dir <<< "$t"
+  for l in en zh-CN; do
+    has_text "${LANG_DIR:-/nonexistent}/$name.$l.md" || MISSING="$MISSING $name.$l.md"
+  done
+done
+if [ "$DRY" = 0 ]; then
+  [ -n "$LANG_DIR" ] || fail "--notes-dir 가 필요하다 — --dry-run --notes-dir <dir> 로 원문 {name}.ko.md 를 받아 {name}.en.md · {name}.zh-CN.md 로 옮긴 뒤 실행한다"
+  [ -z "$MISSING" ] || fail "번역이 없거나 비어 있다 —$MISSING (--notes-dir $LANG_DIR)"
+fi
+# 언어 절 아래에 들어가므로 안쪽 제목을 한 단계 내린다 (코드 블록 안은 그대로)
+demote() { awk '/^```/ { fence = !fence } !fence && /^#/ { $0 = "#" $0 } { print }' "$1"; }
+compose() { # $1=이름 → 노트 파일
+  { printf '## English\n\n'; demote "$LANG_DIR/$1.en.md"
+    printf '\n## 한국어\n\n'; demote "$NOTES_DIR/$1.md"
+    printf '\n## 简体中文\n\n'; demote "$LANG_DIR/$1.zh-CN.md"; } > "$NOTES_DIR/$1.release.md"
+}
 
 # 4. 실행
 echo "릴리즈 대상 (${#TARGETS[@]}개${SINCE:+, 기준 $SINCE})"
@@ -122,10 +149,15 @@ for t in "${TARGETS[@]}"; do
     echo "  · $tag — gh release \"$name v$ver\" (노트 $(grep -cv '^[[:space:]]*$' "$NOTES_DIR/$name.md")줄)"
     continue
   fi
+  compose "$name"
   ( cd "$dir" && claude plugin tag --push ) >/dev/null 2>&1 || fail "$tag: claude plugin tag --push 실패 — 여기서 멈춘다. 앞의 플러그인은 이미 릴리즈됐다"
-  gh release create "$tag" --verify-tag --title "$name v$ver" --notes-file "$NOTES_DIR/$name.md" --latest=false >/dev/null 2>&1 \
+  gh release create "$tag" --verify-tag --title "$name v$ver" --notes-file "$NOTES_DIR/$name.release.md" --latest=false >/dev/null 2>&1 \
     || fail "$tag: gh release create 실패 — 태그는 푸시됐다. gh release create $tag --verify-tag --notes-file … 로 다시"
   echo "  ✅ $tag"
 done
-[ "$DRY" = 1 ] && echo "(--dry-run — 아무것도 하지 않았다)"
+if [ "$DRY" = 1 ]; then
+  [ -n "$LANG_DIR" ] && echo "번역 원문: $LANG_DIR/{이름}.ko.md — {이름}.en.md · {이름}.zh-CN.md 로 옮긴다"
+  [ -n "$MISSING" ] && echo "번역 없음:$MISSING — 실제 실행은 이것들이 있어야 한다"
+  echo "(--dry-run — 아무것도 하지 않았다)"
+fi
 exit 0

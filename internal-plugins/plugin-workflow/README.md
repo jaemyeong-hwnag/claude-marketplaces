@@ -32,7 +32,7 @@ It is an internal plugin and is not distributed to other repositories.
 |---|---|
 | `references/workflow-rules.md` | Steps this marketplace adds (order relative to `github-workflow` steps) |
 | `scripts/verify-all.sh` | Finds validators · regression tests · `claude plugin validate` by path convention and runs them all |
-| `scripts/release-plugins.sh` | Tag · release each plugin whose current version has no tag (`--dry-run` · `--since`) |
+| `scripts/release-plugins.sh` | Tag · release each plugin whose current version has no tag (`--dry-run` · `--since` · `--notes-dir`). Notes are English · Korean · Simplified Chinese; refuses without the translations |
 | `scripts/plugin-name-update.sh` | Rename — changes the directory · `plugin.json` · entry · `renames` · dependents' `dependencies` · `enabledPlugins` key, and lists remaining reference candidates (`--dry-run`) |
 | `scripts/eval-all.sh` | Runs every plugin's eval cases one case at a time — grants only needed permissions, does not publish reports (`--quick`) |
 | `test/` | Regression tests and TC spec |

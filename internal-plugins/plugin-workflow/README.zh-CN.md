@@ -32,7 +32,7 @@
 |---|---|
 | `references/workflow-rules.md` | 本市场增加的步骤（与 `github-workflow` 步骤的顺序） |
 | `scripts/verify-all.sh` | 按路径约定找到验证器 · 回归测试 · `claude plugin validate` 并全部运行 |
-| `scripts/release-plugins.sh` | 对当前版本没有标签的每个插件打标签 · 发布（`--dry-run` · `--since`） |
+| `scripts/release-plugins.sh` | 对当前版本没有标签的每个插件打标签 · 发布（`--dry-run` · `--since` · `--notes-dir`）。说明为英语 · 韩语 · 简体中文，没有译文则拒绝 |
 | `scripts/plugin-name-update.sh` | 重命名 — 修改目录 · `plugin.json` · 条目 · `renames` · 依赖它的插件的 `dependencies` · `enabledPlugins` 键，并列出剩余引用候选（`--dry-run`） |
 | `scripts/eval-all.sh` | 按用例逐个运行所有插件的 eval 用例 — 只授予所需权限，不发布报告（`--quick`） |
 | `test/` | 回归测试与 TC 规格 |

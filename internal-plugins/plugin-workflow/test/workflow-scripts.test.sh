@@ -108,6 +108,11 @@ installed() {
   done
   printf ']' >> "$TMP/installed.json"; export STUB_LIST_JSON="$TMP/installed.json"
 }
+# 번역 픽스처 — $1=디렉터리, 나머지=플러그인 이름. 영어 · 중국어 간체 노트를 쓴다
+mknotes() {
+  local d="$1"; shift; rm -rf "$d"; mkdir -p "$d"
+  for n in "$@"; do printf '### Added\n- new check\n' > "$d/$n.en.md"; printf '### Added\n- 新检查\n' > "$d/$n.zh-CN.md"; done
+}
 merge_bump() { # $1=브랜치 $2=플러그인 $3=버전 — 플러그인을 만들거나 버전을 올려 --no-ff 머지 · 푸시
   local p="$W/internal-plugins/$2"
   gitq "$W" checkout -q -b "$1"; mkdir -p "$p/.claude-plugin"
@@ -146,8 +151,8 @@ run "$RP" --dry-run "$W"; expect_code 0; expect_out "order-sync--v0.2.0"; expect
 expect_nocall "plugin tag"; expect_nocall "release create"
 
 tc TC-W108 "release: 태그를 달고 CHANGELOG 절을 노트로 릴리즈한다"
-mkrel rl6; : > "$CALLS"; rm -f "$STUB_NOTES_COPY"
-run "$RP" "$W"; expect_code 0; expect_out "✅ order-sync--v0.2.0"
+mkrel rl6; : > "$CALLS"; rm -f "$STUB_NOTES_COPY"; mknotes "$TMP/n6" order-sync
+run "$RP" --notes-dir "$TMP/n6" "$W"; expect_code 0; expect_out "✅ order-sync--v0.2.0"
 expect_call "claude plugin tag --push"
 expect_call "gh release create order-sync--v0.2.0 --verify-tag --title order-sync v0.2.0"
 expect_call "--latest=false"
@@ -155,22 +160,45 @@ expect_call "--latest=false"
 [ "$TC_ON" = 1 ] && { grep -qF "새 검사" "$STUB_NOTES_COPY" 2>/dev/null || fail_tc "노트에 0.2.0 절이 없다"; grep -qF "첫" "$STUB_NOTES_COPY" 2>/dev/null || fail_tc "첫 릴리즈인데 0.1.0 절이 빠졌다"; }
 
 tc TC-W116 "release: 직전 태그가 있으면 그 뒤의 절만 노트에 담는다"
-mkrel rl13; gitq "$W" tag order-sync--v0.1.0 main~1; gitq "$W" push -q origin order-sync--v0.1.0; rm -f "$STUB_NOTES_COPY"
-run "$RP" "$W"; expect_code 0
+mkrel rl13; gitq "$W" tag order-sync--v0.1.0 main~1; gitq "$W" push -q origin order-sync--v0.1.0; rm -f "$STUB_NOTES_COPY"; mknotes "$TMP/n13" order-sync
+run "$RP" --notes-dir "$TMP/n13" "$W"; expect_code 0
 [ "$TC_ON" = 1 ] && { grep -qF "새 검사" "$STUB_NOTES_COPY" || fail_tc "0.2.0 절이 없다"; grep -qF "첫" "$STUB_NOTES_COPY" && fail_tc "이미 릴리즈한 0.1.0 절이 들어갔다"; }; true
 
 tc TC-W117 "release: 여러 절을 담으면 뒤 절의 제목을 남기고 첫 제목은 뺀다"
-mkrel rl14; rm -f "$STUB_NOTES_COPY"; run "$RP" "$W"
-[ "$TC_ON" = 1 ] && { grep -qx "## 0.1.0" "$STUB_NOTES_COPY" || fail_tc "0.1.0 제목이 없다"; grep -qx "## 0.2.0" "$STUB_NOTES_COPY" && fail_tc "첫 제목이 남았다"; }; true
+mkrel rl14; rm -f "$STUB_NOTES_COPY"; mknotes "$TMP/n14" order-sync; run "$RP" --notes-dir "$TMP/n14" "$W"
+[ "$TC_ON" = 1 ] && { grep -qx "### 0.1.0" "$STUB_NOTES_COPY" || fail_tc "0.1.0 제목이 없다"; grep -qx "### 0.2.0" "$STUB_NOTES_COPY" && fail_tc "첫 제목이 남았다"; }; true
 
 tc TC-W118 "release: 날짜가 붙은 제목도 경계로 읽는다"
 mkrel rl15; gitq "$W" checkout -q -b feature/9-dated
 printf '# CHANGELOG\n\n## 0.3.0 - 2026-09-21\n\n- 셋째\n\n## 0.2.0 - 2026-09-18\n\n- 둘째\n\n## 0.1.0\n\n- 첫\n' > "$W/internal-plugins/order-sync/CHANGELOG.md"
 printf '{ "name": "order-sync", "version": "0.3.0" }' > "$W/internal-plugins/order-sync/.claude-plugin/plugin.json"
 gitq "$W" commit -qam dated; gitq "$W" checkout -q main; gitq "$W" merge -q --no-ff -m m feature/9-dated; gitq "$W" push -q origin main
-gitq "$W" tag order-sync--v0.2.0 main~1; rm -f "$STUB_NOTES_COPY"; installed "order-sync|0.3.0|local|$W"
-run "$RP" "$W"; expect_code 0
+gitq "$W" tag order-sync--v0.2.0 main~1; rm -f "$STUB_NOTES_COPY"; installed "order-sync|0.3.0|local|$W"; mknotes "$TMP/n15" order-sync
+run "$RP" --notes-dir "$TMP/n15" "$W"; expect_code 0
 [ "$TC_ON" = 1 ] && { grep -qF "셋째" "$STUB_NOTES_COPY" || fail_tc "0.3.0 절이 없다"; grep -qF "둘째" "$STUB_NOTES_COPY" && fail_tc "날짜 붙은 0.2.0 경계를 못 읽었다"; }; true
+
+tc TC-W148 "release: --notes-dir 없이 실제 실행하면 아무것도 하지 않고 거부한다"
+mkrel rl18; : > "$CALLS"
+run "$RP" "$W"; expect_code 2; expect_out "--notes-dir 가 필요하다"; expect_nocall "plugin tag"; expect_nocall "release create"
+
+tc TC-W149 "release: 중국어 번역이 없으면 아무것도 하지 않고 거부한다"
+mkrel rl19; : > "$CALLS"; mknotes "$TMP/n19" order-sync; rm -f "$TMP/n19/order-sync.zh-CN.md"
+run "$RP" --notes-dir "$TMP/n19" "$W"; expect_code 2; expect_out "order-sync.zh-CN.md"; expect_nocall "plugin tag"; expect_nocall "release create"
+
+tc TC-W150 "release --dry-run --notes-dir: 번역 원문 {name}.ko.md 를 쓰고 없는 번역을 알린다"
+mkrel rl20; : > "$CALLS"; rm -rf "$TMP/n20"
+run "$RP" --dry-run --notes-dir "$TMP/n20" "$W"; expect_code 0; expect_out "번역 없음: order-sync.en.md order-sync.zh-CN.md"
+expect_nocall "plugin tag"
+[ "$TC_ON" = 1 ] && { grep -qF "새 검사" "$TMP/n20/order-sync.ko.md" 2>/dev/null || fail_tc "원문에 0.2.0 절이 없다"; }; true
+
+tc TC-W151 "release: 노트는 English · 한국어 · 简体中文 순서이고 한국어는 CHANGELOG 에서, 안쪽 제목은 한 단계 내린다"
+mkrel rl21; rm -f "$STUB_NOTES_COPY"; mknotes "$TMP/n21" order-sync; echo "옛 원문" > "$TMP/n21/order-sync.ko.md"
+run "$RP" --notes-dir "$TMP/n21" "$W"; expect_code 0
+[ "$TC_ON" = 1 ] && {
+  [ "$(grep -E '^## ' "$STUB_NOTES_COPY" | tr '\n' '|')" = "## English|## 한국어|## 简体中文|" ] || fail_tc "언어 절 순서가 다르다: $(grep -E '^## ' "$STUB_NOTES_COPY" | tr '\n' '|')"
+  grep -qF "new check" "$STUB_NOTES_COPY" || fail_tc "영어 번역이 없다"; grep -qF "新检查" "$STUB_NOTES_COPY" || fail_tc "중국어 번역이 없다"
+  grep -qF "새 검사" "$STUB_NOTES_COPY" || fail_tc "한국어를 CHANGELOG 에서 뽑지 않았다"; grep -qF "옛 원문" "$STUB_NOTES_COPY" && fail_tc "디렉터리의 ko 파일을 썼다"
+  grep -qx "#### Added" "$STUB_NOTES_COPY" || fail_tc "안쪽 제목을 내리지 않았다"; }; true
 
 tc TC-W109 "release: 설치본에 로드 에러가 있으면 거부한다 (--json 의 errors)"
 mkrel rl7; printf '[{"id":"order-sync@x-marketplace","errors":["Hook load failed"]}]' > "$TMP/list.json"
