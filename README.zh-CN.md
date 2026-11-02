@@ -2,9 +2,16 @@
 
 [English](README.md) · [한국어](README.ko.md) · **简体中文**
 
-Claude Code 插件市场仓库。市场名称为 `jaemyeong-hwnag-plugins`。
+用钩子而不是模型可以跳过的指令来强制规则的 Claude Code 插件集合。改了代码却没改测试或 lint 失败时阻止完成，把 AI 的改动交给看不到作者结论的验证者，阻止指向生产主机的压测，阻止提交密钥，并强制 Java · Kotlin · TypeScript · Node.js · Python · Go 的命名规范。面向希望在每个 Claude Code 会话中都应用这些规则的个人和团队。
 
-- **想使用插件的人** — [快速开始](#快速开始) · [查找插件](#查找插件) · [自动安装项目所需插件](#自动安装项目所需插件) · [收录插件](#收录插件)
+```
+/plugin marketplace add jaemyeong-hwnag/claude-marketplaces
+/plugin install plugin-search-install@jaemyeong-hwnag-plugins
+```
+
+市场名称为 `jaemyeong-hwnag-plugins`。
+
+- **想使用插件的人** — [快速开始](#快速开始) · [查找插件](#查找插件) · [自动安装项目所需插件](#自动安装项目所需插件) · [收录插件](#收录插件) · [常见问题](#常见问题)
 - **为本仓库做贡献的人** — [在本仓库中工作](#在本仓库中工作)
 
 ## 快速开始
@@ -159,6 +166,32 @@ PSI="$(claude plugin list --json | jq -r '[.[] | select(.id=="plugin-search-inst
 | GitHub 流程 | [`github-workflow`](public-plugins/github-workflow) | 强制 issue → 带 issue 编号的分支 → PR → 合并提交 → 标签 的流程 |
 
 仅用于开发本仓库的 internal 插件 — [`plugin-naming`](internal-plugins/plugin-naming) · [`marketplace-directory-structure`](internal-plugins/marketplace-directory-structure) · [`plugin-versioning`](internal-plugins/plugin-versioning) · [`plugin-authoring`](internal-plugins/plugin-authoring) · [`plugin-dependency`](internal-plugins/plugin-dependency) · [`plugin-enforcement-effectiveness`](internal-plugins/plugin-enforcement-effectiveness) · [`plugin-workflow`](internal-plugins/plugin-workflow)。
+
+## 常见问题
+
+### 如何让 Claude Code 不写测试就无法结束任务？
+
+安装 [`code-edit-guardrail`](public-plugins/code-edit-guardrail) 并说"帮我设置护栏"。一次请求中改了代码却没有改任何测试文件，或所改路径的 lint · 格式 · 类型检查命令失败时，`Stop` 钩子会阻止完成。
+
+### 如何让 Claude 以外的一方来验证 Claude Code 的改动？
+
+[`common-evidence-review`](public-plugins/common-evidence-review) 只把原始请求 · 改动的文件 · 去掉结论的问题交给单独的验证代理，验证者按执行证据逐项判定。一次请求中改了 3 行以上代码 · 配置却未经此验证就要结束时，会退回一次。
+
+### 如何防止 Claude Code 提交 API 密钥或 `.env` 文件？
+
+[`git-secret-validate`](public-plugins/git-secret-validate) 会阻止带有密钥 · 敏感文件的 `git commit` · `git push`。检测使用 gitleaks，没有时使用内置模式。
+
+### Claude Code 能否在不触及生产环境的情况下做压测？
+
+[`common-stress-test`](public-plugins/common-stress-test) 会阻止目标主机不在允许列表（回环 · 私有 IP · `*.local` · `*.test` · `*.internal` · 自行添加的主机）中的 k6 · Gatling · Locust · JMeter 命令。
+
+### 如何让 Claude Code 遵守语言的命名规范？
+
+安装对应语言的插件 — [`java-naming`](public-plugins/java-naming) · [`kotlin-naming`](public-plugins/kotlin-naming) · [`typescript-naming`](public-plugins/typescript-naming) · [`node-naming`](public-plugins/node-naming) · [`python-naming`](public-plugins/python-naming) · [`go-naming`](public-plugins/go-naming)。钩子只阻止本次编辑新引入的违规，已有代码不会阻挡你。
+
+### 为什么用钩子而不是 `CLAUDE.md` 指令？
+
+钩子由 Claude Code 在模型之外直接执行。指令可以被跳过，而 `PreToolUse` 钩子可以拒绝工具调用，`Stop` 钩子可以拒绝结束回合。
 
 ## 在本仓库中工作
 

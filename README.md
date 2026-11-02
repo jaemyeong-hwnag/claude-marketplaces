@@ -2,9 +2,16 @@
 
 **English** · [한국어](README.ko.md) · [简体中文](README.zh-CN.md)
 
-A Claude Code plugin marketplace. The marketplace name is `jaemyeong-hwnag-plugins`.
+Claude Code plugins that enforce rules with hooks instead of instructions the model can skip. They block Claude from finishing when code changed without tests or lint fails, hand AI changes to a verifier that never sees the author's conclusion, block load tests aimed at production hosts, stop secrets from being committed, and enforce naming conventions for Java, Kotlin, TypeScript, Node.js, Python and Go. For people and teams who want these rules applied in every Claude Code session.
 
-- **If you want to use plugins** — [Getting started](#getting-started) · [Finding plugins](#finding-plugins) · [Installing what a project needs](#installing-what-a-project-needs) · [Plugins](#plugins)
+```
+/plugin marketplace add jaemyeong-hwnag/claude-marketplaces
+/plugin install plugin-search-install@jaemyeong-hwnag-plugins
+```
+
+The marketplace name is `jaemyeong-hwnag-plugins`.
+
+- **If you want to use plugins** — [Getting started](#getting-started) · [Finding plugins](#finding-plugins) · [Installing what a project needs](#installing-what-a-project-needs) · [Plugins](#plugins) · [FAQ](#faq)
 - **If you contribute to this repository** — [Working in this repository](#working-in-this-repository)
 
 ## Getting started
@@ -159,6 +166,32 @@ Install: `/plugin install <name>@jaemyeong-hwnag-plugins`. Every plugin has a RE
 | GitHub flow | [`github-workflow`](public-plugins/github-workflow) | Enforces issue → issue-numbered branch → PR → merge commit → tag |
 
 Internal plugins used only to develop this repository — [`plugin-naming`](internal-plugins/plugin-naming) · [`marketplace-directory-structure`](internal-plugins/marketplace-directory-structure) · [`plugin-versioning`](internal-plugins/plugin-versioning) · [`plugin-authoring`](internal-plugins/plugin-authoring) · [`plugin-dependency`](internal-plugins/plugin-dependency) · [`plugin-enforcement-effectiveness`](internal-plugins/plugin-enforcement-effectiveness) · [`plugin-workflow`](internal-plugins/plugin-workflow).
+
+## FAQ
+
+### How do I stop Claude Code from finishing without writing tests?
+
+Install [`code-edit-guardrail`](public-plugins/code-edit-guardrail) and say "set up the guardrail". Its `Stop` hook blocks completion when code changed in a request but no test file did, or when the lint · format · type-check command for the edited paths fails.
+
+### How do I get Claude Code's changes checked by something other than Claude itself?
+
+[`common-evidence-review`](public-plugins/common-evidence-review) sends the original request, the changed files and conclusion-free questions to a separate verifier agent, which judges each change from execution evidence. If a request changed 3 or more lines of code or config and ends without that review, the stop is turned back once.
+
+### How do I keep Claude Code from committing API keys or `.env` files?
+
+[`git-secret-validate`](public-plugins/git-secret-validate) blocks `git commit` · `git push` when the change carries secrets or sensitive files, using gitleaks or built-in patterns when gitleaks is absent.
+
+### Can Claude Code run load tests without hitting production?
+
+[`common-stress-test`](public-plugins/common-stress-test) blocks k6 · Gatling · Locust · JMeter commands whose target host is outside an allowlist (loopback, private IPs, `*.local` · `*.test` · `*.internal`, and hosts you add).
+
+### How do I make Claude Code follow my language's naming conventions?
+
+Install the plugin for your language — [`java-naming`](public-plugins/java-naming) · [`kotlin-naming`](public-plugins/kotlin-naming) · [`typescript-naming`](public-plugins/typescript-naming) · [`node-naming`](public-plugins/node-naming) · [`python-naming`](public-plugins/python-naming) · [`go-naming`](public-plugins/go-naming). Hooks block only violations that a new edit introduces, so existing code does not stop you.
+
+### Why hooks instead of `CLAUDE.md` instructions?
+
+Claude Code runs hooks itself, outside the model. An instruction can be skipped; a `PreToolUse` hook can refuse a tool call and a `Stop` hook can refuse to end the turn.
 
 ## Working in this repository
 

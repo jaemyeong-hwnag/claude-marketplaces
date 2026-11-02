@@ -3,6 +3,7 @@
 ## 미출시
 
 ### Changed
+- 루트 README 세 언어의 첫 문단을 무엇을 막는지 · 누구에게 · 설치 두 줄로 바꾸고, 질문형 소제목의 FAQ 절을 더했다 — 검색 · AI 답변이 인용할 문장이 없었다 (#231)
 - 루트 README 를 영어(기본) `README.md` · 한국어 `README.ko.md` · 중국어 간체 `README.zh-CN.md` 로 나누고 최신화했다 — 수록 표에 빠져 있던 public 5개(`common-document-slop-review` · `kotlin-spring-aitest-coverage` · `reference-search` · `common-evidence-review` · `common-design-soundness-review`), internal `plugin-enforcement-effectiveness`. 기여 절은 `CLAUDE.md` 와 겹치던 조항별 설명을 관심사 표 하나로 줄였다 (#229)
 - `CLAUDE.md` 관심사 표에 README 세 언어 (#229)
 - `validate-plugin-scope.sh` 가 `marketplace.json` `renames` 를 본다 — 키가 지금 등록된 이름이거나 internal 이름이면, origin 기본 브랜치에 있던 키가 사라지면 막는다. `claude plugin validate` 는 옛 이름 재사용을 통과시킨다 (#141)
