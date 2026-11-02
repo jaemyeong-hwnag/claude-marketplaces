@@ -148,22 +148,22 @@ PSI="$(claude plugin list --json | jq -r '[.[] | select(.id=="plugin-search-inst
 
 | 领域 | 插件 | 作用 |
 |---|---|---|
-| 查找 · 安装插件 | [`plugin-search-install`](public-plugins/plugin-search-install) | 本市场 public 插件的搜索 · 相关 · 项目所需 · 安装。包含本地 MCP 服务器 |
-| | [`plugin-browser`](public-plugins/plugin-browser) | 以终端界面（表格 · 卡片 · 方向键选择）显示上述结果 |
-| 代码命名 | [`java-naming`](public-plugins/java-naming) · [`kotlin-naming`](public-plugins/kotlin-naming) · [`typescript-naming`](public-plugins/typescript-naming) · [`node-naming`](public-plugins/node-naming) · [`python-naming`](public-plugins/python-naming) · [`go-naming`](public-plugins/go-naming) | 用钩子阻止违反各语言官方指南的名称形式，用技能判断用词 |
-| 测试 | [`java-spring-aitest-coverage`](public-plugins/java-spring-aitest-coverage) · [`kotlin-spring-aitest-coverage`](public-plugins/kotlin-spring-aitest-coverage) | 用 `@AiTest` 覆盖 Java · Kotlin Spring Boot 中变更的方法，并设 JaCoCo 100% 门槛 |
 | 代码编辑护栏 | [`code-edit-guardrail`](public-plugins/code-edit-guardrail) | 只改代码不改测试、或改动路径的 lint · 格式检查失败时阻止完成；编辑共享资源前需用户确认。与语言无关 |
 | 验证 · 评审 | [`common-evidence-review`](public-plugins/common-evidence-review) | 由没有编写上下文的验证者根据执行证据判定变更是否必要 · 论断是否属实 |
 | | [`common-design-soundness-review`](public-plugins/common-design-soundness-review) | 由没有编写上下文的验证者在实现前判定设计（结构 · 流程 · 决策）是否前后一致 |
 | | [`common-performance-review`](public-plugins/common-performance-review) | 从 9 个类别（复杂度 · 查询 · IO · 并发 · 缓存 …）全面评审代码变更的性能，编写时提示循环内查询 · await 等 19 种模式。与语言无关 |
-| 安全 | [`git-secret-validate`](public-plugins/git-secret-validate) | 在 `git commit` · `git push` 前阻止密钥 · 令牌 · 密码和 `.env` · 密钥文件，写入未被 ignore 的文件时警告。检测用 gitleaks（没有则用内置模式） |
 | 负载 · 性能 | [`common-stress-test`](public-plugins/common-stress-test) | 定量设计并判定负载测试（阻止生产主机 · 可持续容量 · 回归统计）。与语言无关 |
 | | [`java-spring`](public-plugins/java-spring-stress-test) · [`python-fastapi`](public-plugins/python-fastapi-stress-test) · [`python-django`](public-plugins/python-django-stress-test) · [`node-express`](public-plugins/node-express-stress-test) · [`typescript-nestjs`](public-plugins/typescript-nestjs-stress-test) · [`go-gin`](public-plugins/go-gin-stress-test) `-stress-test` | 按框架的服务器埋点、检测使测量无效的配置、微基准测试 |
+| 安全 | [`git-secret-validate`](public-plugins/git-secret-validate) | 在 `git commit` · `git push` 前阻止密钥 · 令牌 · 密码和 `.env` · 密钥文件，写入未被 ignore 的文件时警告。检测用 gitleaks（没有则用内置模式） |
+| 测试 | [`java-spring-aitest-coverage`](public-plugins/java-spring-aitest-coverage) · [`kotlin-spring-aitest-coverage`](public-plugins/kotlin-spring-aitest-coverage) | 用 `@AiTest` 覆盖 Java · Kotlin Spring Boot 中变更的方法，并设 JaCoCo 100% 门槛 |
+| 代码命名 | [`java-naming`](public-plugins/java-naming) · [`kotlin-naming`](public-plugins/kotlin-naming) · [`typescript-naming`](public-plugins/typescript-naming) · [`node-naming`](public-plugins/node-naming) · [`python-naming`](public-plugins/python-naming) · [`go-naming`](public-plugins/go-naming) | 用钩子阻止违反各语言官方指南的名称形式，用技能判断用词 |
 | 项目质量 | [`project-completeness`](public-plugins/project-completeness) | 诊断项目是否具备服务应有的一切，应用修复并判定运维指标 |
 | 文档 | [`domain-document-sync`](public-plugins/domain-document-sync) | 将领域知识文档分三层存放，并与代码变更保持一致 |
 | | [`common-document-slop-review`](public-plugins/common-document-slop-review) | 每次编写或修改文档时阻止 slop（对话残留 · 失效链接 · 无依据的论断），并要求事实核查 |
 | 查找参考资料 | [`reference-search`](public-plugins/reference-search) | 用按来源划分的代理查找论文、其他公司的技术案例、官方文档和标准，并阻止引用不存在的 DOI · arXiv ID |
 | GitHub 流程 | [`github-workflow`](public-plugins/github-workflow) | 强制 issue → 带 issue 编号的分支 → PR → 合并提交 → 标签 的流程 |
+| 查找 · 安装插件 | [`plugin-search-install`](public-plugins/plugin-search-install) | 本市场 public 插件的搜索 · 相关 · 项目所需 · 安装。包含本地 MCP 服务器 |
+| | [`plugin-browser`](public-plugins/plugin-browser) | 以终端界面（表格 · 卡片 · 方向键选择）显示上述结果 |
 
 仅用于开发本仓库的 internal 插件 — [`plugin-naming`](internal-plugins/plugin-naming) · [`marketplace-directory-structure`](internal-plugins/marketplace-directory-structure) · [`plugin-versioning`](internal-plugins/plugin-versioning) · [`plugin-authoring`](internal-plugins/plugin-authoring) · [`plugin-dependency`](internal-plugins/plugin-dependency) · [`plugin-enforcement-effectiveness`](internal-plugins/plugin-enforcement-effectiveness) · [`plugin-workflow`](internal-plugins/plugin-workflow)。
 

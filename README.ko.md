@@ -148,22 +148,22 @@ PSI="$(claude plugin list --json | jq -r '[.[] | select(.id=="plugin-search-inst
 
 | 분야 | 플러그인 | 하는 일 |
 |---|---|---|
-| 플러그인 찾기 · 설치 | [`plugin-search-install`](public-plugins/plugin-search-install) | 이 마켓의 public 플러그인 검색 · 연관 · 프로젝트에 필요한 것 · 설치. 로컬 MCP 서버 포함 |
-| | [`plugin-browser`](public-plugins/plugin-browser) | 위 결과를 터미널 화면(표 · 카드 · 화살표 선택)으로 |
-| 코드 네이밍 | [`java-naming`](public-plugins/java-naming) · [`kotlin-naming`](public-plugins/kotlin-naming) · [`typescript-naming`](public-plugins/typescript-naming) · [`node-naming`](public-plugins/node-naming) · [`python-naming`](public-plugins/python-naming) · [`go-naming`](public-plugins/go-naming) | 언어 공식 가이드가 정한 이름 모양을 훅으로 막고, 단어 선택은 스킬이 판단 |
-| 테스트 | [`java-spring-aitest-coverage`](public-plugins/java-spring-aitest-coverage) · [`kotlin-spring-aitest-coverage`](public-plugins/kotlin-spring-aitest-coverage) | Java · Kotlin Spring Boot 변경 메서드를 `@AiTest` 로 덮고 JaCoCo 100% 게이트 |
 | 코드 편집 가드레일 | [`code-edit-guardrail`](public-plugins/code-edit-guardrail) | 코드만 고치고 테스트를 안 고치면 · 고친 경로의 린트 · 포맷 검사가 실패하면 완료 차단, 공유자원 편집은 사용자 확인. 언어 무관 |
 | 검증 · 리뷰 | [`common-evidence-review`](public-plugins/common-evidence-review) | 변경이 진짜 필요한지 · 주장이 맞는지를 작성 맥락 없는 검증자가 실행 근거로 판정 |
 | | [`common-design-soundness-review`](public-plugins/common-design-soundness-review) | 구현 전 설계(구조 · 플로우 · 결정)의 앞뒤가 맞는지 작성 맥락 없는 검증자가 판정 |
 | | [`common-performance-review`](public-plugins/common-performance-review) | 코드 변경의 성능을 9개 범주(복잡도 · 쿼리 · IO · 동시성 · 캐싱 …)로 빠짐없이 판정하고, 루프 안 쿼리 · await 같은 19개 패턴을 작성 시 알림. 언어 무관 |
-| 보안 | [`git-secret-validate`](public-plugins/git-secret-validate) | `git commit` · `git push` 전에 키 · 토큰 · 비밀번호와 `.env` · 키 파일을 막고, ignore 안 된 파일에 쓰면 경고. 탐지는 gitleaks (없으면 내장 패턴) |
 | 부하 · 성능 | [`common-stress-test`](public-plugins/common-stress-test) | 부하 테스트를 정량으로 설계 · 판정 (운영 호스트 차단 · 지속 가능 용량 · 회귀 통계). 언어 무관 |
 | | [`java-spring`](public-plugins/java-spring-stress-test) · [`python-fastapi`](public-plugins/python-fastapi-stress-test) · [`python-django`](public-plugins/python-django-stress-test) · [`node-express`](public-plugins/node-express-stress-test) · [`typescript-nestjs`](public-plugins/typescript-nestjs-stress-test) · [`go-gin`](public-plugins/go-gin-stress-test) `-stress-test` | 프레임워크별 서버 계측 · 측정을 무효로 만드는 설정 탐지 · 마이크로벤치마크 |
+| 보안 | [`git-secret-validate`](public-plugins/git-secret-validate) | `git commit` · `git push` 전에 키 · 토큰 · 비밀번호와 `.env` · 키 파일을 막고, ignore 안 된 파일에 쓰면 경고. 탐지는 gitleaks (없으면 내장 패턴) |
+| 테스트 | [`java-spring-aitest-coverage`](public-plugins/java-spring-aitest-coverage) · [`kotlin-spring-aitest-coverage`](public-plugins/kotlin-spring-aitest-coverage) | Java · Kotlin Spring Boot 변경 메서드를 `@AiTest` 로 덮고 JaCoCo 100% 게이트 |
+| 코드 네이밍 | [`java-naming`](public-plugins/java-naming) · [`kotlin-naming`](public-plugins/kotlin-naming) · [`typescript-naming`](public-plugins/typescript-naming) · [`node-naming`](public-plugins/node-naming) · [`python-naming`](public-plugins/python-naming) · [`go-naming`](public-plugins/go-naming) | 언어 공식 가이드가 정한 이름 모양을 훅으로 막고, 단어 선택은 스킬이 판단 |
 | 프로젝트 품질 | [`project-completeness`](public-plugins/project-completeness) | 서비스로서 갖출 것을 갖췄는지 진단 · 적용 · 운영 지표 판정 |
 | 문서 | [`domain-document-sync`](public-plugins/domain-document-sync) | 도메인 지식 문서를 3계층으로 두고 코드 변경과 맞춰 둔다 |
 | | [`common-document-slop-review`](public-plugins/common-document-slop-review) | 문서를 쓰거나 고칠 때마다 slop(대화 잔재 · 깨진 링크 · 근거 없는 주장)을 막고 사실관계 리뷰를 요구 |
 | 레퍼런스 찾기 | [`reference-search`](public-plugins/reference-search) | 논문 · 다른 회사 기술 사례 · 공식 문서 · 표준을 출처별 에이전트로 찾고, 없는 DOI · arXiv ID 인용을 막는다 |
 | GitHub 플로우 | [`github-workflow`](public-plugins/github-workflow) | 이슈 → 이슈 번호 브랜치 → PR → 머지 커밋 → 태그 흐름을 강제 |
+| 플러그인 찾기 · 설치 | [`plugin-search-install`](public-plugins/plugin-search-install) | 이 마켓의 public 플러그인 검색 · 연관 · 프로젝트에 필요한 것 · 설치. 로컬 MCP 서버 포함 |
+| | [`plugin-browser`](public-plugins/plugin-browser) | 위 결과를 터미널 화면(표 · 카드 · 화살표 선택)으로 |
 
 이 저장소 개발에만 쓰는 internal 플러그인 — [`plugin-naming`](internal-plugins/plugin-naming) · [`marketplace-directory-structure`](internal-plugins/marketplace-directory-structure) · [`plugin-versioning`](internal-plugins/plugin-versioning) · [`plugin-authoring`](internal-plugins/plugin-authoring) · [`plugin-dependency`](internal-plugins/plugin-dependency) · [`plugin-enforcement-effectiveness`](internal-plugins/plugin-enforcement-effectiveness) · [`plugin-workflow`](internal-plugins/plugin-workflow).
 
