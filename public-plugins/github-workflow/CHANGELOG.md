@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.2.2
+
+### Changed
+- `plugin.json` 에 `license`(MIT)를 적었다 — Anthropic 디렉터리 제출 조건 (#233)
+
 ## 0.2.1
 
 ### Changed
