@@ -18,7 +18,7 @@
 | 7 | PR | `pull-request-create` | github-workflow |
 | 8 | 머지 | `pull-request-merge` | github-workflow |
 | 9 | ★ 설치 확인 — main 에서 `claude plugin list` 에 `Error:` 없음, 이 저장소의 설치본 `version` 이 이번 `version` (public 은 `claude plugin update`) | `plugin-release-create` | ★ plugin-workflow |
-| 10 | ★ 태그 + 릴리즈 — 현재 `version` 의 태그가 없는 플러그인마다 | `plugin-release-create` · `release-plugins.sh` | ★ plugin-workflow |
+| 10 | ★ 태그 + 릴리즈 — 현재 `version` 의 태그가 없는 플러그인마다, 노트는 세 언어 | `plugin-release-create` · `release-plugins.sh` | ★ plugin-workflow |
 | 11 | 정리 | `pull-request-merge` | github-workflow |
 
 버전 올림(4)이 PR 안에 있고 태그(10)가 머지 뒤에 있는 이유: 버전도 리뷰 대상이고, 리베이스가 SHA 를 바꾸므로 브랜치에서 단 태그는 머지 뒤 어디에도 없는 커밋을 가리킨다.
@@ -36,7 +36,7 @@
 | 스크립트 | 단계 | 무엇을 |
 |---|---|---|
 | `verify-all.sh` | 5 · 6 | 검증기 · 회귀 테스트 · `claude plugin validate --strict` 를 경로 규칙으로 찾아 전부 |
-| `release-plugins.sh` | 10 | 현재 `version` 의 `{name}--v{version}` 태그가 없는 플러그인마다, 이 저장소의 설치본이 그 `version` 인지 확인하고 `claude plugin tag --push` → `gh release create` |
+| `release-plugins.sh` | 10 | 현재 `version` 의 `{name}--v{version}` 태그가 없는 플러그인마다, 이 저장소의 설치본이 그 `version` 인지 확인하고 `claude plugin tag --push` → `gh release create`. 노트는 English · 한국어 · 简体中文 세 절 — 영어 · 중국어 간체 번역(`--notes-dir`)이 없으면 아무것도 하지 않는다 |
 | `plugin-name-update.sh` | 3 | 이름 변경 — 디렉터리 · `plugin.json` · 엔트리 · public 이면 `renames` · 기대는 플러그인의 `dependencies` · `enabledPlugins` 키. 남은 참조는 후보만 낸다 |
 | `eval-all.sh` | 필요할 때 | 모든 플러그인의 eval 케이스를 케이스 단위로, `--no-publish` |
 

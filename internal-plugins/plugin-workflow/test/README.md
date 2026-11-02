@@ -39,6 +39,10 @@ test/workflow-scripts.test.sh TC-W12    # ID 접두사로 필터
 | TC-W135 | release: 이 저장소에 설치가 없으면 거부한다 — 다른 프로젝트의 설치본은 세지 않는다 |
 | TC-W136 | release: user 범위 설치본이 이번 버전이면 통과한다 |
 | TC-W137 | release: --json 을 못 받으면 설치본 버전을 확인할 수 없어 거부한다 |
+| TC-W148 | release: --notes-dir 없이 실제 실행하면 아무것도 하지 않고 거부한다 |
+| TC-W149 | release: 중국어 번역이 없으면 아무것도 하지 않고 거부한다 |
+| TC-W150 | release --dry-run --notes-dir: 번역 원문 {name}.ko.md 를 쓰고 없는 번역을 알린다 |
+| TC-W151 | release: 노트는 English · 한국어 · 简体中文 순서이고 한국어는 CHANGELOG 에서, 안쪽 제목은 한 단계 내린다 |
 | TC-W112 | verify-all: 전부 통과하면 0, 실패가 있으면 1 과 ❌ 줄 |
 
 ### H. eval 러너
@@ -101,3 +105,8 @@ test/workflow-scripts.test.sh TC-W12    # ID 접두사로 필터
 | M24 eval: `--no-publish` 빠짐 | 1 |
 | M25 release 노트를 현재 절만 (#2 의 옛 동작) | 2 |
 | M26 release 직전 태그 무시 | 2 |
+| M27 release 번역 없음 검사 제거 | 1 (TC-W149) |
+| M28 release `--notes-dir` 필수 검사 제거 | 1 (TC-W148) |
+| M29 release 안쪽 제목 내리기 제거 | 2 |
+| M30 release 한국어를 번역 디렉터리에서 읽음 | 5 |
+| M31 release --dry-run 이 원문을 쓰지 않음 | 1 (TC-W150) |

@@ -28,13 +28,21 @@ sync 훅은 public 플러그인을 갱신하지 않는다 — 버전을 올린 p
 ## 10. 태그 + 릴리즈
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/scripts/release-plugins.sh" --dry-run   # 먼저 보여준다
-"${CLAUDE_PLUGIN_ROOT}/scripts/release-plugins.sh"             # 확인받고 실행
+N="$(mktemp -d)"
+"${CLAUDE_PLUGIN_ROOT}/scripts/release-plugins.sh" --dry-run --notes-dir "$N"   # 먼저 보여준다 · 원문 $N/{이름}.ko.md
+# 원문마다 $N/{이름}.en.md · $N/{이름}.zh-CN.md 를 쓴다
+"${CLAUDE_PLUGIN_ROOT}/scripts/release-plugins.sh" --notes-dir "$N"             # 확인받고 실행
 ```
+
+번역 규칙:
+- 원문의 제목 · 목록 구조를 그대로 둔다. `### Changed` 같은 절 제목은 영어 그대로 둔다
+- 코드 · 경로 · 조항 번호 · 이슈 번호(`#229`)는 옮기지 않는다
+- 원문에 없는 내용을 더하지 않는다
 
 - 현재 `version` 의 `{name}--v{version}` 태그가 없는 플러그인을 모두 고른다 — PR 여럿을 머지한 뒤 한 번 돌려도 빠지지 않는다
 - 플러그인마다 `claude plugin tag --push` (`{name}--v{version}`) → `gh release create --verify-tag --latest=false`
 - 노트는 **직전 태그 이후의 CHANGELOG 절 전부**다. 태그가 없었으면(첫 릴리즈) 끝까지 담는다
+- 노트 본문은 `## English` · `## 한국어` · `## 简体中文` 세 절이다. 한국어는 늘 CHANGELOG 에서 뽑는다. 번역 파일이 하나라도 없거나 비면 스크립트가 아무것도 하지 않는다
 - `--since {ref}` 를 주면 그 ref 이후 `version` 이 바뀐 플러그인으로 좁힌다
 - `--latest=false` 를 줘도 GitHub 는 명시적으로 Latest 인 릴리즈가 없으면 가장 최근 것을 Latest 로 잡는다. 플러그인별 릴리즈라 Latest 표시는 의미가 없다 — 무시한다
 - 시작 전에 main · 깨끗한 트리 · origin/main 과 같음 · 로드 에러 없음 · 이 저장소의 설치본이 이번 버전 · CHANGELOG 절 있음을 모두 확인하고, 하나라도 걸리면 아무것도 하지 않는다

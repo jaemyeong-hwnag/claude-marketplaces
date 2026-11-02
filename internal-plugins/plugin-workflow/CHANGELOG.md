@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.8.0
+
+### Added
+- `release-plugins.sh` 릴리즈 노트를 `## English` · `## 한국어` · `## 简体中文` 세 절로 쓴다. 영어 · 중국어 간체 번역은 `--notes-dir` 로 받고, 하나라도 없거나 비면 아무것도 하지 않는다. `--dry-run --notes-dir` 는 번역 원문 `{name}.ko.md` 를 쓴다. 한국어는 늘 CHANGELOG 에서 뽑는다 (#235)
+- `plugin-release-create` 스킬이 원문을 영어 · 중국어 간체로 옮긴 뒤 릴리즈한다 (#235)
+
 ## 0.7.2
 
 ### Changed
