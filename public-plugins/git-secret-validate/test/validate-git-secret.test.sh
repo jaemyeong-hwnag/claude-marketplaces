@@ -221,6 +221,33 @@ done
 OUT="$(printf '{"tool_name":"Bash","cwd":"%s","tool_input":{"command":"git status"}}' "$r" | PATH="$nojq" "$SCRIPT" 2>&1)"; CODE=$?
 expect_code 0; expect_no_out
 
+tc TC-S64 "임시 파일을 만들 수 없으면 git commit 을 검사 없이 통과시키지 않는다"
+r="$(repo)"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py
+# 임시 디렉터리는 만들고, 그 안의 FAIL_NAME 파일 쓰기만 실패하게 한다 (같은 이름의 디렉터리를 둔다)
+make_failtmp() {
+  [ "$TC_ON" = 1 ] || return 0
+  mkdir -p "$TMP/failtmp"
+  printf '#!/bin/bash\nout=$(%s "$@") || exit 1\n[ "$1" = -d ] && [ -n "${FAIL_NAME:-}" ] && mkdir -p "$out/$FAIL_NAME"\nprintf "%%s\\n" "$out"\n' "$(command -v mktemp)" > "$TMP/failtmp/mktemp"
+  chmod +x "$TMP/failtmp/mktemp"
+}
+make_failtmp
+for f in lex.1 tokens add-segments commit-specs; do
+  OUT="$(payload_bash / "cd '$r' && git commit -m x" | FAIL_NAME="$f" PATH="$TMP/failtmp:$PATH" "$SCRIPT" 2>&1)"; CODE=$?
+  expect_code 2; expect_out "임시 파일을 만들 수 없어"
+done
+
+tc TC-S65 "Write 훅 · CLI 는 임시 파일을 만들 수 없을 때도 판정이 수정 전과 같다"
+r="$(repo)"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py; make_failtmp
+# "<이름>: Is a directory" 는 스크립트가 그 임시 파일에 쓰려다 실패했다는 표식이다
+for f in scan-before scan-after; do
+  OUT="$(payload_write "$r/new.py" "token = \"$GH_TOKEN\"" | FAIL_NAME="$f" PATH="$TMP/failtmp:$PATH" "$SCRIPT" 2>&1)"; CODE=$?
+  expect_code 0; expect_out "/$f: Is a directory"
+done
+OUT="$(FAIL_NAME=tree-paths PATH="$TMP/failtmp:$PATH" "$SCRIPT" --all "$r" 2>&1)"; CODE=$?
+expect_code 2; expect_out "/tree-paths: Is a directory"; expect_out "[GS-01] c.py"
+OUT="$(FAIL_NAME=found-paths PATH="$TMP/failtmp:$PATH" "$SCRIPT" "$r/c.py" 2>&1)"; CODE=$?
+expect_code 0; expect_out "/found-paths: Is a directory"
+
 tc TC-S35 "스테이징된 .env 는 막는다 (GS-02)"
 r="$(repo)"; printf 'X=1\n' > "$r/.env"; git -C "$r" add .env; mkdir -p "$r/sub"
 run_stdin "$(payload_bash "$r" 'git commit -m env')"; expect_code 2; expect_out "[GS-02] .env"
