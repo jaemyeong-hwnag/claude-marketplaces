@@ -21,7 +21,7 @@ CONFIG_IN="${CODE_EDIT_GUARDRAIL_CONFIG:-.claude/code-edit-guardrail.json}"
 config_of() { case "$CONFIG_IN" in /*) printf '%s' "$CONFIG_IN" ;; *) printf '%s' "$1/$CONFIG_IN" ;; esac; } # $1=루트
 CONFIG=$(config_of "$ROOT")
 
-# 글롭 → 정규식. `/` 가 있으면 루트 기준, 없으면 어느 깊이든. 끝 `/` 는 그 아래 전부, `!` 는 제외
+# 글롭 → 정규식. `/` 가 있으면 루트 기준, 없으면 어느 깊이든. 끝 `/` 는 그 아래 전부, 느낌표(!) 는 제외
 JQ_LIB='
 def glob_re:
   endswith("/") as $dir
