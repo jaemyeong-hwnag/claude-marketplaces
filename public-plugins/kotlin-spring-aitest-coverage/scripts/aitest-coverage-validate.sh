@@ -19,30 +19,33 @@ set -uo pipefail
 # jq 없이 돈다 — jq 가 없는 환경에서 게이트가 꺼지지 않게
 json_str() { # $1 → JSON 문자열 리터럴
   local s b='\' q='"'
-  s="$(printf '%s' "$1" | LC_ALL=C tr -d '\001-\010\013\014\016-\037')"
+  s=$(printf '%s' "$1" | LC_ALL=C tr -d '\001-\010\013\014\016-\037')
   s=${s//"$b"/"$b$b"}; s=${s//"$q"/"$b$q"}; s=${s//$'\t'/"${b}t"}; s=${s//$'\r'/"${b}r"}; s=${s//$'\n'/"${b}n"}
   printf '"%s"' "$s"
 }
-system_message() { printf '{"systemMessage":%s}\n' "$(json_str "$1")"; }
+system_message() { local j; j=$(json_str "$1"); printf '{"systemMessage":%s}\n' "$j"; }
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_PATH=$(dirname "$0")
+SCRIPT_DIR=$(cd "$SCRIPT_PATH" && pwd)
 MODE="${1:-stop}"
-INPUT="$(cat 2>/dev/null || true)"
+INPUT=$(cat 2>/dev/null || true)
 SID=nosession; ACTIVE=false
 [[ "$INPUT" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([^\"]*)\" ]] && SID="${BASH_REMATCH[1]}"
 [[ "$INPUT" =~ \"stop_hook_active\"[[:space:]]*:[[:space:]]*true ]] && ACTIVE=true
-SAFE="$(printf '%s' "$SID" | tr -c 'A-Za-z0-9_.-' '_')"
+SAFE=$(printf '%s' "$SID" | tr -c 'A-Za-z0-9_.-' '_')
 
-cd "${CLAUDE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || exit 0
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-}"
+[ -n "$PROJECT_DIR" ] || PROJECT_DIR=$(pwd)
+cd "$PROJECT_DIR" 2>/dev/null || exit 0
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0
 # Gradle 루트 — diff-coverage-validate.sh 와 같은 규칙 (settings.gradle(.kts) · gradlew 가 있는 가장 가까운 상위, git 루트까지)
-GRADLE_ROOT="$(pwd -P)"
-TOP="$(git rev-parse --show-toplevel)" || exit 0
+GRADLE_ROOT=$(pwd -P)
+TOP=$(git rev-parse --show-toplevel) || exit 0
 d="$GRADLE_ROOT"
 while :; do
   if [ -e "$d/settings.gradle" ] || [ -e "$d/settings.gradle.kts" ] || [ -e "$d/gradlew" ]; then GRADLE_ROOT="$d"; break; fi
   { [ "$d" = "$TOP" ] || [ "$d" = / ]; } && break
-  d="$(dirname "$d")"
+  d=$(dirname "$d")
 done
 [ -e "$GRADLE_ROOT/settings.gradle.kts" ] || [ -e "$GRADLE_ROOT/build.gradle.kts" ] || exit 0
 cd "$TOP" || exit 0
@@ -61,8 +64,8 @@ PATHSPEC=(':(glob)**/src/main/kotlin/**' ':(glob)**/src/main/java/**' ':(glob)**
 # 요청 시작 때의 원격이 지금 HEAD 에 합쳐져 있으면 그 원격과도 달라야 한다 — 합치거나 리베이스로 들어온 원격 변경은 뺀다
 turn_refs() { # $1=기준 파일 (1행 요청 시작 HEAD · 2행 그때의 원격 기본 브랜치) → REF · ALSO
   local remote
-  REF="$(sed -n 1p "$1" 2>/dev/null)"
-  remote="$(sed -n 2p "$1" 2>/dev/null)"
+  REF=$(sed -n 1p "$1" 2>/dev/null)
+  remote=$(sed -n 2p "$1" 2>/dev/null)
   ALSO=""
   git cat-file -e "${REF:-none}^{commit}" 2>/dev/null || REF=HEAD
   if [ -n "$remote" ] && [ "$remote" != "$REF" ] && git merge-base --is-ancestor "$remote" HEAD 2>/dev/null; then ALSO="$remote"; fi
@@ -71,7 +74,7 @@ turn_refs() { # $1=기준 파일 (1행 요청 시작 HEAD · 2행 그때의 원�
 # 원격 기본 브랜치의 지금 커밋 (없으면 빈 값)
 remote_head() {
   local r
-  r="$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)"
+  r=$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)
   [ -n "$r" ] || for r in origin/main origin/master ""; do git rev-parse -q --verify "$r" >/dev/null 2>&1 && break; done
   [ -z "$r" ] || git rev-parse -q --verify "$r^{commit}" 2>/dev/null
 }
@@ -90,8 +93,13 @@ fingerprint() {
 
 if [ "$MODE" = "snapshot" ]; then
   state_dir
-  head="$(git rev-parse -q --verify HEAD 2>/dev/null)"
-  if [ -n "$head" ]; then printf '%s\n%s\n' "$head" "$(remote_head)" > "${STATE}.base"; else rm -f "${STATE}.base"; fi
+  head=$(git rev-parse -q --verify HEAD 2>/dev/null)
+  if [ -n "$head" ]; then
+    remote=$(remote_head)
+    printf '%s\n%s\n' "$head" "$remote" > "${STATE}.base"
+  else
+    rm -f "${STATE}.base"
+  fi
   fingerprint HEAD > "${STATE}.turn" 2>/dev/null || true
   exit 0
 fi
@@ -99,14 +107,16 @@ fi
 turn_refs "${STATE}.base"
 
 # 이번 요청에서 대상 diff 가 그대로면 코드 · 테스트를 건드리지 않은 응답이다
-if [ -f "${STATE}.turn" ] && [ "$(cat "${STATE}.turn" 2>/dev/null)" = "$(fingerprint "$REF")" ]; then
-  exit 0
+if [ -f "${STATE}.turn" ]; then
+  TURN=$(cat "${STATE}.turn" 2>/dev/null)
+  NOW=$(fingerprint "$REF")
+  [ "$TURN" = "$NOW" ] && exit 0
 fi
 
 tracked() { git diff "$1" --name-only 2>/dev/null | sort -u; }
-CHANGED="$({ if [ -n "$ALSO" ]; then { tracked "$REF"; tracked "$ALSO"; } | sort | uniq -d; else tracked "$REF"; fi
-             git ls-files --others --exclude-standard 2>/dev/null; } | awk 'NF && !seen[$0]++')"
-MAIN="$(printf '%s\n' "$CHANGED" | grep -E '(^|/)src/main/(kotlin|java)/.*\.kt$|(^|/)src/main/resources/.*[Mm]apper.*\.xml$' || true)"
+CHANGED=$({ if [ -n "$ALSO" ]; then { tracked "$REF"; tracked "$ALSO"; } | sort | uniq -d; else tracked "$REF"; fi
+             git ls-files --others --exclude-standard 2>/dev/null; } | awk 'NF && !seen[$0]++')
+MAIN=$(printf '%s\n' "$CHANGED" | grep -E '(^|/)src/main/(kotlin|java)/.*\.kt$|(^|/)src/main/resources/.*[Mm]apper.*\.xml$' || true)
 [ -z "$MAIN" ] && exit 0
 
 if ! git grep -q --untracked -F '// >>> kotlin-spring-aitest-coverage' -- '*build.gradle.kts' 2>/dev/null; then
@@ -123,22 +133,25 @@ grep -Eiq 'aitest:[[:space:]]*(skip|exempt|면제)' "$ACK" 2>/dev/null && exit 0
 
 viol=""
 VALIDATE="$SCRIPT_DIR/diff-coverage-validate.sh"
-out="$(CLAUDE_PROJECT_DIR="$GRADLE_ROOT" "$VALIDATE" --report-only ${ALSO:+--also "$ALSO"} "$REF" 2>&1)"
+out=$(CLAUDE_PROJECT_DIR="$GRADLE_ROOT" "$VALIDATE" --report-only ${ALSO:+--also "$ALSO"} "$REF" 2>&1)
 rc=$?
 if [ "$rc" -ne 0 ]; then
+  OUT_LINES=$(printf '%s\n' "$out" | sed 's/^/      /')
   viol="[테스트] 로컬 diff @AiTest 커버리지 미충족 (diff-coverage-validate.sh --report-only rc=$rc):
-$(printf '%s\n' "$out" | sed 's/^/      /')"
+$OUT_LINES"
 elif printf '%s' "$out" | grep -q 'no verifiable module diff' &&
      ! printf '%s\n' "$CHANGED" | grep -Eq '(^|/)src/aiTest/kotlin/.*\.kt$'; then
-  viol="[테스트] 소비 모듈을 특정할 수 없는 main 변경(라이브러리 · mapper)에 aiTest diff 없음: $(printf '%s' "$MAIN" | tr '\n' ' ')
+  MAIN_LIST=$(printf '%s' "$MAIN" | tr '\n' ' ')
+  viol="[테스트] 소비 모듈을 특정할 수 없는 main 변경(라이브러리 · mapper)에 aiTest diff 없음: $MAIN_LIST
       → 라이브러리 모듈이면 .claude/kotlin-spring-aitest-coverage.json 의 libraryModules 에 소비 모듈을 적는다"
 fi
 
 [ -z "$viol" ] && exit 0
 
 if [ "$ACTIVE" = "true" ]; then
+  VIOL_LINES=$(printf '%s\n' "$viol" | sed 's/^/  - /')
   msg="kotlin-spring-aitest-coverage: @AiTest 커버리지가 미충족인 채 작업이 끝났습니다(트랩 방지로 1회 강제 후 허용) — 확인 필요:
-$(printf '%s\n' "$viol" | sed 's/^/  - /')"
+$VIOL_LINES"
   system_message "$msg"
   exit 0
 fi

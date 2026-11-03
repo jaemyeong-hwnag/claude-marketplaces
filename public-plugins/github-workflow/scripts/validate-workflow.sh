@@ -13,9 +13,13 @@
 # 종료 코드: 0 통과 / 2 위반 / 1 실행 오류
 set -uo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+if [ -z "$PLUGIN_ROOT" ]; then
+  SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
+  PLUGIN_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+fi
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-}"
+[ -n "$PROJECT_DIR" ] || PROJECT_DIR=$(pwd)
 RULES="$PLUGIN_ROOT/references/workflow-rules.md"
 
 MAIN="main"   # detect_main 이 덮어쓴다
@@ -37,7 +41,7 @@ check_templates() { # $1=루트
     f="$it/$t.yml"
     if [ ! -r "$f" ]; then err ".github/ISSUE_TEMPLATE/$t.yml 이 없습니다 (W-01)"; continue; fi
     # labels: ["feature"] 또는 labels: feature — 한 줄 형식만 본다
-    label="$(grep -E '^labels:' "$f" | head -1 | sed -E 's/^labels:[[:space:]]*//; s/[][" ]//g')"
+    label=$(grep -E '^labels:' "$f" | head -1 | sed -E 's/^labels:[[:space:]]*//; s/[][" ]//g')
     case ",$label," in *",$t,"*) ;; *) err ".github/ISSUE_TEMPLATE/$t.yml: labels 에 '$t' 가 없습니다 (W-01)" ;; esac
     grep -qE '^body:' "$f" || err ".github/ISSUE_TEMPLATE/$t.yml: body 가 없습니다 — YAML 이슈 폼이어야 합니다 (W-01)"
   done
@@ -77,7 +81,7 @@ branch_of() { [ -n "$1" ] || return 0; git -C "$1" rev-parse --abbrev-ref HEAD 2
 # 기본 브랜치 — origin/HEAD 가 가리키는 브랜치. clone 이 아닌 저장소(init 뒤 remote add)는 origin/HEAD 가 없다
 detect_main() { # $1=디렉터리
   local h b
-  h="$(git -C "$1" symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)"
+  h=$(git -C "$1" symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)
   if [ -n "$h" ]; then MAIN="${h#origin/}"; return 0; fi
   for b in main master; do
     git -C "$1" rev-parse --verify -q "refs/remotes/origin/$b" >/dev/null 2>&1 && { MAIN="$b"; return 0; }
@@ -120,18 +124,18 @@ resolve_dir() {
 check_git() { # $1=dir, 나머지=git 뒤 토큰
   local dir="$1"; shift
   local -a a=("$@")
-  local i=0 sub br n t target refspecs=() nonflag=()
+  local i=0 sub br n t target pull_ff refspecs=() nonflag=()
   # 전역 옵션: -C <path> · -c <k=v>
   while [ "$i" -lt "${#a[@]}" ]; do
     case "${a[$i]}" in
-      -C) dir="$(resolve_dir "$dir" "${a[$((i+1))]:-.}")"; i=$((i+2)) ;;
+      -C) dir=$(resolve_dir "$dir" "${a[$((i+1))]:-.}"); i=$((i+2)) ;;
       -c) i=$((i+2)) ;;
       -*) i=$((i+1)) ;;
       *) break ;;
     esac
   done
   sub="${a[$i]:-}"; a=("${a[@]:$((i+1))}")
-  br="$(branch_of "$dir")"
+  br=$(branch_of "$dir")
 
   case "$sub" in
     commit)
@@ -142,10 +146,11 @@ check_git() { # $1=dir, 나머지=git 뒤 토큰
       fi ;;
     pull)
       if [ "$br" = "$MAIN" ]; then
+        pull_ff=$(git -C "$dir" config pull.ff 2>/dev/null)
         if has_tok --rebase ${a[@]+"${a[@]}"} || has_tok -r ${a[@]+"${a[@]}"} || has_prefix_tok --rebase= ${a[@]+"${a[@]}"} \
            || has_tok --no-ff ${a[@]+"${a[@]}"} || has_tok --ff ${a[@]+"${a[@]}"}; then
           err "$MAIN 에서 git pull 은 --ff-only 로만 받습니다 (W-09)"
-        elif ! has_tok --ff-only ${a[@]+"${a[@]}"} && [ "$(git -C "$dir" config pull.ff 2>/dev/null)" != only ]; then
+        elif ! has_tok --ff-only ${a[@]+"${a[@]}"} && [ "$pull_ff" != only ]; then
           err "$MAIN 에서 git pull 은 --ff-only 로만 받습니다 — 머지 커밋이 생길 수 있습니다 (W-09)"
         fi
       fi ;;
@@ -205,7 +210,7 @@ check_git() { # $1=dir, 나머지=git 뒤 토큰
           case "${a[$n]}" in
             -b|-B) nb="${a[$((n+1))]:-}"; n=$((n+2)) ;;
             -*) n=$((n+1)) ;;
-            *) [ -z "$path" ] && path="$(unquote "${a[$n]}")"; n=$((n+1)) ;;
+            *) [ -z "$path" ] && path=$(unquote "${a[$n]}"); n=$((n+1)) ;;
           esac
         done
         [ -n "$nb" ] && check_branch_name "$nb"
@@ -281,7 +286,7 @@ check_gh() { # $1=dir, 나머지=gh 뒤 토큰
         esac
       done
       [ "$method" = merge ] || err "머지 방식을 --merge 로 명시합니다 (W-07)"
-      head="$([ -n "$dir" ] && cd "$dir" 2>/dev/null && gh pr view ${arg:+"$arg"} ${repo:+-R "$repo"} --json headRefName -q .headRefName 2>/dev/null)"
+      head=$([ -n "$dir" ] && cd "$dir" 2>/dev/null && gh pr view ${arg:+"$arg"} ${repo:+-R "$repo"} --json headRefName -q .headRefName 2>/dev/null)
       if [ -z "$head" ]; then
         err "머지할 PR 의 브랜치를 알 수 없습니다 (gh pr view 실패) — 확인 전에는 머지하지 않습니다 (W-06)"
         return 0
@@ -302,7 +307,7 @@ check_gh() { # $1=dir, 나머지=gh 뒤 토큰
 check_claude() { # $1=dir, 나머지=claude 뒤 토큰
   local dir="$1"; shift
   [ "${1:-}" = "plugin" ] && [ "${2:-}" = "tag" ] || return 0
-  local br; br="$(branch_of "$dir")"
+  local br; br=$(branch_of "$dir")
   [ -n "$br" ] && [ "$br" != "$MAIN" ] && \
     err "claude plugin tag 는 $MAIN 에서만 돌립니다 (지금 '$br') (W-10)"
   return 0
@@ -374,8 +379,8 @@ function lex(stop,   c, c2) {
     if (c == "&" && ch(1) == ">") { endtok(); P += 2; if (ch(0) == ">") P++; blanks(); word(); continue }
     if (c == ">" || c == "<") {
       if (INTOK && TOK ~ /^[0-9]+$/) { TOK = ""; INTOK = 0 } else endtok()
-      if (substr(S, P, 3) == "<<<") { P += 3; blanks(); word(); continue }
-      if (substr(S, P, 2) == "<<") { P += 2; HD++; HDTAB[HD] = 0; if (ch(0) == "-") { HDTAB[HD] = 1; P++ }; blanks(); HDEND[HD] = word(); continue }
+      if (substr(S, P, 3) ~ /^[<][<][<]$/) { P += 3; blanks(); word(); continue }
+      if (substr(S, P, 2) ~ /^[<][<]$/) { P += 2; HD++; HDTAB[HD] = 0; if (ch(0) == "-") { HDTAB[HD] = 1; P++ }; blanks(); HDEND[HD] = word(); continue }
       P++; while (P <= N && ch(0) ~ /[>&|]/) P++
       blanks(); word(); continue
     }
@@ -390,10 +395,17 @@ AWK
 
 # 명령을 차례로 본다. cd 는 이후 명령의 디렉터리를 바꾸고, 대상을 풀 수 없으면 디렉터리를 모름("")으로 둔다. bash -c · eval 의 문자열은 다시 자른다.
 check_command() { # $1=명령 $2=시작 디렉터리
-  local cmd="$1" dir="$2" line base i wrap s
-  local -a toks
-  while IFS= read -r line; do
-    IFS=$'\037' read -r -a toks <<< "$line"
+  local cmd="$1" dir="$2" line base i wrap s lexed old_ifs
+  local -a toks lines
+  lexed=$(printf '%s\n' "$cmd" | awk "$LEX")
+  old_ifs="$IFS"; set -f; IFS='
+'
+  lines=($lexed)
+  IFS="$old_ifs"; set +f
+  for line in ${lines+"${lines[@]}"}; do
+    old_ifs="$IFS"; set -f; IFS=$'\037'
+    toks=($line)
+    IFS="$old_ifs"; set +f
     # 앞의 환경변수 대입 · 예약어 · 래퍼(command · env · sudo …)와 래퍼의 옵션을 건너뛴다
     wrap=0
     while [ "${#toks[@]}" -gt 0 ]; do
@@ -410,7 +422,7 @@ check_command() { # $1=명령 $2=시작 디렉터리
     case "$base" in
       cd|pushd)
         i=1; while [ "$i" -lt "${#toks[@]}" ] && [[ "${toks[$i]}" == -?* ]]; do [ "${toks[$i]}" = -- ] && { i=$((i+1)); break; }; i=$((i+1)); done
-        dir="$(resolve_dir "$dir" "${toks[$i]:-$HOME}")" ;;
+        dir=$(resolve_dir "$dir" "${toks[$i]:-$HOME}") ;;
       git)    check_git "$dir" "${toks[@]:1}" ;;
       gh)     check_gh "$dir" "${toks[@]:1}" ;;
       claude) check_claude "$dir" "${toks[@]:1}" ;;
@@ -424,7 +436,7 @@ check_command() { # $1=명령 $2=시작 디렉터리
           esac
         done ;;
     esac
-  done < <(printf '%s\n' "$cmd" | awk "$LEX")
+  done
 }
 
 report() {
@@ -467,7 +479,7 @@ main() {
   fi
 
   local payload tool cmd cwd
-  payload="$(cat)"
+  payload=$(cat)
   [ -n "$payload" ] || exit 0
   # 기본 브랜치 보호 가드라 확인할 수 없으면 막는다 — exit 1 은 Claude Code 에서 통과다
   if ! command -v jq >/dev/null 2>&1; then
@@ -475,13 +487,13 @@ main() {
     echo "validate-workflow: jq 가 없어 git · gh 명령을 검사할 수 없습니다 — jq 를 설치하세요" >&2
     exit 2
   fi
-  tool="$(printf '%s' "$payload" | jq -r '.tool_name // ""' 2>/dev/null)"
+  tool=$(printf '%s' "$payload" | jq -r '.tool_name // ""' 2>/dev/null)
   [ "$tool" = "Bash" ] || exit 0
-  cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // ""' 2>/dev/null)"
+  cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // ""' 2>/dev/null)
   [ -n "$cmd" ] || exit 0
   # 빠른 탈출 — 관심 있는 명령이 아니면 git 을 부르지 않는다
   printf '%s' "$cmd" | grep -qE '(^|[^[:alnum:]_-])(git|gh|claude)[[:space:]]' || exit 0
-  cwd="$(printf '%s' "$payload" | jq -r '.cwd // ""' 2>/dev/null)"
+  cwd=$(printf '%s' "$payload" | jq -r '.cwd // ""' 2>/dev/null)
   [ -n "$cwd" ] && [ -d "$cwd" ] || cwd="$PROJECT_DIR"
   detect_main "$cwd"
   check_command "$cmd" "$cwd"

@@ -15,20 +15,23 @@
 # 종료 코드: 0 통과 · 1 미충족 · 2 실행 오류 · 판정 불가
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_PATH=$(dirname "$0")
+SCRIPT_DIR=$(cd "$SCRIPT_PATH" && pwd)
 # Gradle 루트 — 시작 디렉터리에서 git 루트까지 올라가며 settings.gradle(.kts) · gradlew 가 있는 가장 가까운 곳 (없으면 시작 디렉터리)
 gradle_root() {
   local d top f
-  d="$(cd "$1" 2>/dev/null && pwd -P)" || { echo "$1"; return; }
-  top="$(git -C "$d" rev-parse --show-toplevel 2>/dev/null)" || { echo "$1"; return; }
+  d=$(cd "$1" 2>/dev/null && pwd -P) || { echo "$1"; return; }
+  top=$(git -C "$d" rev-parse --show-toplevel 2>/dev/null) || { echo "$1"; return; }
   while :; do
     for f in settings.gradle settings.gradle.kts gradlew; do [ -e "$d/$f" ] && { echo "$d"; return; }; done
     { [ "$d" = "$top" ] || [ "$d" = / ]; } && break
-    d="$(dirname "$d")"
+    d=$(dirname "$d")
   done
   echo "$1"
 }
-ROOT="$(gradle_root "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}")"
+START_DIR="${CLAUDE_PROJECT_DIR:-}"
+[ -n "$START_DIR" ] || START_DIR=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+ROOT=$(gradle_root "$START_DIR")
 export CLAUDE_PROJECT_DIR="$ROOT"
 cd "$ROOT"
 
@@ -67,7 +70,7 @@ cfg() { # $1=jq 식 → 값 (설정 파일이 없으면 빈 값)
 }
 
 # --- 변경 파일 ----------------------------------------------------------------
-tmp="$(mktemp -d "${TMPDIR:-/tmp}/kt-aitest-diff.XXXXXX")"
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/kt-aitest-diff.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT
 changed_file="$tmp/changed"
 entries_file="$tmp/entries"
@@ -98,16 +101,16 @@ fi
 
 # --- 모듈 -----------------------------------------------------------------------
 # 모듈 = Gradle 프로젝트 경로(콜론 구분, 앞 콜론 없음). 디렉터리 = 콜론을 / 로. 루트 단일 모듈은 "."
-MODULES="$(cfg '.modules // [] | .[]' | xargs)"
+MODULES=$(cfg '.modules // [] | .[]' | xargs)
 if [ -z "$MODULES" ]; then
-  MODULES="$(git ls-files -co --exclude-standard -- '*build.gradle.kts' 2>/dev/null | while IFS= read -r f; do
+  MODULES=$(git ls-files -co --exclude-standard -- '*build.gradle.kts' 2>/dev/null | while IFS= read -r f; do
     grep -qF "$MARKER" "$f" 2>/dev/null || continue
-    d="$(dirname "$f")"
+    d=$(dirname "$f")
     if [ "$d" = "." ]; then echo "."; else echo "${d//\//:}"; fi
-  done | sort -u | xargs)"
+  done | sort -u | xargs)
 fi
 [ -n "$MODULES" ] || MODULES="."
-LIBRARIES="$(cfg '.libraryModules // {} | to_entries[] | "\(.key)=\(.value | join(","))"' | xargs)"
+LIBRARIES=$(cfg '.libraryModules // {} | to_entries[] | "\(.key)=\(.value | join(","))"' | xargs)
 
 mod_dir() { if [ "$1" = "." ]; then echo ""; else echo "${1//://}/"; fi; }
 mod_task() { if [ "$1" = "." ]; then echo "$2"; else echo ":$1:$2"; fi; }
@@ -150,14 +153,15 @@ BEGIN {
 # 엔트리: 소비 모듈|패키지|Controller 이름(쉼표)|경로
 while IFS='|' read -r mod own f; do
   ctrl=""
-  [ "$own" = "own" ] && ctrl="$(kt_controllers "$f")"
-  echo "$mod|$(kt_package "$f")|$ctrl|$f"
+  [ "$own" = "own" ] && ctrl=$(kt_controllers "$f")
+  pkg=$(kt_package "$f")
+  echo "$mod|$pkg|$ctrl|$f"
 done < "$tmp/owners" > "$entries_file"
 
-entry_count="$(awk 'END { print NR }' "$entries_file")"
+entry_count=$(awk 'END { print NR }' "$entries_file")
 
 has_aitest() { # $1=모듈 $2=클래스 이름 — aiTest 본문에 단어로, 또는 <이름>…AiTest 식별자로 나오면 있다
-  local dir; dir="$(mod_dir "$1")$AITEST_DIR"
+  local dir; dir=$(mod_dir "$1"); dir="$dir$AITEST_DIR"
   [ -d "$dir" ] || return 1
   grep -rqwE --include='*.kt' -- "$2|$2[A-Za-z0-9_]*AiTest[A-Za-z0-9_]*" "$dir" 2>/dev/null
 }
@@ -165,7 +169,7 @@ has_aitest() { # $1=모듈 $2=클래스 이름 — aiTest 본문에 단어로, �
 module_of_test() { # $1=aiTest 파일 → 모듈 (없으면 빈 값)
   local m d best="" bl=-1
   for m in $MODULES; do
-    d="$(mod_dir "$m")"
+    d=$(mod_dir "$m")
     case "$1" in "${d}$AITEST_DIR/"*) [ "${#d}" -gt "$bl" ] && { best="$m"; bl="${#d}"; } ;; esac
   done
   echo "$best"
@@ -192,7 +196,7 @@ else
   done | awk 'NF' | sort -u > "$modules_file"
 fi
 
-module_count="$(awk 'END { print NR }' "$modules_file")"
+module_count=$(awk 'END { print NR }' "$modules_file")
 if [ "$module_count" -eq 0 ]; then
   echo "$NAME: no verifiable module diff — OK"
   exit 0
@@ -205,19 +209,20 @@ if [ "$CHECK_ONLY" = true ]; then
 fi
 
 # aiTest 를 돌릴 JDK — javap 도 이 JDK 의 것을 쓴다
-jdk_version="$(cfg '.jdkVersion // empty')"
+jdk_version=$(cfg '.jdkVersion // empty')
 if [ -n "$jdk_version" ] && [ -x /usr/libexec/java_home ]; then
-  JAVA_HOME="$(/usr/libexec/java_home -v "$jdk_version" 2>/dev/null || echo "${JAVA_HOME:-}")"
+  JAVA_HOME=$(/usr/libexec/java_home -v "$jdk_version" 2>/dev/null || echo "${JAVA_HOME:-}")
   export JAVA_HOME
 fi
 
 # 모듈 하나의 판정에 영향을 주는 소스 디렉터리 — 자기 src/ + 설정의 라이브러리 src/main/
 source_dirs_of() {
-  local m="$1" p l cs
-  echo "$(mod_dir "$m")src/"
+  local m="$1" p l cs md
+  md=$(mod_dir "$m")
+  echo "${md}src/"
   for p in $LIBRARIES; do
     l="${p%%=*}"; cs=",${p#*=},"
-    case "$cs" in *",$m,"*) echo "$(mod_dir "$l")src/main/" ;; esac
+    case "$cs" in *",$m,"*) md=$(mod_dir "$l"); echo "${md}src/main/" ;; esac
   done
 }
 
@@ -225,16 +230,20 @@ if [ "$REPORT_ONLY" = true ]; then
   # 리포트가 로컬 diff 파일보다 오래되면 그 변경은 아직 aiTest 로 측정되지 않은 것이다
   stale=""
   while IFS= read -r mod; do
-    xml="$(mod_dir "$mod")$REPORT_REL"
+    xml=$(mod_dir "$mod"); xml="$xml$REPORT_REL"
     if [ ! -f "$xml" ]; then
       stale="${stale}  $mod: JaCoCo 리포트 없음 ($xml)"$'\n'
       continue
     fi
-    dirs="$(source_dirs_of "$mod")"
+    dirs=$(source_dirs_of "$mod")
+    OLD_IFS="$IFS"; set -f; IFS='
+'
+    DIR_LIST=($dirs)
+    IFS="$OLD_IFS"; set +f
     while IFS= read -r f; do
       [ -f "$f" ] || continue
       hit=0
-      while IFS= read -r d; do case "$f" in "$d"*) hit=1 ;; esac; done <<< "$dirs"
+      for d in ${DIR_LIST+"${DIR_LIST[@]}"}; do case "$f" in "$d"*) hit=1 ;; esac; done
       if [ "$hit" = 1 ] && [ "$f" -nt "$xml" ]; then
         stale="${stale}  $mod: $f 가 리포트보다 최신"$'\n'
         break
@@ -262,24 +271,33 @@ else
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     set -- "$@" -PskipDockerEnsure=true
   fi
-  echo "$NAME: running aiTest (JaCoCo ON) for: $(paste -sd, "$modules_file")"
+  MODULE_CSV=$(paste -sd, "$modules_file")
+  echo "$NAME: running aiTest (JaCoCo ON) for: $MODULE_CSV"
   while IFS= read -r mod; do
     # 리포트는 환경 블록의 finalizedBy 가 만든다 — --tests 는 바로 앞 태스크에 붙으므로 aiTest 가 마지막이어야 한다
-    set -- "$@" "$(mod_task "$mod" compileAiTestKotlin)" "$(mod_task "$mod" aiTest)"
+    COMPILE_TASK=$(mod_task "$mod" compileAiTestKotlin)
+    AITEST_TASK=$(mod_task "$mod" aiTest)
+    set -- "$@" "$COMPILE_TASK" "$AITEST_TASK"
     # main 변경(자기 모듈 · 라이브러리)이 있으면 전체, aiTest 만 바뀌었으면 그 파일의 최상위 클래스만
     if grep -q "^$mod|" "$entries_file"; then
-      echo "  → $(mod_task "$mod" aiTest) (full — main Kotlin changed)"
+      echo "  → $AITEST_TASK (full — main Kotlin changed)"
       continue
     fi
-    d="$(mod_dir "$mod")"
-    while IFS= read -r t; do
-      [ "$(module_of_test "$t")" = "$mod" ] || continue
-      pkg="$(kt_package "$t")"
+    d=$(mod_dir "$mod")
+    TESTS=$(grep -E "^${d}$AITEST_DIR/.*\.kt$" "$changed_file" || true)
+    OLD_IFS="$IFS"; set -f; IFS='
+'
+    TEST_LIST=($TESTS)
+    IFS="$OLD_IFS"; set +f
+    for t in ${TEST_LIST+"${TEST_LIST[@]}"}; do
+      TEST_MODULE=$(module_of_test "$t")
+      [ "$TEST_MODULE" = "$mod" ] || continue
+      pkg=$(kt_package "$t")
       for cls in $(sed -nE 's/^(((public|internal|open|abstract|data|sealed)[[:space:]]+)*)class[[:space:]]+([A-Za-z0-9_]+).*/\4/p' "$t"); do
         set -- "$@" --tests "${pkg:+$pkg.}$cls"
-        echo "  → $(mod_task "$mod" aiTest) --tests ${pkg:+$pkg.}$cls"
+        echo "  → $AITEST_TASK --tests ${pkg:+$pkg.}$cls"
       done
-    done < <(grep -E "^${d}$AITEST_DIR/.*\.kt$" "$changed_file" || true)
+    done
   done < "$modules_file"
   ./gradlew "$@"
 
@@ -292,9 +310,9 @@ fi
 # --- 변경 메서드 커버리지 -------------------------------------------------------
 ok=""; skip=""; bad=""; broken=""
 while IFS='|' read -r mod _pkg _ctrls src; do
-  xml="$(mod_dir "$mod")$REPORT_REL"
+  xml=$(mod_dir "$mod"); xml="$xml$REPORT_REL"
   rc=0
-  out="$("$SCRIPT_DIR/method-coverage-get.sh" "$BASE" "$xml" "$src" "$mod" 2>&1)" || rc=$?
+  out=$("$SCRIPT_DIR/method-coverage-get.sh" "$BASE" "$xml" "$src" "$mod" 2>&1) || rc=$?
   case "$rc" in
     0) if printf '%s\n' "$out" | grep -q '^OK '; then ok="${ok}${out}"$'\n'; else skip="${skip}${out}"$'\n'; fi ;;
     2) broken="${broken}${out}"$'\n' ;;
