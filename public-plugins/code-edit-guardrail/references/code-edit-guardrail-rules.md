@@ -2,7 +2,7 @@
 
 Claude 가 코드를 고칠 때 넘지 말아야 할 선을 정한다. 기계 판정은 [`scripts/code-edit-guardrail.sh`](../scripts/code-edit-guardrail.sh).
 
-다루지 않는 것 — 시크릿(`git-secret-validate`), 코드 ↔ 문서 동기(`domain-document-sync`), 커버리지 수치(`java-spring-aitest-coverage`), CI · 린트 설정을 처음 까는 것(`project-completeness`).
+다루지 않는 것 — 시크릿(`git-secret-validate`), 코드 ↔ 문서 동기(`domain-document-sync`), 커버리지 수치(`java-spring-aitest-coverage`), CI · 린트 설정을 처음 까는 것.
 
 ## 1. 설정
 

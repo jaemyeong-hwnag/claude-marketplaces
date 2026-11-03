@@ -2,6 +2,10 @@
 
 ## 미출시
 
+### Removed
+- `plugin-search-install` · `plugin-browser` 플러그인 제거 — 내장 `/plugin` 과 겹치고 대상이 이 마켓뿐이었다. 루트 README 의 설치 안내를 `/plugin install` 로 바꿨다 (#251)
+- `project-completeness` 플러그인 제거 — 자동 판정이 파일 이름 grep 이라 이름만 맞춰도 통과했고, 같은 일을 하는 별도 도구가 있다 (#251)
+
 ### Changed
 - 루트 README 세 언어의 "완료를 막는다" 를 실제 동작(요청마다 한 번 되돌림 · 면제는 사용자 동의를 확인하지 않음 · 검증자 호출만 확인)에 맞추고, FAQ 에 #239 · #240 에서 바뀐 범위와 보지 못하는 경우를 적었다 (#249)
 - 루트 README 수록 표를 주요 플러그인(`code-edit-guardrail` · `common-evidence-review` · `common-stress-test`) 분야부터 정렬했다. 문구는 그대로 (#237)
