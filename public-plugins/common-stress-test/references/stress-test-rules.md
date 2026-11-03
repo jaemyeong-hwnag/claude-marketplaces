@@ -43,16 +43,19 @@
 
 | 허용 | 예 |
 |---|---|
-| 루프백 · 미지정 | `localhost` · `*.localhost` · `127.*` · `::1` · `0.0.0.0` |
-| 사설 IPv4 | `10.*` · `172.16.*` ~ `172.31.*` · `192.168.*` |
+| 루프백 · 미지정 | `localhost` · `*.localhost` · `127.0.0.0/8` · `::1` · `0.0.0.0` |
+| 사설 IP | `10.0.0.0/8` · `172.16.0.0/12` · `192.168.0.0/16` · IPv6 `fc00::/7` · `fe80::/10` |
 | 점 없는 이름 | 컨테이너 · compose · k8s 서비스 이름 (`app`, `api`) |
 | 예약 도메인 | `*.local` · `*.test` · `*.internal` · `host.docker.internal` |
 | 사용자 지정 | `STRESS_TEST_ALLOWED_HOSTS` — 쉼표 · 공백 구분, `*.perf.example.com` 처럼 앞 와일드카드 |
 
+**IP 판정** — 사설 대역은 IP 리터럴일 때만 사설이다. `10.evil.com` · `127.0.0.1.nip.io` 는 이름이라 공용으로 본다. IPv4 는 표준 표기(점 넷, 0~255, 앞 0 없음)만 사설로 본다 — 정수(`167772161`) · 16진 · 8진 · 줄인 표기(`10.1`)는 도구마다 해석이 달라 대역과 관계없이 허용하지 않는다. 숫자와 `0x` 로만 된 이름은 점이 없어도 컨테이너 이름이 아니라 IP 다.
+
 **보는 곳** — 부하 명령과 파이프(`|`)로 이어진 구간만 본다. `&&` · `;` 로 나뉜 다른 명령(`curl … && k6 run …`)은 변수 대입(`export BASE_URL=… &&`)만 본다
 - 그 구간의 URL, 이름에 `URL` · `HOST` 가 든 변수 대입(`-e BASE_URL=api.example.com`)
-- `--host` · locust 의 `-H` (hey · wrk · ab · oha 의 `-H` 는 헤더라 보지 않는다)
-- 명령이 가리키는 스크립트 파일(`*.js` · `*.py` · `*.jmx` · …, `<script.js` 로 넘긴 것 포함) 안의 URL과 JMX `HTTPSampler.domain`
+- `--host` · httperf 의 `--server` · locust 의 `-H` (hey · wrk · ab · oha 의 `-H` 는 헤더라 보지 않는다)
+- URL 을 위치 인자로 받는 도구(`hey` · `oha` · `ab` · `wrk` · `autocannon` · `bombardier` · `siege` · `h2load` · `ghz` · `plow` · `fortio`)의 스킴 없는 인자(`example.com` · `host:port/path`). 헤더 · 본문 · 프록시 · `--call` 값과 있는 파일 · 스크립트 확장자 이름은 뺀다
+- 명령이 가리키는 스크립트 파일(`*.js` · `*.py` · `*.jmx` · `*.txt` · …, `<script.js` 로 넘긴 것 포함) 안의 URL과 JMX `HTTPSampler.domain`
 - 그 파일의 k6 기본값 `__ENV.BASE_URL || 'api.example.com'` (이름에 `URL` · `HOST` 가 든 변수, 스킴 없어도 본다)
 - `-f` 없는 `locust` 는 `locustfile.py`
 
@@ -63,11 +66,16 @@
 - heredoc 본문 — 셸에 먹이는 heredoc(`bash <<EOF`)은 명령으로, 부하 명령 줄의 heredoc(`k6 run - <<EOF`)은 스크립트로 본다
 
 **부하 명령으로 보는 것** — 명령 구간의 첫 단어
-- `k6 run|cloud` · `locust` · `jmeter` · `gatling` · `wrk` · `wrk2` · `vegeta attack` · `hey` · `oha` · `ab` · `artillery run|quick` · `autocannon`
+- `k6 run|cloud` · `locust` · `jmeter` · `gatling` · `wrk` · `wrk2` · `vegeta attack` · `hey` · `oha` · `ab` · `artillery run|quick` · `autocannon` · `bombardier` · `siege` · `h2load` · `httperf` · `ghz` · `plow` · `drill` · `fortio load`
 - 그 이미지를 쓰는 `docker run`
 - `mvn` · `gradle` 의 gatling 태스크
 
 첫 단어를 찾을 때 건너뛰는 것 — 환경 변수 대입 · 옵션, `sudo` · `time` · `nohup` · `exec` · `command` · `env` · `npx` · `bunx` · `pnpx` · `uvx`, `uv` · `poetry` · `pipenv` · `pdm` · `hatch` 의 `run`, `python -m`, `timeout [옵션] 시간`, `nice` · `ionice` · `stdbuf` · `xargs` · `watch` · `caffeinate` 와 그 옵션(값을 받는 옵션은 값까지 — `nice -n 10` · `xargs -n 1`), 셸 키워드 `do` · `then` · `else` · `elif` · `if` · `while` · `until` · `!`. `sh` · `bash` 의 `-c` 는 그 인자를 다시 본다.
+
+**보지 못하는 것** — 명령 문자열만 보므로 다음은 정적으로 알 수 없어 통과한다. 이런 실행은 대상 호스트를 사람이 확인한다
+- 간접 실행 — `make load` · `npm run load` · `./run.sh` 처럼 부하 명령이 다른 파일 안에 있는 것
+- 변수로 만든 명령 · 대상 — `$TOOL run …` · `"$URL"` 처럼 실행 때 값이 정해지는 것
+- 위 목록 밖의 부하 도구, 스크립트가 실행 중에 다른 곳(설정 서버 등)에서 읽는 대상
 
 **설정 방법** — `STRESS_TEST_ALLOWED_HOSTS` 는 프로젝트 `.claude/settings.json` 의 `env` 에 둔다.
 

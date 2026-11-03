@@ -182,6 +182,38 @@ if [ "$TC_ON" = 1 ]; then
   target_codes 2 "k6 run $TMP/s/tmpl-bad.js"
 fi
 
+tc TC-S70 "사설 대역 숫자로 시작해도 IP 리터럴이 아닌 이름은 공용이다"
+target_codes 2 'k6 run -e BASE_URL=http://10.evil.com s.js' 'BASE_URL=10.evil.com k6 run s.js' 'hey http://192.168.evil.com/' \
+  'hey http://172.16.1.2.nip.io/' 'hey http://127.0.0.1.nip.io/' 'hey http://10.0.0.5.example.com/'
+
+tc TC-S71 "정수 · 16진 · 8진 · 줄인 IPv4 와 공인 IPv6 는 사설로 보지 않는다"
+target_codes 2 'hey http://134744072/' 'hey http://167772161/' 'hey http://0x08080808/' 'hey http://0x0a.0.0.1/' \
+  'hey http://012.0.0.1/' 'hey http://10.1/' 'hey http://256.1.1.1/' 'hey http://172.15.0.1/' \
+  'hey http://[2001:db8::1]/' 'hey http://[2001:db8::1]:8080/' 'hey http://[::ffff:8.8.8.8]/'
+target_codes 0 'hey http://[::1]:8080/' 'hey http://[fd00::5]/' 'hey http://[fe80::1]/'
+
+tc TC-S72 "스킴 없는 대상 인자를 본다 (헤더 · 파일 · 숫자 옵션 값은 대상이 아니다)"
+target_codes 2 'bombardier -c 100 example.com' 'siege -c 50 example.com/path' 'autocannon api.example.com:443' \
+  'ghz --insecure --call a.B 8.8.8.8:50051' 'bombardier -c 100 10.evil.com:8080' 'siege [2001:db8::1]:8080/'
+target_codes 0 'bombardier -c 100 localhost:8080' 'siege -c 10 10.0.0.5:8080/' 'autocannon app:3000' \
+  'hey -q 1.5 -H "Host: api.example.com" http://localhost:8080/' 'wrk -s post.lua http://localhost:8080/' \
+  'ab -p body.json -T application/json http://127.0.0.1/' 'ghz --insecure --call a.B 192.168.0.10:50051'
+
+tc TC-S73 "bombardier · siege · h2load · httperf · ghz · fortio load · plow · drill 도 부하 명령이다"
+F1="$(put s/urls.txt 'https://shop.example.com/\n')"
+F2="$(put s/drill.yml 'base: https://shop.example.com\n')"
+target_codes 2 'bombardier -c 100 https://example.com' 'siege -c 50 https://example.com/' 'h2load -n 100 https://example.com/' \
+  'httperf --server example.com --port 80' 'ghz --insecure --call a.B https://example.com' 'fortio load https://example.com/' \
+  'plow https://example.com/' "siege -f $F1" "drill --benchmark $F2" 'vegeta attack -targets='"$F1"
+target_codes 0 'bombardier -c 100 http://localhost:8080/' 'siege -c 10 http://127.0.0.1:8080/' 'httperf --server localhost --port 8080' \
+  'fortio server' 'plow http://app:8080/'
+
+tc TC-S74 "루프백 · 사설 IP 리터럴 · 예약 이름은 그대로 허용한다"
+target_codes 0 'hey http://localhost/' 'hey http://LOCALHOST./' 'hey http://127.0.0.1/' 'hey http://127.1.2.3/' 'hey http://[::1]/' \
+  'hey http://10.0.0.5/' 'hey http://192.168.1.10/' 'hey http://172.16.0.1/' 'hey http://172.31.255.255/' 'hey http://0.0.0.0:8080/' \
+  'k6 run -e BASE_URL=http://10.0.0.5:8080 s.js' 'BASE_URL=192.168.0.7:8080 k6 run s.js' 'bombardier 192.168.0.10:8080' \
+  'hey http://api.internal/' 'hey http://web.localhost/'
+
 echo "B. ST-02 ~ ST-06 부하 스크립트"
 tc TC-S20 "규칙을 지킨 k6 스크립트는 경고가 없다"
 F="$(put k/open.js "$K6_OPEN")"; run stress-script-validate.sh "$F"

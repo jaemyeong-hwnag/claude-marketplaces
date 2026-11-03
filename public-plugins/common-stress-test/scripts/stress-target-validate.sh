@@ -4,7 +4,7 @@
 #   훅:  PreToolUse(Bash) — stdin 의 tool_input.command 를 본다. 위반이면 exit 2 (차단)
 #   CLI: stress-target-validate.sh '<명령>'   위반이면 exit 2
 #
-# 허용: localhost · 루프백 · 사설 IPv4 · 점 없는 이름(컨테이너 · 서비스) · *.local · *.localhost · *.test · *.internal
+# 허용: localhost · 루프백 · 사설 IPv4 · IPv6 ::1 · fc00::/7 · fe80::/10 (IP 는 표준 표기 리터럴만) · 점 없는 이름(컨테이너 · 서비스) · *.local · *.localhost · *.test · *.internal
 #       · host.docker.internal · $STRESS_TEST_ALLOWED_HOSTS (쉼표 · 공백 구분, *.example.com 형태 허용)
 # 종료 코드: 0 통과 / 2 위반 / 1 실행 오류
 set -uo pipefail
@@ -40,10 +40,10 @@ strip_heredoc() {
       } }'
 }
 
-# 부하 도구를 실행하는 구간인가 — 구간의 첫 단어(환경 변수 대입 · 래퍼 제외)나 docker 이미지로 판단한다. 도구 이름은 TOOL 에 남긴다
+# 부하 도구를 실행하는 구간인가 — 구간의 첫 단어(환경 변수 대입 · 래퍼 제외)나 docker 이미지로 판단한다. 도구 이름은 TOOL, 인자는 ARGS 에 남긴다
 is_load_segment() {
   local seg="$1" w first="" rest opts
-  TOOL=""
+  TOOL=""; ARGS=""
   # shellcheck disable=SC2086
   set -f; set -- $seg; set +f
   while [ "$#" -gt 0 ]; do
@@ -98,10 +98,11 @@ is_load_segment() {
   done
   rest="$*"
   first="${first##*/}"
-  TOOL="$first"
+  TOOL="$first"; ARGS="$rest"
   case "$first" in
     k6) case "$rest" in run*|cloud*) return 0 ;; esac ;;
-    locust|jmeter|jmeter.sh|gatling|gatling.sh|wrk|wrk2|hey|oha|ab|autocannon) return 0 ;;
+    locust|jmeter|jmeter.sh|gatling|gatling.sh|wrk|wrk2|hey|oha|ab|autocannon|bombardier|siege|h2load|httperf|ghz|plow|drill) return 0 ;;
+    fortio) case "$rest" in load*) return 0 ;; esac ;;
     vegeta) case "$rest" in attack*) return 0 ;; esac ;;
     artillery) case "$rest" in run*|quick*) return 0 ;; esac ;;
     docker|podman|docker-compose)
@@ -126,9 +127,22 @@ assignments_of() {
   done
 }
 
+# URL 을 위치 인자로 받는 도구의 스킴 없는 대상(example.com · host:port/path · [v6]:port) — 헤더 · 본문 · 프록시 값과 파일 이름은 뺀다
+positional_targets() {
+  local t
+  set -f
+  for t in $(printf '%s\n' "$1" | sed -E "s/(^| )(--call|-H|--header|-d|--body|-b|-D|-T|-A|-C|-m|--method|-x|-X|--proxy|-a|--auth)[ =](\"[^\"]*\"|'[^']*'|[^ ]+)/ /g" | tr -d "\"'"); do
+    case "$t" in -*|*=*|*://*) continue ;; esac
+    [ -e "$t" ] || [ -e "$BASE/$t" ] && continue
+    printf '%s\n' "$t" | grep -E '^(\[[0-9A-Fa-f:.]+\](:[0-9]+)?|([A-Za-z0-9-]+\.)+[A-Za-z][A-Za-z0-9-]*(:[0-9]+)?|[0-9A-Fa-fxX.]+(:[0-9]+|/))(/.*)?$' \
+      | grep -vE '^[^:/]*\.(js|ts|mjs|cjs|py|jmx|ya?ml|scala|java|kt|json|txt|csv|lua|log|html|xml|conf|md|sh|proto|tsv|dat|pem|crt|key)$' || true
+  done
+  set +f
+}
+
 # 부하 구간만 모은다 — 파이프로 이어진 명령은 한 덩어리(vegeta 는 앞 단계가 대상을 준다), && · ; 로 나뉜 다른 명령은 뺀다
 CMD="$(printf '%s\n' "$CMD" | strip_heredoc)"
-LOAD_TXT=""; LOCUST_TXT=""; ASSIGN_TXT=""; BODY_TXT=""; raw_hit=0
+LOAD_TXT=""; LOCUST_TXT=""; ASSIGN_TXT=""; BODY_TXT=""; BARE_TXT=""; raw_hit=0
 while IFS= read -r raw; do
   case "$raw" in
     $'\002'*) [ "$raw_hit" = 1 ] && BODY_TXT="$BODY_TXT
@@ -144,6 +158,8 @@ ${raw#?}"; continue ;;
       hit=1
       [ "$TOOL" = locust ] && LOCUST_TXT="$LOCUST_TXT
 $stage"
+      case "$TOOL" in hey|oha|ab|wrk|wrk2|autocannon|bombardier|siege|h2load|ghz|plow|fortio) BARE_TXT="$BARE_TXT
+$(positional_targets "$ARGS")" ;; esac
     done < <(printf '%s\n' "$line" | tr '|' '\n')
     if [ "$hit" = 1 ]; then
       raw_hit=1
@@ -181,12 +197,12 @@ LOCUST_TXT="$(printf '%s\n' "$LOCUST_TXT" | drop_outputs)"
 hosts_from_text() {
   grep -vE '^[[:space:]]*(import|from|require|//|#)|require\(' \
     | sed -E "s/(^|[^[:alnum:]_])from[[:space:]]*['\"][^'\"]*['\"]//g" \
-    | grep -oE '[a-zA-Z][a-zA-Z0-9+.-]*://[^][ "'"'"'`<>(){}]+' \
-    | sed -E 's#^[^:]+://##; s#^[^@/]*@##; s#[/?\#].*$##; s#:[0-9]+$##' \
+    | grep -oE '[a-zA-Z][a-zA-Z0-9+.-]*://([^][ "'"'"'`<>(){}/@]*@)?(\[[0-9A-Fa-f:.]+\]|[^][ "'"'"'`<>(){}]+)' \
+    | sed -E 's#^[^:]+://##; s#^[^@/]*@##; s#[/?\#].*$##; s#^(\[[^]]*\]):[0-9]+$#\1#; s#^([^]:]*):[0-9]+$#\1#' \
     | grep -vE '^$|\$|^__ENV' || true
 }
 # 스킴 없는 값 → 호스트 (host:port/path · user@host)
-bare_host() { sed -E 's/^["'"'"']//; s/["'"'"']$//; s#^[a-zA-Z][a-zA-Z0-9+.-]*://##; s#^[^@/]*@##; s#[/?\#].*$##; s#:[0-9]+$##' | grep -vE '^$|\$' || true; }
+bare_host() { sed -E 's/^["'"'"']//; s/["'"'"']$//; s#^[a-zA-Z][a-zA-Z0-9+.-]*://##; s#^[^@/]*@##; s#[/?\#].*$##; s#^(\[[^]]*\]):[0-9]+$#\1#; s#^([^]:]*):[0-9]+$#\1#' | grep -vE '^$|\$' || true; }
 # 스크립트 파일 — 줄 끝 주석(앞이 공백인 // · #)을 지운다. URL 의 :// 와 #fragment 는 앞이 공백이 아니라 남는다
 strip_comments() { sed -E 's/[[:space:]]+(\/\/|#).*$//'; }
 # k6 의 __ENV.BASE_URL || 'host' 기본값 — 스킴 없이 쓰면 URL 검사에 안 걸린다
@@ -196,13 +212,14 @@ $(printf '%s\n' "$BODY_TXT" | strip_comments | hosts_from_text)
 $(printf '%s\n' "$BODY_TXT" | env_defaults)"
 # -H 는 locust 에서만 호스트다 (hey · wrk · ab · oha · autocannon 은 헤더)
 HOSTS="$HOSTS
-$(printf '%s\n' "$LOAD_TXT" | grep -oE '\-\-host[= ][^ ]+' | sed -E 's/^--host[= ]//' | bare_host)
+$(printf '%s\n' "$LOAD_TXT" | grep -oE '\-\-(host|server)[= ][^ ]+' | sed -E 's/^--(host|server)[= ]//' | bare_host)
+$(printf '%s\n' "$BARE_TXT" | bare_host)
 $(printf '%s\n' "$LOCUST_TXT" | grep -oE '(^| )-H [^ ]+' | sed -E 's/^ ?-H //' | bare_host)
 $(printf '%s\n' "$LOAD_TXT" | grep -oE '[A-Za-z0-9_]*(URL|HOST|url|host)[A-Za-z0-9_]*=[^ ]+' | sed -E 's/^[^=]+=//' | bare_host)"
 
 FILES=""
 for tok in $(printf '%s' "$LOAD_TXT" | tr -s ' \t"'"'"'=<>' '\n\n\n\n\n\n\n'); do
-  case "$tok" in *.js|*.ts|*.mjs|*.py|*.jmx|*.yml|*.yaml|*.scala|*.java|*.kt|*.json)
+  case "$tok" in *.js|*.ts|*.mjs|*.py|*.jmx|*.yml|*.yaml|*.scala|*.java|*.kt|*.json|*.txt)
     for p in "$tok" "$BASE/$tok"; do [ -f "$p" ] && { FILES="$FILES
 $p"; break; }; done ;;
   esac
@@ -218,15 +235,30 @@ $(env_defaults < "$f")"
 $(grep -oE 'HTTPSampler\.domain">[^<]+' "$f" | sed 's/.*">//' | grep -vE '\$\{' || true)" ;; esac
 done <<< "$FILES"
 
+# 표준 표기(점 넷 · 0~255 · 앞 0 없음) IPv4 가 루프백 · 사설 · 0.0.0.0 인가
+private_ipv4() {
+  local a b c d
+  printf '%s' "$1" | grep -qE '^(0|[1-9][0-9]{0,2})(\.(0|[1-9][0-9]{0,2})){3}$' || return 1
+  IFS=. read -r a b c d <<< "$1"
+  [ "$a" -le 255 ] && [ "$b" -le 255 ] && [ "$c" -le 255 ] && [ "$d" -le 255 ] || return 1
+  [ "$a" = 127 ] || [ "$a" = 10 ] || [ "$1" = 0.0.0.0 ] || { [ "$a" = 192 ] && [ "$b" = 168 ]; } \
+    || { [ "$a" = 172 ] && [ "$b" -ge 16 ] && [ "$b" -le 31 ]; }
+}
+
 allowed() {
   local h p
   h="$(printf '%s' "$1" | tr 'A-Z' 'a-z' | sed -E 's/^\[//; s/\]$//; s/\.$//')"
   case "$h" in
-    localhost|*.localhost|::1|0.0.0.0|host.docker.internal|*.local|*.test|*.internal) return 0 ;;
-    127.*|10.*|192.168.*) return 0 ;;
-    172.1[6-9].*|172.2[0-9].*|172.3[01].*) return 0 ;;
-    *.*|*:*) ;;
-    *) return 0 ;;
+    localhost|*.localhost|host.docker.internal|*.local|*.test|*.internal) return 0 ;;
+    # IPv6 — ::1 · fc00::/7 · fe80::/10 만 사설이다
+    *:*) case "$h" in ::1|f[cd][0-9a-f][0-9a-f]:*|fe[89ab][0-9a-f]:*) return 0 ;; esac ;;
+    # 숫자 · 16진만으로 된 이름은 IPv4 다. 정수(167772161) · 16진 · 8진 · 줄인 표기는 도구마다 해석이 달라 사설로 보지 않는다
+    *)
+      if printf '%s' "$h" | grep -qE '^(0x[0-9a-f]*|[0-9]+)(\.(0x[0-9a-f]*|[0-9]+))*$'; then
+        private_ipv4 "$h" && return 0
+      else
+        case "$h" in *.*) ;; *) return 0 ;; esac
+      fi ;;
   esac
   for p in $(printf '%s' "${STRESS_TEST_ALLOWED_HOSTS:-}" | tr ',' ' '); do
     p="$(printf '%s' "$p" | tr 'A-Z' 'a-z')"

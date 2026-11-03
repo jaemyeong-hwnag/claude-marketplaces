@@ -27,7 +27,7 @@ Java · Spring Boot 3.x 서버를 부하 측정할 때 프레임워크 몫을 �
 
 | 스크립트 | 이벤트 | 동작 |
 |---|---|---|
-| spring-stress-config-validate.sh | PreToolUse (Bash) | 부하 도구 실행(`k6 run` · `k6 cloud` · `locust` · `jmeter` · `gatling` · `wrk` · `wrk2` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `autocannon`, 그 이미지의 `docker run` · compose, `mvn` · `gradle` 의 gatling 태스크)일 때만 프로젝트를 검사해 **경고**로 알린다. 막지 않는다 |
+| spring-stress-config-validate.sh | PreToolUse (Bash) | 부하 도구 실행(`k6 run` · `k6 cloud` · `locust` · `jmeter` · `gatling` · `wrk` · `wrk2` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `autocannon` · `bombardier` · `siege` · `h2load` · `httperf` · `ghz` · `plow` · `drill` · `fortio load`, 그 이미지의 `docker run` · compose, `mvn` · `gradle` 의 gatling 태스크)일 때만 프로젝트를 검사해 **경고**로 알린다. 막지 않는다 |
 
 ## 주의
 

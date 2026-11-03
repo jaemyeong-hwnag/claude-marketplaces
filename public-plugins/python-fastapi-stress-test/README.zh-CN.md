@@ -27,7 +27,7 @@
 
 | 脚本 | 事件 | 行为 |
 |---|---|---|
-| fastapi-stress-config-validate.sh | PreToolUse (Bash) | 运行负载工具（`k6 run` · `k6 cloud` · `locust` · `jmeter` · `gatling` · `wrk` · `wrk2` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `autocannon`，使用这些镜像的 `docker run` · compose，`mvn` · `gradle` 的 gatling 任务）时检查项目并**提示**。不阻止 |
+| fastapi-stress-config-validate.sh | PreToolUse (Bash) | 运行负载工具（`k6 run` · `k6 cloud` · `locust` · `jmeter` · `gatling` · `wrk` · `wrk2` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `autocannon` · `bombardier` · `siege` · `h2load` · `httperf` · `ghz` · `plow` · `drill` · `fortio load`，使用这些镜像的 `docker run` · compose，`mvn` · `gradle` 的 gatling 任务）时检查项目并**提示**。不阻止 |
 
 ## 注意事项
 

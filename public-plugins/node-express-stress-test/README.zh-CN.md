@@ -29,7 +29,7 @@
 
 | 脚本 | 事件 | 行为 |
 |---|---|---|
-| express-stress-config-validate.sh | PreToolUse (Bash) | 仅当命令是负载工具（`k6 run` · `k6 cloud` · `wrk` · `wrk2` · `autocannon` · `locust` · `jmeter` · `gatling` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery`，使用这些镜像的 `docker run` · compose，`mvn` · `gradle` 的 gatling 任务）时检查项目并**警告**。不阻止 |
+| express-stress-config-validate.sh | PreToolUse (Bash) | 仅当命令是负载工具（`k6 run` · `k6 cloud` · `wrk` · `wrk2` · `autocannon` · `locust` · `jmeter` · `gatling` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `bombardier` · `siege` · `h2load` · `httperf` · `ghz` · `plow` · `drill` · `fortio load`，使用这些镜像的 `docker run` · compose，`mvn` · `gradle` 的 gatling 任务）时检查项目并**警告**。不阻止 |
 
 ## 注意事项
 

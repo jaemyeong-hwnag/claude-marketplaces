@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.8
+
+### Fixed
+- 훅이 `bombardier` · `siege` · `h2load` · `httperf` · `ghz` · `plow` · `drill` · `fortio load` 를 부하 명령으로 보지 않아 설정 점검을 알리지 않던 것 — `common-stress-test` 의 부하 명령 목록과 맞춘다 (#240)
+
 ## 0.1.7
 
 ### Changed

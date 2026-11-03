@@ -36,7 +36,7 @@
 ## 注意事项
 
 - 允许列表如下。
-  - 回环地址、私有 IPv4
+  - 回环地址、私有 IP — 仅限 IP 字面量。`10.evil.com` 这类名称以及整数 · 十六进制 · 八进制形式的 IP 不视为私有
   - 不含点的名称（容器 · 服务名）
   - `*.localhost` · `*.local` · `*.test` · `*.internal` · `host.docker.internal`
 - 专用测试域名放在 `.claude/settings.json` 的 `env.STRESS_TEST_ALLOWED_HOSTS` 中（逗号或空格分隔，允许 `*.perf.example.com` 形式）
@@ -45,7 +45,9 @@
   - `--host` · locust 的 `-H`
   - 名称含 `URL` · `HOST` 的变量赋值
   - 命令指向的脚本文件中的 URL
-- 脚本在运行时从别处读取目标（配置服务器等）时无法看到
+- 钩子只看命令字符串，因此以下情况看不到而直接放行 — 请人工确认目标主机
+  - `make load` · `npm run load` · `./run.sh` 这类间接执行，以及 `$TOOL` · `"$URL"` 这类由变量构成的命令 · 目标
+  - 规则原文列表之外的负载工具，以及脚本在运行时从别处（配置服务器等）读取的目标
 - 如果系统确实是 closed 模型，在脚本中加 `stress-test: closed-model` 注释。`ST-02` 警告会关闭
 - 分析脚本只使用 bash · awk · jq。负载工具（k6 等）由项目安装或以 Docker 镜像运行
 - SLO 值（p99 标准 · 错误率）由服务决定。文档中的 `300 ms` · `1%` 是示例

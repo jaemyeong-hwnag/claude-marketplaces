@@ -276,6 +276,13 @@ for c in 'nice k6 run s.js' 'nice -n 10 k6 run s.js' 'ionice -c 2 -n 7 k6 run s.
   run_hook "$BAD" "$(payload_bash "$c")"; expect_code 0; expect_out "DJ-02"
 done
 
+tc TC-D41 "bombardier · siege · h2load · httperf · ghz · plow · drill · fortio load 도 부하 명령으로 알린다"
+for c in 'bombardier -c 100 -d 30s http://localhost:8080/' 'siege -c 50 -t 30S http://localhost:8080/' 'h2load -n 1000 http://localhost:8080/' \
+         'httperf --server localhost --port 8080' 'ghz --insecure --call a.B localhost:50051' 'plow http://localhost:8080/' \
+         'drill --benchmark b.yml' 'fortio load http://localhost:8080/'; do
+  run_hook "$BAD" "$(payload_bash "$c")"; expect_code 0; expect_out "DJ-02"
+done
+
 tc TC-D40 "래퍼 뒤가 부하 도구가 아니면 조용히 통과한다"
 for c in 'nice -n 10 make build' 'ionice -c 3 du -sh .' 'stdbuf -oL tail -f app.log' 'echo a | xargs -n1 rm' 'watch -n 5 kubectl get pods' 'caffeinate -t 60 sleep 60'; do
   run_hook "$BAD" "$(payload_bash "$c")"; expect_code 0; expect_no_out

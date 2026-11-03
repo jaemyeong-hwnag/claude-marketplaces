@@ -11,7 +11,7 @@ test/spring-stress-config-validate.test.sh TC-S3     # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다.
 
-## 자동 TC (38건)
+## 자동 TC (39건)
 
 픽스처는 **규칙을 지키는 프로젝트**(`build.gradle` · `application.properties` · `Dockerfile` · JMH 소스)이고, TC 마다 복사해 한 곳만 깨뜨린다. 과잉 탐지를 막는 TC 를 조항마다 둔다.
 
@@ -61,4 +61,5 @@ test/spring-stress-config-validate.test.sh TC-S3     # ID 접두사로 필터
 | TC-S37 | 래퍼(uv run · poetry run · python -m · timeout · sh -c) · 한 줄 루프 · if 안의 부하 명령도 알린다 |
 | TC-S38 | 래퍼 뒤가 부하 도구가 아니거나 heredoc 본문의 부하 명령은 조용히 통과한다 |
 | TC-S39 | 래퍼 nice · ionice · stdbuf · xargs · watch · caffeinate 뒤의 부하 명령도 알린다 — 값을 받는 옵션은 값까지 건너뛴다 |
+| TC-S41 | bombardier · siege · h2load · httperf · ghz · plow · drill · fortio load 도 부하 명령으로 알린다 |
 | TC-S40 | 래퍼 뒤가 부하 도구가 아니면 조용히 통과한다 |
