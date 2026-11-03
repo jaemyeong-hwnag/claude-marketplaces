@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.6
+
+### Fixed
+- 훅 스크립트 `scripts/document-slop-validate.sh` 를 Anthropic 디렉터리 검증기가 읽을 수 있게 따옴표 안 명령 치환 · here-document · here-string 을 변수 · 줄 단위 루프로 바꿨다. 판정은 그대로다 (#258)
+
 ## 0.1.5
 
 ### Changed
