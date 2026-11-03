@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.5
+
+### Fixed
+- 훅 스크립트 `performance-validate.sh` 를 Anthropic 디렉터리 검증기가 읽을 수 있게 정리했다 — 따옴표 안 명령 치환 · 명령 치환이 든 here-document 를 변수 · 배열 분할로. 판정은 같다 (#259)
+
 ## 0.1.4
 
 ### Changed
