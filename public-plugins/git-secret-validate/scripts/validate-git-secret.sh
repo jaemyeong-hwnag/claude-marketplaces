@@ -375,11 +375,11 @@ find_targets() { # $1=명령 $2=시작 디렉터리 → TARGETS 에 "하위 명�
         if [ "${toks[$i]:-}" = - ]; then dir=""; else dir="$(target_dir "$dir" "${toks[$i]:-$HOME}")"; fi ;;
       popd) dir="" ;;
       git) git_target "$dir" "${toks[@]:1}" ;;
-      eval) s="${toks[*]:1}"; find_targets "${s//$'\036'/$'\n'}" "$dir" ;;
+      eval) s="${toks[*]:1}"; WRAPPED+=("${s//$'\036'/$'\n'}"); find_targets "${s//$'\036'/$'\n'}" "$dir" ;;
       bash|sh|zsh|dash|ksh)
         for ((i = 1; i < ${#toks[@]}; i++)); do
           case "${toks[$i]}" in
-            -c|-[a-z]*c) s="${toks[$((i+1))]:-}"; [ -n "$s" ] && find_targets "${s//$'\036'/$'\n'}" "$dir"; break ;;
+            -c|-[a-z]*c) s="${toks[$((i+1))]:-}"; [ -n "$s" ] && { WRAPPED+=("${s//$'\036'/$'\n'}"); find_targets "${s//$'\036'/$'\n'}" "$dir"; }; break ;;
             -*) ;;
             *) break ;;
           esac
@@ -408,11 +408,11 @@ commit_pathspecs() { # $1=commit 인자 → 한 줄에 하나
 }
 
 # 명령 안 모든 git add 의 인자 → ADD_SPECS(경로) · ADD_FORCE(-f) · ADD_ALL(. · -A · -u 처럼 전체를 넣는다)
-parse_git_add() { # $1=명령
+parse_git_add() { # $@=명령과 bash -c · eval 로 푼 문자열
   local seg tok seen=0
   ADD_SPECS=(); ADD_FORCE=0; ADD_ALL=0
   while IFS= read -r seg; do
-    has_git_sub "$seg" add q || continue
+    has_git_sub "$seg" add || continue
     seen=1
     while IFS= read -r tok; do
       case "$tok" in
@@ -428,7 +428,7 @@ parse_git_add() { # $1=명령
         *) ADD_SPECS+=("$tok") ;;
       esac
     done < <(shell_words "$(git_sub_args "$seg" add)")
-  done < <(printf '%s\n' "$1" | tr ';&|' '\n\n\n')
+  done < <(printf '%s\n' "$@" | tr ';&|' '\n\n\n')
   # 경로 없는 git add 는 어디를 넣는지 모른다 — 넓게 본다
   if [ "$seen" = 1 ] && [ "${#ADD_SPECS[@]}" = 0 ]; then ADD_ALL=1; fi
   return 0
@@ -440,7 +440,7 @@ hook_commit() { # $1=저장소 $2=명령 $3=번호(대상마다 따로 모은다
   g -C "$repo" rev-parse -q --verify HEAD >/dev/null 2>&1 || has_head=0
   commit_args="$(git_sub_args "$cmd" commit)"
   # git add 가 같은 명령에 있으면 아직 스테이징 전이다 — 전체를 넣으면 바뀐 파일 전체, 경로를 주면 그 경로만 본다
-  parse_git_add "$cmd"
+  parse_git_add "$cmd" ${WRAPPED+"${WRAPPED[@]}"}
   if [ "$ADD_ALL" = 1 ]; then worktree=1; fi
   if printf ' %s ' "$commit_args" | grep -qE '[[:space:]](-[A-Za-z]*a[A-Za-z]*|--all)[[:space:]]'; then worktree=1; fi
   # git commit <경로> · --only · -i 는 그 경로의 작업 트리 내용을 커밋한다
@@ -521,7 +521,7 @@ hook_bash() { # $1=payload
   [ -n "$what" ] || has_git_sub "$cmd" '(commit|push)' q || exit 0
   cwd="$(printf '%s' "$1" | jq -r '.cwd // ""' 2>/dev/null)"
   [ -n "$cwd" ] || cwd="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-  TARGETS=()
+  TARGETS=(); WRAPPED=()
   find_targets "$cmd" "$cwd"
   # 렉서가 git 명령으로 보지 못한 형태는 cwd 를 본다
   if [ "${#TARGETS[@]}" = 0 ]; then for t in $what; do TARGETS+=("$t"$'\037'"$cwd"); done; fi

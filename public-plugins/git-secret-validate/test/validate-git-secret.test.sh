@@ -293,9 +293,13 @@ for c in "bash -c 'git push'" "eval 'git push origin work'"; do
   run_stdin "$(payload_bash "$r" "$c")"; expect_code 2; expect_out "[GS-01] c.py"
 done
 
-tc TC-S63 "따옴표 안에 git commit · push 를 적기만 한 명령은 보지 않는다 (과잉 차단 방지)"
+tc TC-S63 "따옴표 안에 git commit · push · add 를 적기만 한 명령은 보지 않는다 (과잉 차단 방지)"
 r="$(repo)"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py
 for c in "grep -rn 'git commit' ." 'echo "git push origin work"' "bash -c 'git status'" "eval 'git log'"; do
+  run_stdin "$(payload_bash "$r" "$c")"; expect_code 0; expect_no_out
+done
+r="$(repo)"; printf 'X=1\n' > "$r/.env"
+for c in "echo 'git add -A'; git commit -m x" 'echo "git add .env" && git commit -m x'; do
   run_stdin "$(payload_bash "$r" "$c")"; expect_code 0; expect_no_out
 done
 
