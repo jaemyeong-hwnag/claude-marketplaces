@@ -22,6 +22,8 @@ fi
 RULES="$ROOT/references/document-slop-rules.md"
 PATTERNS="$ROOT/references/document-slop-patterns.json"
 GATE_MIN_LINES=3
+NL='
+'
 die() { echo "document-slop-validate: $*" >&2; exit 1; }
 
 is_doc() {
@@ -53,7 +55,7 @@ load_patterns() {
     (.dated[] | "dated\u001f-\u001f\(.)")
   ' "$PATTERNS" > "$PAT_FILE" 2>/dev/null || return 1
 }
-cleanup() { [ -n "$PAT_FILE" ] && rm -f "$PAT_FILE"; [ -n "${SEL_FILE:-}" ] && rm -f "$SEL_FILE"; [ -n "${RES_FILE:-}" ] && rm -f "$RES_FILE"; }
+cleanup() { [ -n "$PAT_FILE" ] && rm -f "$PAT_FILE"; [ -n "${SEL_FILE:-}" ] && rm -f "$SEL_FILE"; }
 trap cleanup EXIT
 
 # $1=파일 $2=모드(all|text|lines) $3=선택 파일(text: 이번에 쓴 텍스트, lines: 줄 번호)
@@ -197,6 +199,16 @@ resolve() { # $1=파일
 
 where() { [ "$1" = 0 ] && echo "문서 전체" || echo "${1}행"; }
 
+# 판정 줄 → 차단은 "B위치 조항 메시지", 나머지는 "W위치 조항 메시지"
+tag_results() {
+  local ln rule lvl msg at
+  while IFS=$'\x1f' read -r ln rule lvl msg; do
+    [ -n "$rule" ] || continue
+    at=$(where "$ln")
+    if [ "$lvl" = block ]; then printf 'B%s %s %s\n' "$at" "$rule" "$msg"; else printf 'W%s %s %s\n' "$at" "$rule" "$msg"; fi
+  done
+}
+
 state_file() { # $1=훅 입력
   local sid dir
   sid=$(printf '%s' "$1" | jq -r '.session_id // "nosession"' | tr -cd 'A-Za-z0-9_-')
@@ -206,7 +218,7 @@ state_file() { # $1=훅 입력
 }
 
 hook_edit() { # $1=훅 입력
-  local f new sel blocks="" warns="" nb=0 nw=0 ln rule lvl msg cwd st left at more nonblank
+  local f new sel blocks="" warns="" nb=0 nw=0 cwd st left more nonblank tagged rest line
   f=$(printf '%s' "$1" | jq -r '.tool_input.file_path // ""')
   [ -n "$f" ] && [ -f "$f" ] && is_doc "$f" || exit 0
   load_patterns || exit 0
@@ -214,18 +226,18 @@ hook_edit() { # $1=훅 입력
   left=$(printf '%s' "$new" | tr -d '[:space:]')
   [ -n "$left" ] || exit 0
   SEL_FILE=$(mktemp "${TMPDIR:-/tmp}/document-slop.XXXXXX") || exit 0
-  RES_FILE=$(mktemp "${TMPDIR:-/tmp}/document-slop.XXXXXX") || exit 0
   printf '%s\n' "$new" > "$SEL_FILE"
-  check_file "$f" text "$SEL_FILE" | resolve "$f" > "$RES_FILE"
-  while IFS=$'\x1f' read -r ln rule lvl msg; do
-    [ -n "$rule" ] || continue
-    at=$(where "$ln")
-    if [ "$lvl" = block ]; then nb=$((nb+1)); blocks="${blocks}- ${at} ${rule} ${msg}
-"
-    else nw=$((nw+1)); [ "$nw" -le 10 ] && warns="${warns}- ${at} ${rule} ${msg}
-"
-    fi
-  done < "$RES_FILE"
+  tagged=$(check_file "$f" text "$SEL_FILE" | resolve "$f" | tag_results)
+  rest="$tagged$NL"
+  while [ -n "$rest" ]; do
+    line="${rest%%"$NL"*}"; rest="${rest#*"$NL"}"
+    case "$line" in
+      B*) nb=$((nb+1)); blocks="${blocks}- ${line#B}
+" ;;
+      W*) nw=$((nw+1)); [ "$nw" -le 10 ] && warns="${warns}- ${line#W}
+" ;;
+    esac
+  done
   more=$((nw - 10))
   [ "$nw" -gt 10 ] && warns="${warns}- … 외 ${more}건 — document-slop-validate.sh ${f##*/} 로 전체를 본다
 "
@@ -332,8 +344,6 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
-NL='
-'
 FILES=(); LINESETS=()
 add_file() { FILES+=("$1"); LINESETS+=("$2"); }
 list_dir() {
@@ -385,21 +395,21 @@ fi
 
 N=0; B=0; W=0
 SEL_FILE=$(mktemp "${TMPDIR:-/tmp}/document-slop.XXXXXX") || die "임시 파일을 만들지 못했다"
-RES_FILE=$(mktemp "${TMPDIR:-/tmp}/document-slop.XXXXXX") || die "임시 파일을 만들지 못했다"
 for i in ${FILES+"${!FILES[@]}"}; do
   f="${FILES[$i]}"; set_="${LINESETS[$i]}"
   N=$((N+1)); OUT=""
   if [ -n "$set_" ]; then printf '%s\n' "$set_" > "$SEL_FILE"; mode=lines; else : > "$SEL_FILE"; mode=all; fi
-  check_file "$f" "$mode" "$SEL_FILE" | resolve "$f" > "$RES_FILE"
-  while IFS=$'\x1f' read -r ln rule lvl msg; do
-    [ -n "$rule" ] || continue
-    AT=$(where "$ln")
-    if [ "$lvl" = block ]; then B=$((B+1)); OUT="${OUT}  ❌ ${AT} ${rule} ${msg}
-"
-    else W=$((W+1)); OUT="${OUT}  ⚠️  ${AT} ${rule} ${msg}
-"
-    fi
-  done < "$RES_FILE"
+  TAGGED=$(check_file "$f" "$mode" "$SEL_FILE" | resolve "$f" | tag_results)
+  REST="$TAGGED$NL"
+  while [ -n "$REST" ]; do
+    LINE="${REST%%"$NL"*}"; REST="${REST#*"$NL"}"
+    case "$LINE" in
+      B*) B=$((B+1)); OUT="${OUT}  ❌ ${LINE#B}
+" ;;
+      W*) W=$((W+1)); OUT="${OUT}  ⚠️  ${LINE#W}
+" ;;
+    esac
+  done
   [ -z "$OUT" ] || { echo "$f"; printf '%s' "$OUT"; }
 done
 
