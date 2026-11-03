@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.4
+
+### Changed
+- README 에 게이트는 `evidence-reviewer` 호출만 보고 판정대로 고쳤는지는 확인하지 않는다고 적었다 (#249)
+
 ## 0.1.3
 
 ### Changed

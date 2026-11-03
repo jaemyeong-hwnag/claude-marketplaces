@@ -57,6 +57,7 @@
   - 文档（`.md` 等）不计入 —— 那是 `common-document-slop-review` 的职责。`requirements.txt` · `CMakeLists.txt` 这类配置计入。
   - 用 Bash 修改的文件钩子看不到。
   - 一个请求中不会拦截两次。但验证后再次修改，会按该修改重新判定。关闭用 `EVIDENCE_REVIEW_GATE=0`
+  - 关卡只检查是否调用了 `evidence-reviewer`，不检查是否按判定修改。
 - `E-20` 是提示。测试可能是有意修改的，所以不拦截。
 - 脚本使用 bash · jq · grep，`--diff` 使用 git。没有 jq 时钩子静默通过。
 
