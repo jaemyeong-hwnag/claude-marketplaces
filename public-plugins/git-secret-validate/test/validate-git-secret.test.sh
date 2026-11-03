@@ -224,19 +224,30 @@ expect_code 0; expect_no_out
 tc TC-S64 "임시 파일을 만들 수 없으면 git commit 을 검사 없이 통과시키지 않는다"
 r="$(repo)"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py
 # 임시 디렉터리는 만들고, 그 안의 FAIL_NAME 파일 쓰기 · lex 임시 파일 생성만 실패하게 한다
-if [ "$TC_ON" = 1 ]; then
+make_failtmp() {
+  [ "$TC_ON" = 1 ] || return 0
   mkdir -p "$TMP/failtmp"
   printf '#!/bin/bash\ncase "$*" in *lex.*) [ -n "${FAIL_LEX:-}" ] && exit 1 ;; esac\nout=$(%s "$@") || exit 1\n[ "$1" = -d ] && [ -n "${FAIL_NAME:-}" ] && mkdir -p "$out/$FAIL_NAME"\nprintf "%%s\\n" "$out"\n' "$(command -v mktemp)" > "$TMP/failtmp/mktemp"
   chmod +x "$TMP/failtmp/mktemp"
-fi
+}
+make_failtmp
 OUT="$(payload_bash / "cd '$r' && git commit -m x" | FAIL_LEX=1 PATH="$TMP/failtmp:$PATH" "$SCRIPT" 2>&1)"; CODE=$?
 expect_code 2; expect_out "[GS-01] c.py"
-for f in patterns deny lex.1 tokens add-segments sensitive-candidates; do
+for f in lex.1 tokens add-segments commit-specs; do
   OUT="$(payload_bash / "cd '$r' && git commit -m x" | FAIL_NAME="$f" PATH="$TMP/failtmp:$PATH" "$SCRIPT" 2>&1)"; CODE=$?
   expect_code 2; expect_out "임시 파일을 만들 수 없어"
 done
-OUT="$(FAIL_NAME=tree-files PATH="$TMP/failtmp:$PATH" "$SCRIPT" --all "$r" 2>&1)"; CODE=$?
-expect_code 1; expect_out "임시 파일을 만들 수 없습니다"
+
+tc TC-S65 "임시 파일을 만들 수 없어도 Write 훅 · CLI 의 판정은 그대로다 (Write 는 경고하고 통과, CLI 는 위반 exit 2)"
+r="$(repo)"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py; make_failtmp
+for f in patterns deny allow scan-new; do
+  OUT="$(payload_write "$r/new.py" "token = \"$GH_TOKEN\"" | FAIL_NAME="$f" PATH="$TMP/failtmp:$PATH" "$SCRIPT" 2>&1)"; CODE=$?
+  expect_code 0; expect_out "[GS-03] new.py"
+done
+for f in patterns deny sensitive-candidates tree-files; do
+  OUT="$(FAIL_NAME="$f" PATH="$TMP/failtmp:$PATH" "$SCRIPT" --all "$r" 2>&1)"; CODE=$?
+  expect_code 2; expect_out "[GS-01] c.py"
+done
 
 tc TC-S35 "스테이징된 .env 는 막는다 (GS-02)"
 r="$(repo)"; printf 'X=1\n' > "$r/.env"; git -C "$r" add .env; mkdir -p "$r/sub"

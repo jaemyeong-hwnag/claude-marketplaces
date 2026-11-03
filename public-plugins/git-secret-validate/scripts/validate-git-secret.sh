@@ -54,7 +54,7 @@ TMP=$(mktemp -d "${TMPDIR:-/tmp}/git-secret.XXXXXX") || die "임시 디렉터리
 cleanup() { rm -rf "$TMP"; }
 trap cleanup EXIT
 
-# 임시 파일을 못 만들면 검사를 건너뛰지 않는다 — Bash 훅은 막는다
+# Bash 훅의 commit · push 검사가 쓰는 임시 파일을 못 만들면 검사를 건너뛰지 않고 막는다
 tmp_fail() {
   if [ "$BASH_HOOK" = 1 ]; then
     echo "❌ 임시 파일을 만들 수 없어 git 명령을 검사하지 못해 막는다 ($LABEL) — $1" >&2
@@ -63,12 +63,14 @@ tmp_fail() {
   die "임시 파일을 만들 수 없습니다: $1"
 }
 spool() { { : > "$1"; } 2>/dev/null || tmp_fail "$1"; }
-# 규칙은 미리 받아 두고, 못 받았으면 검사를 시작할 때 막는다 — commit · push 가 아닌 git 명령은 그대로 통과시킨다
-RULES_SPOOL_FAILED=""
-spool_rules() { { : > "$1"; } 2>/dev/null && return 0; RULES_SPOOL_FAILED="$1"; return 1; }
-rules_ready() { [ -z "$RULES_SPOOL_FAILED" ] || tmp_fail "$RULES_SPOOL_FAILED"; }
 LEX_SEQ=0
-spool_rules "$TMP/patterns" && jq -r '.patterns[] | [.id, (.flags // ""), .regex] | join("\u001f")' "$RULES_JSON" > "$TMP/patterns"
+# 여러 줄 문자열 → LINES 배열. 빈 줄은 빠진다
+split_lines() {
+  local old_ifs="$IFS"
+  set -f; IFS=$'\n'
+  LINES=($1)
+  IFS="$old_ifs"; set +f
+}
 
 ERRORS=()
 WARNINGS=()
@@ -108,9 +110,13 @@ scan_dir() {
     fi
     : > "$TMP/gitleaks-failed"
   fi
-  local placeholder id flags re hit file rest line m shown
+  local placeholder id flags re hit file rest line m shown patterns pat
+  local -a pattern_list
   placeholder=$(jq -r '.placeholder // ""' "$RULES_JSON")
-  while IFS=$'\037' read -r id flags re; do
+  patterns=$(jq -r '.patterns[] | [.id, (.flags // ""), .regex] | join("\u001f")' "$RULES_JSON")
+  split_lines "$patterns"; pattern_list=(${LINES+"${LINES[@]}"})
+  for pat in ${pattern_list+"${pattern_list[@]}"}; do
+    id="${pat%%$'\037'*}"; rest="${pat#*$'\037'}"; flags="${rest%%$'\037'*}"; re="${rest#*$'\037'}"
     # grep -rnIE 의 줄 → 파일:줄번호:내용. 오탐 탈출구는 gitleaks 와 같은 gitleaks:allow
     grep -rnIE${flags:+i} -- "$re" "$dir" 2>/dev/null | grep -v 'gitleaks:allow' | while IFS= read -r hit; do
       file="${hit%%:*}"; rest="${hit#*:}"; line="${rest#*:}"
@@ -120,17 +126,15 @@ scan_dir() {
       shown=$(redact "$m")
       printf '%s\037%s\037%s\n' "${file#"$dir"/}" "$id" "$shown"
     done
-  done < "$TMP/patterns"
+  done
 }
 
 # ---- 민감 파일 · 예외 ---------------------------------------------------------
 DENY=(); ALLOW=()
-if spool_rules "$TMP/deny" && spool_rules "$TMP/allow"; then
-  jq -r '.sensitive_files.deny[]' "$RULES_JSON" > "$TMP/deny"
-  jq -r '.sensitive_files.allow[]' "$RULES_JSON" > "$TMP/allow"
-  while IFS= read -r g; do DENY+=("$g"); done < "$TMP/deny"
-  while IFS= read -r g; do ALLOW+=("$g"); done < "$TMP/allow"
-fi
+DENY_GLOBS=$(jq -r '.sensitive_files.deny[]' "$RULES_JSON")
+split_lines "$DENY_GLOBS"; DENY=(${LINES+"${LINES[@]}"})
+ALLOW_GLOBS=$(jq -r '.sensitive_files.allow[]' "$RULES_JSON")
+split_lines "$ALLOW_GLOBS"; ALLOW=(${LINES+"${LINES[@]}"})
 
 # 글롭이 / 를 가지면 경로 전체, 아니면 파일 이름과 맞춘다
 glob_match() { # $1=상대 경로 $2=글롭
@@ -204,15 +208,16 @@ collect_findings() {
 }
 # $1=저장소 $2=경로 목록 파일 $3=설명(기본: 커밋에 들어간다) — 민감 파일이면 GS-02
 collect_sensitive() {
-  local p
-  spool "$TMP/sensitive-candidates"
-  sort -u "$2" > "$TMP/sensitive-candidates"
-  while IFS= read -r p; do
+  local p candidates
+  local -a candidate_list
+  candidates=$(sort -u "$2")
+  split_lines "$candidates"; candidate_list=(${LINES+"${LINES[@]}"})
+  for p in ${candidate_list+"${candidate_list[@]}"}; do
     [ -n "$p" ] || continue
     is_sensitive "$p" || continue
     is_allowed "$1" "$p" && continue
     ERRORS+=("[GS-02] $p — 민감 파일이 ${3:-커밋에 들어간다}")
-  done < "$TMP/sensitive-candidates"
+  done
 }
 
 engine_note() {
@@ -576,7 +581,6 @@ hook_bash() { # $1=payload
   # 렉서가 git 명령으로 보지 못한 형태는 cwd 를 본다
   if [ "${#TARGETS[@]}" = 0 ]; then for t in $what; do TARGETS+=("$t"$'\037'"$cwd"); done; fi
   [ "${#TARGETS[@]}" -gt 0 ] || exit 0
-  rules_ready
   [ -n "$what" ] || for t in "${TARGETS[@]}"; do case "$what " in *" ${t%%$'\037'*} "*) ;; *) what="$what ${t%%$'\037'*}" ;; esac; done
   for t in "${TARGETS[@]}"; do
     [ -n "${t#*$'\037'}" ] && continue
@@ -651,7 +655,6 @@ hook_file() { # $1=payload
   if is_tracked "$repo" "$rel"; then why="이미 git 이 추적하는 파일이다"
   elif is_ignored "$repo" "$rel"; then exposed=0; fi
   [ "$exposed" = 1 ] || exit 0
-  rules_ready
 
   # GS-04 민감 파일
   if is_sensitive "$rel"; then
@@ -667,13 +670,16 @@ hook_file() { # $1=payload
   after_content "$1" "$before/$rel" > "$after/$rel" || exit 0
   scan_dir "$before" "$repo" | cut -d$'\037' -f2,3 > "$TMP/scan-before"
   scan_dir "$after" "$repo" | cut -d$'\037' -f2,3 > "$TMP/scan-after"
-  local r s
-  spool "$TMP/scan-new"
-  awk 'FILENAME == ARGV[1] { seen[$0]++; next } seen[$0]-- > 0 { next } { print }' "$TMP/scan-before" "$TMP/scan-after" > "$TMP/scan-new"
-  while IFS=$'\037' read -r r s; do
+  local r s found_new f
+  local -a found_list
+  found_new=$(awk 'FILENAME == ARGV[1] { seen[$0]++; next } seen[$0]-- > 0 { next } { print }' "$TMP/scan-before" "$TMP/scan-after")
+  split_lines "$found_new"; found_list=(${LINES+"${LINES[@]}"})
+  for f in ${found_list+"${found_list[@]}"}; do
+    r="${f%%$'\037'*}"; s=""
+    case "$f" in *$'\037'*) s="${f#*$'\037'}" ;; esac
     [ -n "$r" ] || continue
     WARNINGS+=("[GS-03] $rel — $r: $s 를 쓴다. 파일이 $why — 커밋되면 노출된다")
-  done < "$TMP/scan-new"
+  done
 
   if [ "${#WARNINGS[@]}" -gt 0 ]; then
     local w body
@@ -718,19 +724,20 @@ report() { # $1=검사한 범위
 
 # 작업 트리 — 추적 파일과 ignore 안 된 새 파일. 저장소가 아니면 파일 전체
 check_tree() { # $1=디렉터리
-  local root repo scan="$TMP/tree" p prefix=""
+  local root repo scan="$TMP/tree" p prefix="" files
+  local -a file_list
   root=$(cd "$1" && pwd -P) || die "디렉터리가 없습니다: $1"
   mkdir -p "$scan"; : > "$TMP/tree-paths"
   if repo=$(git -C "$root" rev-parse --show-toplevel 2>/dev/null); then
     repo=$(cd "$repo" && pwd -P)
     [ "$root" = "$repo" ] || prefix="${root#"$repo"/}/"
-    spool "$TMP/tree-files"
-    g -C "$root" ls-files --full-name -co --exclude-standard -- . 2>/dev/null > "$TMP/tree-files"
-    while IFS= read -r p; do
+    files=$(g -C "$root" ls-files --full-name -co --exclude-standard -- . 2>/dev/null)
+    split_lines "$files"; file_list=(${LINES+"${LINES[@]}"})
+    for p in ${file_list+"${file_list[@]}"}; do
       [ -n "$p" ] || continue
       case "$p" in .claude/worktrees/*) continue ;; esac
       echo "$p" >> "$TMP/tree-paths"; copy_file "$repo" "$p" "$scan"
-    done < "$TMP/tree-files"
+    done
     scan_dir "$scan" "$repo" | sort -u > "$TMP/found"
     collect_findings "$repo" "$TMP/found" GS-01
     while IFS= read -r p; do
@@ -741,11 +748,11 @@ check_tree() { # $1=디렉터리
       else ERRORS+=("[GS-04] $p — 민감 파일이 ignore 되지 않았다"); fi
     done < "$TMP/tree-paths"
   else
-    spool "$TMP/tree-files"
-    find "$root" -type f -not -path '*/.git/*' -not -path '*/node_modules/*' 2>/dev/null > "$TMP/tree-files"
-    while IFS= read -r p; do
+    files=$(find "$root" -type f -not -path '*/.git/*' -not -path '*/node_modules/*' 2>/dev/null)
+    split_lines "$files"; file_list=(${LINES+"${LINES[@]}"})
+    for p in ${file_list+"${file_list[@]}"}; do
       p="${p#"$root"/}"; copy_file "$root" "$p" "$scan"
-    done < "$TMP/tree-files"
+    done
     scan_dir "$scan" "" | sort -u > "$TMP/found"
     collect_findings "$root" "$TMP/found" GS-01
   fi
@@ -791,8 +798,8 @@ if [ "$#" -eq 0 ]; then
 fi
 
 case "$1" in
-  --all) rules_ready; check_tree "${2:-.}"; report "작업 트리 ${2:-.}" ;;
-  --history) rules_ready; check_history "${2:-.}"; report "커밋 이력 ${2:-.}" ;;
+  --all) check_tree "${2:-.}"; report "작업 트리 ${2:-.}" ;;
+  --history) check_history "${2:-.}"; report "커밋 이력 ${2:-.}" ;;
   -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-  *) rules_ready; check_paths "$@"; report "$*" ;;
+  *) check_paths "$@"; report "$*" ;;
 esac
