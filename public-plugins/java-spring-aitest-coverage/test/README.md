@@ -9,11 +9,11 @@ test/diff-coverage-validate.test.sh          # 전체 (~20초)
 test/diff-coverage-validate.test.sh TC-H     # ID 접두사로 필터
 ```
 
-**실제 git 저장소**로 돈다 — 임시 저장소에 멀티 모듈(`app` 대상 · `core` 라이브러리)을 만들고 소스를 바꾼 뒤, 손으로 만든 JaCoCo XML 로 판정한다. `./gradlew` 는 호출 인자만 남기는 스텁이라 Gradle · Docker 가 필요 없다.
+**실제 git 저장소**로 돈다 — 임시 저장소에 멀티 모듈(`app` 대상 · `core` 라이브러리)을 만들고 소스를 바꾼 뒤, 손으로 만든 JaCoCo XML 로 판정한다. `./gradlew` 는 호출 인자만 남기는 스텁이라 Gradle · Docker 가 필요 없다. `javap` 도 스텁이다 — 클래스 파일 자리에 둔 실제 javap 출력(JDK 21)을 그대로 내므로 JDK 없이 돈다. 람다 픽스처의 XML 은 실제 JaCoCo 0.8.15 로 잰 값이다.
 
 Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아래 "수동 확인" 을 본다.
 
-## 자동 TC (63건)
+## 자동 TC (71건)
 
 ### A. 메서드 커버리지 (method-coverage-get.sh)
 
@@ -26,6 +26,11 @@ Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아�
 | TC-M05 | 리포트가 없으면 FAIL |
 | TC-M06 | 클래스가 리포트에 없으면 측정 대상 아님 |
 | TC-M07 | 같은 이름 클래스가 다른 패키지에 있어도 섞지 않는다 |
+| TC-M08 | 람다 본문의 변경 줄은 안쪽 람다 뒤에 있어도 그 람다로 판정한다 — 실행되지 않았으면 FAIL (C-02) |
+| TC-M09 | 람다 본문의 변경 줄을 테스트가 실행해 람다가 100% 면 OK |
+| TC-M10 | 중첩 클래스의 변경 줄은 그 클래스의 메서드로 판정한다 (C-02) |
+| TC-M11 | javap 이 없으면 판정 불가(2)로 끝난다 (C-09) |
+| TC-M12 | 리포트에 나온 클래스의 클래스 파일이 없으면 판정 불가(2)로 끝난다 (C-09) |
 
 ### B. diff 판정 (diff-coverage-validate.sh)
 
@@ -59,6 +64,8 @@ Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아�
 | TC-D26 | Controller 를 지우며 다른 Controller 를 바꾸면 그 Controller 는 막는다 (C-01) |
 | TC-D27 | 모듈 디렉터리에서 연 세션도 Gradle 루트 기준으로 보고 100% 미만을 막는다 (C-02) |
 | TC-D28 | `--also`: 그 ref 와 같은 파일은 보지 않는다 |
+| TC-D29 | 판정 도구(javap)가 없으면 실행 오류(2)로 끝난다 (C-09) |
+| TC-D30 | report-only: 람다 본문의 변경 줄을 실행하지 않았으면 막고, 실행해 100% 면 통과한다 (C-02) |
 
 ### C. 훅 (aitest-coverage-validate.sh)
 
@@ -90,6 +97,7 @@ Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아�
 | TC-H24 | 요청 전 받아둔 원격을 요청 안에서 merge 커밋으로 합쳐도 원격 변경은 막지 않는다 (C-05) |
 | TC-H25 | jq 가 없어도 막는다 |
 | TC-H26 | jq 가 없어도 stop_hook_active 를 읽고 systemMessage 를 올바른 JSON 으로 낸다 (C-08) |
+| TC-H27 | 판정 도구(javap)가 없으면 막는다 (C-09) |
 
 ### D. Docker 준비 템플릿 (ensure-docker-for-aitest.sh.tmpl)
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # java-spring-aitest-coverage 스크립트 회귀 테스트 — method-coverage-get.sh · diff-coverage-validate.sh ·
-# aitest-coverage-validate.sh(훅). 임시 git 저장소 + 손으로 만든 JaCoCo XML 로 돈다. ./gradlew 는 스텁이다.
+# aitest-coverage-validate.sh(훅). 임시 git 저장소 + 손으로 만든 JaCoCo XML 로 돈다. ./gradlew · javap 는 스텁이다.
 set -uo pipefail
 
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -60,6 +60,160 @@ jacoco_xml() {
   local out="$1" pkg="$2" cls="$3" bm="$4" zm="$5"
   mkdir -p "$(dirname "$out")"
   printf '%s' "<?xml version=\"1.0\"?><report name=\"t\"><package name=\"$pkg\"><class name=\"$pkg/$cls\" sourcefilename=\"$cls.java\"><method name=\"bar\" desc=\"(I)I\" line=\"5\"><counter type=\"INSTRUCTION\" missed=\"$bm\" covered=\"$((10 - bm))\"/></method><method name=\"baz\" desc=\"()I\" line=\"9\"><counter type=\"INSTRUCTION\" missed=\"$zm\" covered=\"$((10 - zm))\"/></method></class><sourcefile name=\"$cls.java\"><line nr=\"6\" mi=\"$bm\" ci=\"$((10 - bm))\" mb=\"0\" cb=\"0\"/><line nr=\"10\" mi=\"$zm\" ci=\"$((10 - zm))\" mb=\"0\" cb=\"0\"/></sourcefile></package></report>" > "$out"
+  class_file "${out%%/build/reports/*}" "$pkg" "$cls"
+}
+
+# javap 스텁 — 클래스 파일 자리에 둔 실제 javap 출력을 그대로 낸다 (JDK 없이 결정적으로 돈다)
+mkdir -p "$TMP/bin"
+printf '#!/usr/bin/env bash\ncat "${@: -1}"\n' > "$TMP/bin/javap"
+chmod +x "$TMP/bin/javap"
+export AITEST_JAVAP="$TMP/bin/javap"
+
+# 실제 javap 출력 (JDK 21, javac -g → javap -p -s -l). $1=픽스처
+javap_of() {
+  case "$1" in
+    controller) cat <<'JAVAP'
+Compiled from "FooController.java"
+public class com.ex.app.FooController {
+  public com.ex.app.FooController();
+    descriptor: ()V
+    LineNumberTable:
+      line 3: 0
+    LocalVariableTable:
+      Start  Length  Slot  Name   Signature
+          0       5     0  this   Lcom/ex/app/FooController;
+
+  public int bar(int);
+    descriptor: (I)I
+    LineNumberTable:
+      line 6: 0
+    LocalVariableTable:
+      Start  Length  Slot  Name   Signature
+          0       4     0  this   Lcom/ex/app/FooController;
+          0       4     1     x   I
+
+  public int baz();
+    descriptor: ()I
+    LineNumberTable:
+      line 10: 0
+    LocalVariableTable:
+      Start  Length  Slot  Name   Signature
+          0       2     0  this   Lcom/ex/app/FooController;
+}
+JAVAP
+    ;;
+    lambda) cat <<'JAVAP'
+Compiled from "FooController.java"
+public class com.ex.app.FooController {
+  public com.ex.app.FooController();
+    descriptor: ()V
+    LineNumberTable:
+      line 5: 0
+    LocalVariableTable:
+      Start  Length  Slot  Name   Signature
+          0       5     0  this   Lcom/ex/app/FooController;
+
+  public int bar(java.util.List<java.lang.Integer>, java.util.List<java.lang.Integer>);
+    descriptor: (Ljava/util/List;Ljava/util/List;)I
+    LineNumberTable:
+      line 8: 0
+      line 15: 12
+    LocalVariableTable:
+      Start  Length  Slot  Name   Signature
+          0      14     0  this   Lcom/ex/app/FooController;
+          0      14     1    xs   Ljava/util/List;
+          0      14     2    ys   Ljava/util/List;
+
+  private static void lambda$bar$1(java.util.List, java.lang.Integer);
+    descriptor: (Ljava/util/List;Ljava/lang/Integer;)V
+    LineNumberTable:
+      line 9: 0
+      line 10: 5
+      line 11: 16
+      line 12: 22
+      line 14: 31
+    LocalVariableTable:
+      Start  Length  Slot  Name   Signature
+          0      32     0    ys   Ljava/util/List;
+          0      32     1     x   Ljava/lang/Integer;
+          5      27     2     y   I
+
+  private static void lambda$bar$0(java.lang.Integer);
+    descriptor: (Ljava/lang/Integer;)V
+    LineNumberTable:
+      line 10: 0
+    LocalVariableTable:
+      Start  Length  Slot  Name   Signature
+          0       8     0     z   Ljava/lang/Integer;
+}
+JAVAP
+    ;;
+    nested) cat <<'JAVAP'
+Compiled from "FooController.java"
+class com.ex.app.FooController$Rule {
+  com.ex.app.FooController$Rule();
+    descriptor: ()V
+    LineNumberTable:
+      line 12: 0
+    LocalVariableTable:
+      Start  Length  Slot  Name   Signature
+          0       5     0  this   Lcom/ex/app/FooController$Rule;
+
+  int apply(int);
+    descriptor: (I)I
+    LineNumberTable:
+      line 14: 0
+    LocalVariableTable:
+      Start  Length  Slot  Name   Signature
+          0       4     0  this   Lcom/ex/app/FooController$Rule;
+          0       4     1     x   I
+}
+JAVAP
+    ;;
+  esac
+}
+# 클래스 파일 자리에 javap 출력을 둔다. $1=모듈 디렉터리 $2=패키지 경로 $3=클래스 [$4=픽스처]
+class_file() {
+  local dir="$1/build/classes/java/main/$2" fix="${4:-}"
+  mkdir -p "$dir"
+  if [ -n "$fix" ]; then javap_of "$fix" > "$dir/$3.class"
+  else javap_of controller | sed "s/com\.ex\.app\.FooController/${2//\//.}.$3/g; s#com/ex/app/FooController#$2/$3#g" > "$dir/$3.class"; fi
+}
+
+# 람다 픽스처 — bar 안 바깥 람다(9~14)가 안쪽 람다(10)를 품는다. 12번째 줄은 바깥 람다의 if 본문이다
+lambda_src() { # $1=12번째 줄의 더할 값
+  cat <<EOF
+package com.ex.app;
+
+import java.util.List;
+
+public class FooController {
+
+    public int bar(List<Integer> xs, List<Integer> ys) {
+        xs.forEach(x -> {
+            int y = x;
+            ys.forEach(z -> System.out.println(z));
+            if (y > 100) {
+                System.out.println(y + $1);
+            }
+        });
+        return 0;
+    }
+}
+EOF
+}
+# 위 소스를 실제 JaCoCo 0.8.15 로 잰 리포트. $1=출력 $2=12번째 줄 missed(0 = if 본문까지 실행 · 5 = 실행 안 함)
+lambda_xml() {
+  local out="$1" m="$2"
+  mkdir -p "$(dirname "$out")"
+  printf '%s' "<?xml version=\"1.0\"?><report name=\"t\"><package name=\"com/ex/app\"><class name=\"com/ex/app/FooController\" sourcefilename=\"FooController.java\"><method name=\"&lt;init&gt;\" desc=\"()V\" line=\"5\"><counter type=\"INSTRUCTION\" missed=\"0\" covered=\"3\"/></method><method name=\"bar\" desc=\"(Ljava/util/List;Ljava/util/List;)I\" line=\"8\"><counter type=\"INSTRUCTION\" missed=\"0\" covered=\"6\"/></method><method name=\"lambda\$bar\$1\" desc=\"(Ljava/util/List;Ljava/lang/Integer;)V\" line=\"9\"><counter type=\"INSTRUCTION\" missed=\"$m\" covered=\"$((15 - m))\"/></method><method name=\"lambda\$bar\$0\" desc=\"(Ljava/lang/Integer;)V\" line=\"10\"><counter type=\"INSTRUCTION\" missed=\"0\" covered=\"4\"/></method></class><sourcefile name=\"FooController.java\"><line nr=\"5\" mi=\"0\" ci=\"3\" mb=\"0\" cb=\"0\"/><line nr=\"8\" mi=\"0\" ci=\"4\" mb=\"0\" cb=\"0\"/><line nr=\"9\" mi=\"0\" ci=\"3\" mb=\"0\" cb=\"0\"/><line nr=\"10\" mi=\"0\" ci=\"7\" mb=\"0\" cb=\"0\"/><line nr=\"11\" mi=\"0\" ci=\"3\" mb=\"$((m > 0 ? 1 : 0))\" cb=\"$((m > 0 ? 1 : 2))\"/><line nr=\"12\" mi=\"$m\" ci=\"$((5 - m))\" mb=\"0\" cb=\"0\"/><line nr=\"14\" mi=\"0\" ci=\"1\" mb=\"0\" cb=\"0\"/><line nr=\"15\" mi=\"0\" ci=\"2\" mb=\"0\" cb=\"0\"/></sourcefile></package></report>" > "$out"
+  class_file "${out%%/build/reports/*}" com/ex/app FooController lambda
+}
+# 람다 픽스처를 커밋하고 12번째 줄만 바꾼 저장소. $1=이름 → 경로 출력
+lambda_repo() {
+  local r; r="$(repo "$1")"
+  ( cd "$r" && lambda_src 1 > app/src/main/java/com/ex/app/FooController.java && git commit -qam lambda && lambda_src 2 > app/src/main/java/com/ex/app/FooController.java ) >/dev/null
+  echo "$r"
 }
 
 REPORT="build/reports/jacoco/aiTestCoverageReport/aiTestCoverageReport.xml"
@@ -169,6 +323,49 @@ if on; then
   expect_code 0; expect_out "class not in report"
 fi
 
+tc TC-M08 "람다 본문의 변경 줄은 안쪽 람다 뒤에 있어도 그 람다로 판정한다 — 실행되지 않았으면 FAIL (C-02)"
+if on; then
+  R="$(lambda_repo m08)"; lambda_xml "$R/app/$REPORT" 5
+  CLAUDE_PROJECT_DIR="$R" run "$M" HEAD "app/$REPORT" app/src/main/java/com/ex/app/FooController.java com.ex.app.FooController app
+  expect_code 1; expect_out "FAIL app com.ex.app.FooController#lambda\$bar\$1(Ljava/util/List;Ljava/lang/Integer;)V line 9 → 66% (10/15)"
+  expect_not "lambda\$bar\$0"
+fi
+
+tc TC-M09 "람다 본문의 변경 줄을 테스트가 실행해 람다가 100% 면 OK"
+if on; then
+  R="$(lambda_repo m09)"; lambda_xml "$R/app/$REPORT" 0
+  CLAUDE_PROJECT_DIR="$R" run "$M" HEAD "app/$REPORT" app/src/main/java/com/ex/app/FooController.java com.ex.app.FooController app
+  expect_code 0; expect_out "OK app com.ex.app.FooController#lambda\$bar\$1(Ljava/util/List;Ljava/lang/Integer;)V line 9 → 100% (15/15)"
+fi
+
+tc TC-M10 "중첩 클래스의 변경 줄은 그 클래스의 메서드로 판정한다 (C-02)"
+if on; then
+  R="$(repo m10)"; F="$R/app/src/main/java/com/ex/app/FooController.java"
+  { controller_src com.ex.app FooController 'x + 1' | sed '$d'; printf '    static class Rule {\n        int apply(int x) {\n            return x * 2;\n        }\n    }\n}\n'; } > "$F.new"
+  mv "$F.new" "$F"; git -C "$R" commit -qam nested; sed -i.bak 's/x \* 2/x * 3/' "$F"; rm -f "$F.bak"
+  jacoco_xml "$R/app/$REPORT" com/ex/app FooController 0 0
+  sed -i.bak 's#</class><sourcefile#</class><class name="com/ex/app/FooController$Rule" sourcefilename="FooController.java"><method name="apply" desc="(I)I" line="14"><counter type="INSTRUCTION" missed="4" covered="0"/></method></class><sourcefile#; s#</sourcefile>#<line nr="14" mi="4" ci="0" mb="0" cb="0"/></sourcefile>#' "$R/app/$REPORT"; rm -f "$R/app/$REPORT.bak"
+  class_file "$R/app" com/ex/app 'FooController$Rule' nested
+  CLAUDE_PROJECT_DIR="$R" run "$M" HEAD "app/$REPORT" app/src/main/java/com/ex/app/FooController.java com.ex.app.FooController app
+  expect_code 1; expect_out "FAIL app com.ex.app.FooController\$Rule#apply(I)I line 14 → 0% (0/4)"; expect_not "#bar"
+fi
+
+tc TC-M11 "javap 이 없으면 판정 불가(2)로 끝난다 (C-09)"
+if on; then
+  R="$(repo m11)"; change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  jacoco_xml "$R/app/$REPORT" com/ex/app FooController 0 0
+  AITEST_JAVAP="$TMP/no-javap" CLAUDE_PROJECT_DIR="$R" run "$M" HEAD "app/$REPORT" app/src/main/java/com/ex/app/FooController.java com.ex.app.FooController app
+  expect_code 2; expect_out "javap 이 없어"
+fi
+
+tc TC-M12 "리포트에 나온 클래스의 클래스 파일이 없으면 판정 불가(2)로 끝난다 (C-09)"
+if on; then
+  R="$(repo m12)"; change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  jacoco_xml "$R/app/$REPORT" com/ex/app FooController 0 0; rm -f "$R/app/build/classes/java/main/com/ex/app/FooController.class"
+  CLAUDE_PROJECT_DIR="$R" run "$M" HEAD "app/$REPORT" app/src/main/java/com/ex/app/FooController.java com.ex.app.FooController app
+  expect_code 2; expect_out "클래스 파일 없음"
+fi
+
 flush_tc; echo "== diff-coverage-validate.sh"
 
 tc TC-D01 "diff 가 없으면 OK"
@@ -249,6 +446,7 @@ if on; then
   R="$(repo d12)"; mkdir -p "$R/.claude"; echo '{"libraryModules":{"core":["app"]}}' > "$R/.claude/java-spring-aitest-coverage.json"
   change_bar "$R/core/src/main/java/com/ex/core/PriceCalculator.java" com.ex.core PriceCalculator
   fresh_report "$R/app/$REPORT" com/ex/core PriceCalculator 1 0
+  class_file "$R/core" com/ex/core PriceCalculator
   CLAUDE_PROJECT_DIR="$R" run "$D" --report-only HEAD; expect_code 1; expect_out "FAIL app com.ex.core.PriceCalculator#bar(I)I line 5 → 90%"
 fi
 
@@ -393,6 +591,23 @@ if on; then
   git -C "$R" commit -qam remote; git -C "$R" branch -f other HEAD; git -C "$R" reset -q --hard HEAD~1; git -C "$R" merge -q --no-ff --no-edit other
   CLAUDE_PROJECT_DIR="$R" run "$D" --check-only --also other HEAD~1; expect_code 0; expect_out "no diff vs HEAD~1"
   CLAUDE_PROJECT_DIR="$R" run "$D" --check-only HEAD~1; expect_code 1; expect_out "FooController"
+fi
+
+tc TC-D29 "판정 도구(javap)가 없으면 실행 오류(2)로 끝난다 (C-09)"
+if on; then
+  R="$(repo d29)"; change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  aitest_for "$R/app/src/test/java/com/ex/app/FooControllerAiTest.java" x
+  fresh_report "$R/app/$REPORT" com/ex/app FooController 0 0
+  AITEST_JAVAP="$TMP/no-javap" CLAUDE_PROJECT_DIR="$R" run "$D" --report-only HEAD; expect_code 2; expect_out "변경 메서드를 판정할 수 없습니다 (C-09)"
+fi
+
+tc TC-D30 "report-only: 람다 본문의 변경 줄을 실행하지 않았으면 막고, 실행해 100% 면 통과한다 (C-02)"
+if on; then
+  R="$(lambda_repo d30)"; aitest_for "$R/app/src/test/java/com/ex/app/FooControllerAiTest.java" x
+  sleep 1; lambda_xml "$R/app/$REPORT" 5
+  CLAUDE_PROJECT_DIR="$R" run "$D" --report-only HEAD; expect_code 1; expect_out "lambda\$bar\$1"
+  sleep 1; lambda_xml "$R/app/$REPORT" 0
+  CLAUDE_PROJECT_DIR="$R" run "$D" --report-only HEAD; expect_code 0; expect_out "PASS (1 class(es), 1 module(s)"
 fi
 
 flush_tc; echo "== aitest-coverage-validate.sh (훅)"
@@ -605,6 +820,14 @@ if on; then
   rm -f "$R/gradle/ai-test.gradle"; ( cd "$R" && git add -A gradle && git commit -qm noenv ) >/dev/null
   PATH="$NJ" CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h26)" "$H"; expect_code 0
   printf '%s' "$OUT" | jq -er .systemMessage | grep -qF '"AiTest 환경 만들어줘"' || fail_tc "환경 없음 systemMessage 의 따옴표가 깨짐"
+fi
+
+tc TC-H27 "판정 도구(javap)가 없으면 막는다 (C-09)"
+if on; then
+  R="$(repo h27)"; change_bar "$R/app/src/main/java/com/ex/app/FooController.java" com.ex.app FooController
+  aitest_for "$R/app/src/test/java/com/ex/app/FooControllerAiTest.java" x
+  fresh_report "$R/app/$REPORT" com/ex/app FooController 0 0
+  AITEST_JAVAP="$TMP/no-javap" CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h27)" "$H"; expect_code 2; expect_out "C-09"
 fi
 
 flush_tc; echo "== ensure-docker-for-aitest.sh (템플릿)"
