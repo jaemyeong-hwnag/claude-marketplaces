@@ -6,6 +6,7 @@
 #        PostToolUse(Write|Edit|MultiEdit) — 이번에 쓴 줄만 본다. 차단은 exit 2 + stderr, 경고는 additionalContext
 #        PostToolUse(Skill|Agent)          — document-slop-review(er) 가 돌면 DS-30 기록을 지운다. 백그라운드 리뷰어는 리뷰 중으로만 표시
 #        SubagentStop                      — 백그라운드 document-slop-reviewer 가 끝나면 DS-30 기록을 지운다
+#        UserPromptSubmit                  — 이 훅이 막은 표시를 지운다
 #        Stop                              — DS-30
 #   CLI: document-slop-validate.sh [--strict] [--diff [<기준>]] [파일|디렉터리 ...]   (기본: 현재 디렉터리)
 #        차단이 있으면 exit 2, --strict 면 경고가 있어도 exit 2. 실행 오류는 exit 1
@@ -253,7 +254,7 @@ hook_review() { # $1=훅 입력 — 리뷰가 돌았으면 DS-30 기록을 지�
   if printf '%s' "$1" | jq -e '(.tool_response | objects | (.isAsync == true or .status == "async_launched")) // false' >/dev/null 2>&1; then
     : > "${st%.list}.pending"
   else
-    rm -f "$st"
+    rm -f "$st" "${st%.list}.blocked"
   fi
   exit 0
 }
@@ -261,7 +262,7 @@ hook_review() { # $1=훅 입력 — 리뷰가 돌았으면 DS-30 기록을 지�
 hook_subagent_stop() { # $1=훅 입력
   local st
   case "$(printf '%s' "$1" | jq -r '.agent_type // ""')" in
-    *document-slop-reviewer*) st="$(state_file "$1")" && rm -f "$st" "${st%.list}.pending" ;;
+    *document-slop-reviewer*) st="$(state_file "$1")" && rm -f "$st" "${st%.list}.pending" "${st%.list}.blocked" ;;
   esac
   exit 0
 }
@@ -274,8 +275,10 @@ hook_stop() { # $1=훅 입력
   # 백그라운드 리뷰어를 기다리며 끝내는 응답 — 막지 않고 기록을 남긴다 (완료 알림 뒤 다시 판정)
   [ -e "${st%.list}.pending" ] && exit 0
   active="$(printf '%s' "$1" | jq -r '.stop_hook_active // false')"
-  if [ "$active" = true ]; then rm -f "$st"; exit 0; fi
+  # stop_hook_active 는 다른 플러그인의 Stop 훅이 막아도 true 다 — 이 훅이 막은 뒤일 때만 통과시킨다
+  if [ "$active" = true ] && [ -e "${st%.list}.blocked" ]; then rm -f "$st" "${st%.list}.blocked"; exit 0; fi
   list="$(head -10 "$st" | sed 's/^/  - /')"
+  : > "${st%.list}.blocked"
   jq -n --arg r "완료 보류 (common-document-slop-review DS-30): 이번 세션에서 고친 문서를 판단 리뷰하지 않았다.
 ${list}
 document-slop-review 스킬로 리뷰하고 결함을 고친다 (근거 대조 · 지워도 되는 문장 · 반복 · 구조).
@@ -295,6 +298,7 @@ if [ "${1:-}" = "--hook" ]; then
         Skill|Agent|Task) hook_review "$INPUT" ;;
       esac ;;
     SubagentStop) hook_subagent_stop "$INPUT" ;;
+    UserPromptSubmit) st="$(state_file "$INPUT")" && rm -f "${st%.list}.blocked" ;;
     Stop) hook_stop "$INPUT" ;;
   esac
   exit 0

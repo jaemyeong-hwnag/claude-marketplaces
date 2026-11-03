@@ -43,6 +43,7 @@ None
 | document-slop-validate.sh | PostToolUse (Write\|Edit\|MultiEdit) | In lines written this time, **blocks** `DS-01` ~ `DS-04` (exit 2) and **flags** `DS-05` ~ `DS-16` |
 | document-slop-validate.sh | PostToolUse (Skill\|Agent\|Task) | Clears the gate record when `document-slop-review` or `document-slop-reviewer` runs. A `document-slop-reviewer` launched in the background is marked as reviewing |
 | document-slop-validate.sh | SubagentStop | Clears the gate record when a background `document-slop-reviewer` finishes |
+| document-slop-validate.sh | UserPromptSubmit | Clears the mark that this hook blocked in the previous request |
 | document-slop-validate.sh | Stop | If documents were edited but not reviewed, sends the stop back once (`DS-30`) |
 
 ## Notes
@@ -57,7 +58,7 @@ None
 - For an intended line, put `<!-- document-slop-ignore -->` on that line or the line above.
 - The evidence for the Korean word list (`DS-10`) is weaker than for English. So it flags only when 3 or more distinct words cluster.
 - The completion gate records only when a document inside the project gets 3 or more lines edited at once.
-  - It does not block twice in one request.
+  - It does not block twice in one request. It still blocks once even if another plugin's Stop hook blocked first.
   - To turn it off: `DOCUMENT_SLOP_REVIEW_GATE=0`
 - The script uses bash · awk · jq, and git for `--diff` and directory listing. Without jq the hook passes silently.
 

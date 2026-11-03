@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.4
+
+### Fixed
+- 다른 플러그인의 Stop 훅이 먼저 막아 `stop_hook_active` 가 true 이면, 이 훅이 막은 적이 없어도 `DS-30` 기록을 지우고 리뷰 없이 통과시키던 것 (#241). 이 훅이 막은 표시가 있을 때만 통과시키고, 표시는 `UserPromptSubmit` 에서 지운다
+
 ## 0.1.3
 
 ### Changed

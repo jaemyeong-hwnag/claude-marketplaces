@@ -81,10 +81,12 @@ test/document-slop-validate.test.sh TC-D6    # ID 접두사로 필터
 | TC-D62 | 2줄 이하 수정 · 프로젝트 밖 문서 · 세션이 다르면 기록하지 않는다 |
 | TC-D63 | DOCUMENT_SLOP_REVIEW_GATE=0 이면 게이트가 꺼진다 |
 | TC-D64 | 백그라운드로 띄운 document-slop-reviewer 는 끝날 때(SubagentStop)까지 리뷰로 치지 않는다 |
+| TC-D65 | 다른 Stop 훅이 먼저 막아 stop_hook_active 가 true 여도, 이 훅이 막은 적이 없으면 한 번 막는다 |
+| TC-D66 | 이 훅이 막은 표시는 다음 요청(UserPromptSubmit)에서 지운다 |
 
 ## 수동 확인
 
 | 항목 | 방법 |
 |---|---|
-| 훅이 설치 상태에서 돈다 | `claude plugin details common-document-slop-review@jaemyeong-hwnag-plugins` 의 Hooks 가 `(3) PostToolUse, SubagentStop, Stop` 인가 (hooks.json 의 이벤트 수) |
+| 훅이 설치 상태에서 돈다 | `claude plugin details common-document-slop-review@jaemyeong-hwnag-plugins` 의 Hooks 가 `(4) UserPromptSubmit, PostToolUse, SubagentStop, Stop` 인가 (hooks.json 의 이벤트 수) |
 | 차단 · 스킬 발동 | `evals/` 두 케이스 — `eval-all.sh --quick --plugin common-document-slop-review` |

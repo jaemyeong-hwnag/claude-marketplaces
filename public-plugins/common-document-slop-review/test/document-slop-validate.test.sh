@@ -410,6 +410,17 @@ run_hook '{"hook_event_name":"SubagentStop","session_id":"g64","agent_type":"com
 [ "$TC_ON" = 1 ] && { [ ! -e "$CLAUDE_PLUGIN_DATA/gate-g64.list" ] && [ ! -e "$CLAUDE_PLUGIN_DATA/gate-g64.pending" ] || fail_tc "SubagentStop 뒤 기록이 남음"; }
 run_hook "$(stop_payload g64 false)"; expect_no_out
 
+tc TC-D65 "다른 Stop 훅이 먼저 막아 stop_hook_active 가 true 여도, 이 훅이 막은 적이 없으면 한 번 막는다"
+run_hook "$(write_payload "$TMP/g1.md" "$(cat "$TMP/g1.md" 2>/dev/null)" g65)"
+run_hook "$(stop_payload g65 true)"; expect_out '"decision": "block"'
+run_hook "$(stop_payload g65 true)"; expect_no_out
+
+tc TC-D66 "이 훅이 막은 표시는 다음 요청(UserPromptSubmit)에서 지운다"
+run_hook "$(write_payload "$TMP/g1.md" "$(cat "$TMP/g1.md" 2>/dev/null)" g66)"
+run_hook "$(stop_payload g66 false)"; expect_out '"decision": "block"'
+run_hook '{"hook_event_name":"UserPromptSubmit","session_id":"g66","prompt":"다음"}'; expect_code 0; expect_no_out
+run_hook "$(stop_payload g66 true)"; expect_out '"decision": "block"'
+
 flush_tc
 echo ""
 echo "통과 $PASS / 실패 $FAIL$([ "$SKIP" -gt 0 ] && echo " / 건너뜀 $SKIP")"
