@@ -6,12 +6,12 @@
 
 ```
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-/plugin install plugin-search-install@jaemyeong-hwnag-plugins
+/plugin install code-edit-guardrail@jaemyeong-hwnag-plugins
 ```
 
 市场名称为 `jaemyeong-hwnag-plugins`。
 
-- **想使用插件的人** — [快速开始](#快速开始) · [查找插件](#查找插件) · [自动安装项目所需插件](#自动安装项目所需插件) · [收录插件](#收录插件) · [常见问题](#常见问题)
+- **想使用插件的人** — [快速开始](#快速开始) · [收录插件](#收录插件) · [常见问题](#常见问题)
 - **为本仓库做贡献的人** — [在本仓库中工作](#在本仓库中工作)
 
 ## 快速开始
@@ -26,94 +26,25 @@
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
 ```
 
-**2. 安装查询 · 安装插件**
+**2. 安装插件**
+
+从[收录插件](#收录插件)表中选择名称安装。也可以打开 `/plugin` 从列表中选择。
 
 ```
-/plugin install plugin-search-install@jaemyeong-hwnag-plugins
+/plugin install <名称>@jaemyeong-hwnag-plugins
 ```
 
-会询问安装范围 — 想让团队获得相同设置选 `project`，只给自己用选 `user`。这个插件负责查找并安装其他插件（包含本地 MCP 服务器 `plugin-search`）。
+会询问安装范围 — 想让团队获得相同配置选 `project`，只给自己用选 `user`。
 
 **3. 重启 Claude Code**
 
-插件和 MCP 服务器在会话启动时加载。`/mcp` 中出现 `plugin-search` 即完成。
+钩子 · 技能 · MCP 服务器在会话启动时加载。
 
 > 在终端中可用 `claude plugin marketplace add …` · `claude plugin install … --scope project` 完成同样的操作。
 
-## 查找插件
-
-对象是**本市场的 public 插件**（[收录插件](#收录插件)）。
-
-### 直接告诉 Claude
-
-| 想做的事 | 这样说 |
-|---|---|
-| 按功能查找 | "有提高测试覆盖率的插件吗？" |
-| 查找相关插件 | "给我看和 github-workflow 类似或一起用的插件" |
-| 浏览有哪些 | "按标签列出有哪些插件" |
-| 详细了解一个插件 | "java-naming 有哪些技能和钩子？" |
-
-Claude 用 `plugin-search` MCP 工具（或 `plugin-search` 技能）查找，并附上理由展示结果。
-
-### 查询语法（精确查找时）
-
-| 形式 | 含义 | 例 |
-|---|---|---|
-| `词` | 名称 · 描述 · 标签 · 关键词 · 技能 · 钩子 · MCP 任意位置 | `naming` |
-| `字段:值` | 仅在该字段 | `tag:spring` · `tech:spring` · `domain:development` · `skill:issue-create` |
-| `-词` | 排除 | `naming -java` |
-| `a\|b` | 二者之一 | `github\|gitlab` |
-| `has:类型` | 含有该组件 | `has:hook` · `has:mcp` |
-| `is:状态` | 安装状态 | `is:not-installed` |
-
-允许同义词（韩 · 英）、韩语助词和错别字 — 用 "네이밍" 也能找到 `naming`。完整语法见 [`search-rules.md`](public-plugins/plugin-search-install/references/search-rules.md)。
-
-### 终端界面
-
-想以表格 · 卡片浏览并用方向键 · 空格选择安装，请安装 [`plugin-browser`](public-plugins/plugin-browser)。
-
-```
-/plugin install plugin-browser@jaemyeong-hwnag-plugins
-```
-
-在终端（Claude 之外）：
-
-```bash
-PB="$(claude plugin list --json | jq -r '[.[] | select(.id=="plugin-browser@jaemyeong-hwnag-plugins")][0].installPath')/scripts/plugin-browser.sh"
-bash "$PB"                        # 菜单 — 项目 · 功能搜索 · 相关 · 标签 · 已安装
-bash "$PB" search 测试覆盖率
-```
-
-## 自动安装项目所需插件
-
-在项目目录中告诉 Claude：
-
-```
-安装这个项目需要的插件
-```
-
-1. 分三路查找并附上依据
-   - **必需** — 在项目 `.claude/settings.json` 中声明但未安装的插件，以及它们依赖的插件
-   - **推荐** — 根据文件信号挑选（例：`build.gradle` + Spring → `java-spring-*`，`.github/` → `github-workflow`）
-2. 先展示安装计划 — **不会立即安装**
-3. 选择 "全部" · "只要 1 和 3" · "不要推荐的" · "只查看" 后照此安装（默认范围 `project`）
-4. 重启 Claude Code 后加载
-
-### 用 CLI（脚本 · CI）
-
-```bash
-PSI="$(claude plugin list --json | jq -r '[.[] | select(.id=="plugin-search-install@jaemyeong-hwnag-plugins")][0].installPath')/scripts/plugin-search-install.sh"
-
-"$PSI" project . --format tsv                          # 查看所需（必需 + 推荐，含依据）
-"$PSI" project . --only declared > /tmp/need.json      # 仅必需（声明 · 依赖）
-"$PSI" install --from /tmp/need.json --all --dry-run   # 计划 — 跳过已安装的
-"$PSI" install --from /tmp/need.json --all             # 安装
-"$PSI" project . > /tmp/all.json && "$PSI" install --from /tmp/all.json --select 1,3-5   # 按编号选择
-```
-
 ### 让整个团队使用相同插件
 
-把市场和插件写进项目的 `.claude/settings.json` 并提交。团队成员添加市场后，说一次 "安装这个项目需要的插件" 即可 — 这里写的插件都算作**必需**。
+把市场和插件写入项目的 `.claude/settings.json` 并提交。团队成员信任该文件夹后，市场会被注册，`enabledPlugins` 中的插件会被启用。
 
 ```json
 {
@@ -123,7 +54,6 @@ PSI="$(claude plugin list --json | jq -r '[.[] | select(.id=="plugin-search-inst
     }
   },
   "enabledPlugins": {
-    "plugin-search-install@jaemyeong-hwnag-plugins": true,
     "<名称>@jaemyeong-hwnag-plugins": true
   }
 }
@@ -137,10 +67,8 @@ PSI="$(claude plugin list --json | jq -r '[.[] | select(.id=="plugin-search-inst
 
 | 症状 | 解决 |
 |---|---|
-| `/mcp` 中没有 `plugin-search` | 重启 Claude Code。仍然没有就查看 `claude plugin list` 中的 `Error:` |
-| 工具提示 "需要 jq" | `brew install jq`（macOS）· `apt install jq` |
+| 钩子不起作用或报错 | 查看 `claude plugin list` 中的错误。钩子脚本需要 `jq` — `brew install jq`（macOS）· `apt install jq` |
 | 以 `…@plugin-marketplace` 安装 | 那是旧的市场名称 — 执行 `claude plugin marketplace remove plugin-marketplace` 后从第 1 步开始 |
-| 找不到想要的插件 | 只搜索本市场的 **public** 插件。其他市场和 internal 插件不会出现 |
 
 ## 收录插件
 
@@ -157,13 +85,10 @@ PSI="$(claude plugin list --json | jq -r '[.[] | select(.id=="plugin-search-inst
 | 安全 | [`git-secret-validate`](public-plugins/git-secret-validate) | 在 `git commit` · `git push` 前阻止密钥 · 令牌 · 密码和 `.env` · 密钥文件，写入未被 ignore 的文件时警告。检测用 gitleaks（没有则用内置模式） |
 | 测试 | [`java-spring-aitest-coverage`](public-plugins/java-spring-aitest-coverage) · [`kotlin-spring-aitest-coverage`](public-plugins/kotlin-spring-aitest-coverage) | 用 `@AiTest` 覆盖 Java · Kotlin Spring Boot 中变更的方法，并设 JaCoCo 100% 门槛 |
 | 代码命名 | [`java-naming`](public-plugins/java-naming) · [`kotlin-naming`](public-plugins/kotlin-naming) · [`typescript-naming`](public-plugins/typescript-naming) · [`node-naming`](public-plugins/node-naming) · [`python-naming`](public-plugins/python-naming) · [`go-naming`](public-plugins/go-naming) | 用钩子阻止违反各语言官方指南的名称形式，用技能判断用词 |
-| 项目质量 | [`project-completeness`](public-plugins/project-completeness) | 诊断项目是否具备服务应有的一切，应用修复并判定运维指标 |
 | 文档 | [`domain-document-sync`](public-plugins/domain-document-sync) | 将领域知识文档分三层存放，并与代码变更保持一致 |
 | | [`common-document-slop-review`](public-plugins/common-document-slop-review) | 每次编写或修改文档时阻止 slop（对话残留 · 失效链接 · 无依据的论断），并要求事实核查 |
 | 查找参考资料 | [`reference-search`](public-plugins/reference-search) | 用按来源划分的代理查找论文、其他公司的技术案例、官方文档和标准，并阻止引用不存在的 DOI · arXiv ID |
 | GitHub 流程 | [`github-workflow`](public-plugins/github-workflow) | 强制 issue → 带 issue 编号的分支 → PR → 合并提交 → 标签 的流程 |
-| 查找 · 安装插件 | [`plugin-search-install`](public-plugins/plugin-search-install) | 本市场 public 插件的搜索 · 相关 · 项目所需 · 安装。包含本地 MCP 服务器 |
-| | [`plugin-browser`](public-plugins/plugin-browser) | 以终端界面（表格 · 卡片 · 方向键选择）显示上述结果 |
 
 仅用于开发本仓库的 internal 插件 — [`plugin-naming`](internal-plugins/plugin-naming) · [`marketplace-directory-structure`](internal-plugins/marketplace-directory-structure) · [`plugin-versioning`](internal-plugins/plugin-versioning) · [`plugin-authoring`](internal-plugins/plugin-authoring) · [`plugin-dependency`](internal-plugins/plugin-dependency) · [`plugin-enforcement-effectiveness`](internal-plugins/plugin-enforcement-effectiveness) · [`plugin-workflow`](internal-plugins/plugin-workflow)。
 

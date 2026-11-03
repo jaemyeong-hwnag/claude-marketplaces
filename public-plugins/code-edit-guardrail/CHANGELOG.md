@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.6
+
+### Changed
+- 규칙 원본의 "다루지 않는 것" 에서 지운 플러그인 `project-completeness` 이름을 뺐다 (#251)
+
 ## 0.1.5
 
 ### Changed

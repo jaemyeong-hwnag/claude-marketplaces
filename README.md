@@ -6,12 +6,12 @@ Claude Code plugins that enforce rules with hooks instead of instructions the mo
 
 ```
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
-/plugin install plugin-search-install@jaemyeong-hwnag-plugins
+/plugin install code-edit-guardrail@jaemyeong-hwnag-plugins
 ```
 
 The marketplace name is `jaemyeong-hwnag-plugins`.
 
-- **If you want to use plugins** — [Getting started](#getting-started) · [Finding plugins](#finding-plugins) · [Installing what a project needs](#installing-what-a-project-needs) · [Plugins](#plugins) · [FAQ](#faq)
+- **If you want to use plugins** — [Getting started](#getting-started) · [Plugins](#plugins) · [FAQ](#faq)
 - **If you contribute to this repository** — [Working in this repository](#working-in-this-repository)
 
 ## Getting started
@@ -26,94 +26,25 @@ Inside a Claude Code session:
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
 ```
 
-**2. Install the search · install plugin**
+**2. Install plugins**
+
+Pick a name from the [Plugins](#plugins) table and install it. You can also open `/plugin` and pick from the list.
 
 ```
-/plugin install plugin-search-install@jaemyeong-hwnag-plugins
+/plugin install <name>@jaemyeong-hwnag-plugins
 ```
 
-You will be asked for an install scope — `project` so the whole team gets the same setup, `user` for yourself only. This plugin finds and installs the other plugins (it includes the local MCP server `plugin-search`).
+You will be asked for an install scope — `project` so the whole team gets the same setup, `user` for yourself only.
 
 **3. Restart Claude Code**
 
-Plugins and MCP servers are loaded when a session starts. You are done when `plugin-search` shows up in `/mcp`.
+Hooks, skills and MCP servers are loaded when a session starts.
 
-> From a terminal, do the same with `claude plugin marketplace add …` · `claude plugin install … --scope project`.
-
-## Finding plugins
-
-Searches cover **this marketplace's public plugins** ([Plugins](#plugins)).
-
-### Ask Claude
-
-| You want to | Say |
-|---|---|
-| Find by feature | "Is there a plugin that raises test coverage?" |
-| Find related ones | "Show plugins similar to or used with github-workflow" |
-| Browse what exists | "Show me the plugins grouped by tag" |
-| Look at one plugin | "What skills and hooks does java-naming have?" |
-
-Claude searches with the `plugin-search` MCP tool (or the `plugin-search` skill) and shows results with reasons.
-
-### Query syntax (for precise searches)
-
-| Form | Meaning | Example |
-|---|---|---|
-| `word` | Anywhere in name · description · tags · keywords · skills · hooks · MCP | `naming` |
-| `field:value` | Only in that field | `tag:spring` · `tech:spring` · `domain:development` · `skill:issue-create` |
-| `-word` | Exclude | `naming -java` |
-| `a\|b` | Either | `github\|gitlab` |
-| `has:kind` | Has that component | `has:hook` · `has:mcp` |
-| `is:state` | Install state | `is:not-installed` |
-
-Synonyms (Korean · English), Korean particles, and typos are tolerated — "네이밍" also finds `naming`. Full syntax: [`search-rules.md`](public-plugins/plugin-search-install/references/search-rules.md).
-
-### In a terminal UI
-
-To browse tables · cards and pick with arrow keys and space, install [`plugin-browser`](public-plugins/plugin-browser).
-
-```
-/plugin install plugin-browser@jaemyeong-hwnag-plugins
-```
-
-From a terminal (outside Claude):
-
-```bash
-PB="$(claude plugin list --json | jq -r '[.[] | select(.id=="plugin-browser@jaemyeong-hwnag-plugins")][0].installPath')/scripts/plugin-browser.sh"
-bash "$PB"                        # menu — project · feature search · related · tags · installed
-bash "$PB" search test coverage
-```
-
-## Installing what a project needs
-
-In the project folder, tell Claude:
-
-```
-Install the plugins this project needs
-```
-
-1. It searches three ways and shows the reasons
-   - **Required** — declared in the project's `.claude/settings.json` but not installed, plus the plugins they depend on
-   - **Recommended** — picked from file signals (e.g. `build.gradle` + Spring → `java-spring-*`, `.github/` → `github-workflow`)
-2. It shows the install plan first — **it does not install right away**
-3. Choose "all" · "only 1 and 3" · "skip recommended" · "just list" and it installs accordingly (default scope `project`)
-4. Restart Claude Code to load them
-
-### From the CLI (scripts · CI)
-
-```bash
-PSI="$(claude plugin list --json | jq -r '[.[] | select(.id=="plugin-search-install@jaemyeong-hwnag-plugins")][0].installPath')/scripts/plugin-search-install.sh"
-
-"$PSI" project . --format tsv                          # what is needed (required + recommended, with reasons)
-"$PSI" project . --only declared > /tmp/need.json      # required (declared · dependencies) only
-"$PSI" install --from /tmp/need.json --all --dry-run   # plan — skips what is already installed
-"$PSI" install --from /tmp/need.json --all             # install
-"$PSI" project . > /tmp/all.json && "$PSI" install --from /tmp/all.json --select 1,3-5   # pick by number
-```
+> In a terminal, do the same with `claude plugin marketplace add …` · `claude plugin install … --scope project`.
 
 ### Giving the whole team the same plugins
 
-Write the marketplace and plugins into the project's `.claude/settings.json` and commit it. Teammates add the marketplace and then say "Install the plugins this project needs" once — everything listed here counts as **required**.
+Write the marketplace and plugins into the project's `.claude/settings.json` and commit it. When teammates trust the folder, the marketplace is registered and the plugins in `enabledPlugins` are enabled.
 
 ```json
 {
@@ -123,7 +54,6 @@ Write the marketplace and plugins into the project's `.claude/settings.json` and
     }
   },
   "enabledPlugins": {
-    "plugin-search-install@jaemyeong-hwnag-plugins": true,
     "<name>@jaemyeong-hwnag-plugins": true
   }
 }
@@ -137,10 +67,8 @@ Write the marketplace and plugins into the project's `.claude/settings.json` and
 
 | Symptom | Fix |
 |---|---|
-| `plugin-search` is missing from `/mcp` | Restart Claude Code. If it is still missing, check `Error:` in `claude plugin list` |
-| A tool says "jq is required" | `brew install jq` (macOS) · `apt install jq` |
+| A hook does nothing or errors | Check the errors in `claude plugin list`. Hook scripts need `jq` — `brew install jq` (macOS) · `apt install jq` |
 | Installed as `…@plugin-marketplace` | That is the old marketplace name — run `claude plugin marketplace remove plugin-marketplace`, then start from step 1 |
-| A plugin you look for does not show up | Only this marketplace's **public** plugins are searched. Other marketplaces and internal plugins are not |
 
 ## Plugins
 
@@ -157,13 +85,10 @@ Install: `/plugin install <name>@jaemyeong-hwnag-plugins`. Every plugin has a RE
 | Security | [`git-secret-validate`](public-plugins/git-secret-validate) | Blocks keys · tokens · passwords and `.env` · key files before `git commit` · `git push`, and warns when writing them to files that are not ignored. Detection by gitleaks (built-in patterns if absent) |
 | Testing | [`java-spring-aitest-coverage`](public-plugins/java-spring-aitest-coverage) · [`kotlin-spring-aitest-coverage`](public-plugins/kotlin-spring-aitest-coverage) | Cover changed Java · Kotlin Spring Boot methods with `@AiTest` behind a JaCoCo 100% gate |
 | Code naming | [`java-naming`](public-plugins/java-naming) · [`kotlin-naming`](public-plugins/kotlin-naming) · [`typescript-naming`](public-plugins/typescript-naming) · [`node-naming`](public-plugins/node-naming) · [`python-naming`](public-plugins/python-naming) · [`go-naming`](public-plugins/go-naming) | Hooks block name shapes that break each language's official guide; skills judge word choice |
-| Project quality | [`project-completeness`](public-plugins/project-completeness) | Diagnoses whether a project has what a service needs, applies fixes, and judges operational metrics |
 | Documentation | [`domain-document-sync`](public-plugins/domain-document-sync) | Keeps domain knowledge docs in three layers and in sync with code changes |
 | | [`common-document-slop-review`](public-plugins/common-document-slop-review) | Blocks slop (chat leftovers · broken links · unsupported claims) whenever docs are written or edited, and requires a fact-check review |
 | Finding references | [`reference-search`](public-plugins/reference-search) | Finds papers, other companies' engineering cases, official docs, and standards with per-source agents, and blocks citing DOIs · arXiv IDs that do not exist |
 | GitHub flow | [`github-workflow`](public-plugins/github-workflow) | Enforces issue → issue-numbered branch → PR → merge commit → tag |
-| Finding · installing plugins | [`plugin-search-install`](public-plugins/plugin-search-install) | Search, related plugins, what a project needs, and install for this marketplace's public plugins. Includes a local MCP server |
-| | [`plugin-browser`](public-plugins/plugin-browser) | The same results in a terminal UI (tables · cards · arrow-key selection) |
 
 Internal plugins used only to develop this repository — [`plugin-naming`](internal-plugins/plugin-naming) · [`marketplace-directory-structure`](internal-plugins/marketplace-directory-structure) · [`plugin-versioning`](internal-plugins/plugin-versioning) · [`plugin-authoring`](internal-plugins/plugin-authoring) · [`plugin-dependency`](internal-plugins/plugin-dependency) · [`plugin-enforcement-effectiveness`](internal-plugins/plugin-enforcement-effectiveness) · [`plugin-workflow`](internal-plugins/plugin-workflow).
 
