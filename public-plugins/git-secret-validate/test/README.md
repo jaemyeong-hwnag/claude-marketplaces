@@ -69,7 +69,7 @@ test/validate-git-secret.test.sh TC-S3    # ID 접두사로 필터
 | TC-S62 | `bash -c` · `sh -c` · `zsh -c` · `eval` 로 감싼 git commit · push · add 도 본다 (중첩 · 따옴표 안 `-C` 포함) |
 | TC-S63 | 따옴표 안에 git commit · push · add 를 적기만 한 명령은 보지 않는다 (과잉 차단 방지) |
 | TC-S64 | 임시 파일을 만들 수 없으면 git commit 을 검사 없이 통과시키지 않는다 (exit 2) |
-| TC-S65 | 임시 파일을 만들 수 없어도 Write 훅 · CLI 의 판정은 그대로다 (Write 는 경고하고 통과, CLI 는 위반 exit 2) |
+| TC-S65 | Write 훅 · CLI 는 임시 파일을 만들 수 없을 때도 판정이 수정 전과 같다 (scan-before · scan-after → Write exit 0, tree-paths → CLI exit 2, found-paths → CLI exit 0). 쓰기 실패 표식을 출력에서 확인한다 |
 
 ### C. 훅 — Write · Edit
 
