@@ -11,7 +11,7 @@ test/common-stress-test.test.sh TC-S5    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. 부하 도구 · Docker 없이 돈다 (bash · awk · jq).
 
-## 자동 TC (52건)
+## 자동 TC (57건)
 
 차단(위반을 잡는다) TC 와 허용(잡으면 안 되는 것) TC 를 조항마다 둔다. 단계 판정 · 회귀 판정 픽스처는 실측 데이터와 scipy 로 검산한 값이다.
 
@@ -38,6 +38,11 @@ test/common-stress-test.test.sh TC-S5    # ID 접두사로 필터
 | TC-S17 | heredoc 본문은 보지 않고, 셸에 먹이는 heredoc 은 본다 |
 | TC-S18 | 다른 구간의 변수 대입(`export BASE_URL=… &&`)과 부하 도구에 먹이는 heredoc 스크립트는 본다 (`K6_*` · 로컬 대상은 통과) |
 | TC-S19 | 스크립트 파일의 줄 끝 주석(`//` · `#`) URL 은 보지 않고, 스킴 없는 `__ENV.BASE_URL \|\| 'host'` 기본값은 본다 (이름에 URL · HOST 가 없는 변수는 보지 않는다). 템플릿 k6 스크립트는 통과, 기본값을 공용 호스트로 바꾸면 차단 |
+| TC-S70 | 사설 대역 숫자로 시작해도 IP 리터럴이 아닌 이름(`10.evil.com` · `127.0.0.1.nip.io`)은 공용이다 |
+| TC-S71 | 정수 · 16진 · 8진 · 줄인 IPv4(`134744072` · `0x08080808` · `10.1`) · 범위 밖 옥텟 · 공인 IPv6(`[2001:db8::1]` · `[::ffff:8.8.8.8]`)는 막고, `::1` · `fd00::/8` · `fe80::/10` 은 허용한다 |
+| TC-S72 | 스킴 없는 대상 인자(`bombardier example.com` · `ghz … 8.8.8.8:50051`)를 막고, `-H` 헤더 · 파일 · 숫자 옵션 값 · 사설 `host:port` 는 통과한다 |
+| TC-S73 | bombardier · siege · h2load · httperf `--server` · ghz · fortio load · plow · drill 도 부하 명령이다. `siege -f` · `vegeta -targets=` · drill 의 `.txt` · `.yml` 안 URL 을 본다 |
+| TC-S74 | 루프백 · 사설 IP 리터럴(`127.x` · `::1` · `10.0.0.5` · `192.168.x` · `172.16~31.x` · `0.0.0.0`) · 예약 이름은 그대로 허용한다 |
 
 ### B. ST-02 ~ ST-06 부하 스크립트 (`stress-script-validate.sh`)
 

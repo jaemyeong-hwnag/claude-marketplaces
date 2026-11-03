@@ -27,7 +27,7 @@ Django 서버 부하 측정을 Django 에 맞게 준비한다 — runserver · D
 
 | 스크립트 | 이벤트 | 동작 |
 |---|---|---|
-| django-stress-config-validate.sh | PreToolUse (Bash) | 부하 도구(`k6 run` · `k6 cloud` · `locust` · `jmeter` · `gatling` · `wrk` · `wrk2` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `autocannon`, 그 이미지의 `docker run` · compose, `mvn` · `gradle` 의 gatling 태스크)를 실행할 때 프로젝트를 검사해 **알린다**. 막지 않는다 |
+| django-stress-config-validate.sh | PreToolUse (Bash) | 부하 도구(`k6 run` · `k6 cloud` · `locust` · `jmeter` · `gatling` · `wrk` · `wrk2` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `autocannon` · `bombardier` · `siege` · `h2load` · `httperf` · `ghz` · `plow` · `drill` · `fortio load`, 그 이미지의 `docker run` · compose, `mvn` · `gradle` 의 gatling 태스크)를 실행할 때 프로젝트를 검사해 **알린다**. 막지 않는다 |
 
 ## 주의
 

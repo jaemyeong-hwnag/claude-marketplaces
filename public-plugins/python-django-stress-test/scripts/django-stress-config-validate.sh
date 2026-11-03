@@ -249,7 +249,8 @@ is_load_segment() {
   TOOL="$first"
   case "$first" in
     k6) case "$rest" in run*|cloud*) return 0 ;; esac ;;
-    locust|jmeter|jmeter.sh|gatling|gatling.sh|wrk|wrk2|hey|oha|ab|autocannon) return 0 ;;
+    locust|jmeter|jmeter.sh|gatling|gatling.sh|wrk|wrk2|hey|oha|ab|autocannon|bombardier|siege|h2load|httperf|ghz|plow|drill) return 0 ;;
+    fortio) case "$rest" in load*) return 0 ;; esac ;;
     vegeta) case "$rest" in attack*) return 0 ;; esac ;;
     artillery) case "$rest" in run*|quick*) return 0 ;; esac ;;
     docker|podman|docker-compose)

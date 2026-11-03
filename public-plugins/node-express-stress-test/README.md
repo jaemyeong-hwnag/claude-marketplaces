@@ -29,7 +29,7 @@ Load model · metric definitions · statistical verdicts belong to `common-stres
 
 | Script | Event | Behavior |
 |---|---|---|
-| express-stress-config-validate.sh | PreToolUse (Bash) | Only when the command is a load tool (`k6 run` · `k6 cloud` · `wrk` · `wrk2` · `autocannon` · `locust` · `jmeter` · `gatling` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery`, `docker run` · compose with those images, the gatling task of `mvn` · `gradle`), checks the project and **warns**. Does not block |
+| express-stress-config-validate.sh | PreToolUse (Bash) | Only when the command is a load tool (`k6 run` · `k6 cloud` · `wrk` · `wrk2` · `autocannon` · `locust` · `jmeter` · `gatling` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `bombardier` · `siege` · `h2load` · `httperf` · `ghz` · `plow` · `drill` · `fortio load`, `docker run` · compose with those images, the gatling task of `mvn` · `gradle`), checks the project and **warns**. Does not block |
 
 ## Notes
 

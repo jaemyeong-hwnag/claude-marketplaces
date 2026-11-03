@@ -36,7 +36,7 @@ None
 ## Notes
 
 - The allowlist is:
-  - Loopback, private IPv4
+  - Loopback, private IP — IP literals only. Names like `10.evil.com` and integer · hex · octal IP forms are not treated as private
   - Names without a dot (container · service names)
   - `*.localhost` · `*.local` · `*.test` · `*.internal` · `host.docker.internal`
 - Put dedicated test domains in `env.STRESS_TEST_ALLOWED_HOSTS` of `.claude/settings.json` (comma- or space-separated, `*.perf.example.com` form allowed)
@@ -45,7 +45,9 @@ None
   - `--host` · locust's `-H`
   - Assignments to variables whose name contains `URL` · `HOST`
   - URLs in the script file the command points to
-- If the script reads its target from elsewhere at runtime (a config server, etc.), the hook cannot see it
+- The hook reads only the command string, so these pass unseen — check the target host yourself
+  - Indirect runs such as `make load` · `npm run load` · `./run.sh`, and commands or targets built from variables like `$TOOL` · `"$URL"`
+  - Load tools outside the list in the rule source, and targets the script reads from elsewhere at runtime (a config server, etc.)
 - If the system really is a closed model, put a `stress-test: closed-model` comment in the script. This turns off the `ST-02` warning
 - Analysis scripts use only bash · awk · jq. Load tools (k6, etc.) are installed by the project or run as Docker images
 - SLO values (p99 limit · error rate) are set by the service. The `300 ms` · `1%` in the docs are examples

@@ -27,7 +27,7 @@ Load model · verdict statistics · target host safety belong to `common-stress-
 
 | Script | Event | Behavior |
 |---|---|---|
-| spring-stress-config-validate.sh | PreToolUse (Bash) | Only when running a load tool (`k6 run` · `k6 cloud` · `locust` · `jmeter` · `gatling` · `wrk` · `wrk2` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `autocannon`, `docker run` · compose with those images, the gatling task of `mvn` · `gradle`), checks the project and reports **warnings**. Does not block |
+| spring-stress-config-validate.sh | PreToolUse (Bash) | Only when running a load tool (`k6 run` · `k6 cloud` · `locust` · `jmeter` · `gatling` · `wrk` · `wrk2` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `autocannon` · `bombardier` · `siege` · `h2load` · `httperf` · `ghz` · `plow` · `drill` · `fortio load`, `docker run` · compose with those images, the gatling task of `mvn` · `gradle`), checks the project and reports **warnings**. Does not block |
 
 ## Notes
 

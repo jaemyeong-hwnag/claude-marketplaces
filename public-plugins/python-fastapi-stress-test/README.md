@@ -27,7 +27,7 @@ Load model · metrics · statistical verdicts belong to `common-stress-test`; th
 
 | Script | Event | Behavior |
 |---|---|---|
-| fastapi-stress-config-validate.sh | PreToolUse (Bash) | When running a load tool (`k6 run` · `k6 cloud` · `locust` · `jmeter` · `gatling` · `wrk` · `wrk2` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `autocannon`, `docker run` · compose with those images, the gatling task of `mvn` · `gradle`), checks the project and **reports**. Does not block |
+| fastapi-stress-config-validate.sh | PreToolUse (Bash) | When running a load tool (`k6 run` · `k6 cloud` · `locust` · `jmeter` · `gatling` · `wrk` · `wrk2` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `autocannon` · `bombardier` · `siege` · `h2load` · `httperf` · `ghz` · `plow` · `drill` · `fortio load`, `docker run` · compose with those images, the gatling task of `mvn` · `gradle`), checks the project and **reports**. Does not block |
 
 ## Notes
 

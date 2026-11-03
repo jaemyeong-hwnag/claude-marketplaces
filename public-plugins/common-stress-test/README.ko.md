@@ -36,7 +36,7 @@
 ## 주의
 
 - 허용 목록은 다음과 같다.
-  - 루프백, 사설 IPv4
+  - 루프백, 사설 IP — IP 리터럴만이다. `10.evil.com` 같은 이름과 정수 · 16진 · 8진 표기 IP 는 사설로 보지 않는다
   - 점 없는 이름 (컨테이너 · 서비스 이름)
   - `*.localhost` · `*.local` · `*.test` · `*.internal` · `host.docker.internal`
 - 전용 테스트 도메인은 `.claude/settings.json` 의 `env.STRESS_TEST_ALLOWED_HOSTS` 에 넣는다 (쉼표 · 공백 구분, `*.perf.example.com` 형태 허용)
@@ -45,7 +45,9 @@
   - `--host` · locust 의 `-H`
   - 이름에 `URL` · `HOST` 가 든 변수 대입
   - 명령이 가리키는 스크립트 파일 안의 URL
-- 스크립트가 실행 중에 다른 곳에서 대상을 읽으면(설정 서버 등) 보지 못한다
+- 명령 문자열만 보므로 다음은 보지 못하고 통과한다 — 대상 호스트를 사람이 확인한다
+  - `make load` · `npm run load` · `./run.sh` 같은 간접 실행, `$TOOL` · `"$URL"` 처럼 변수로 만든 명령 · 대상
+  - 규칙 원본 목록 밖의 부하 도구, 스크립트가 실행 중에 다른 곳(설정 서버 등)에서 읽는 대상
 - closed 모델이 맞는 시스템이면 스크립트에 `stress-test: closed-model` 주석을 둔다. `ST-02` 경고가 꺼진다
 - 분석 스크립트는 bash · awk · jq 만 쓴다. 부하 도구(k6 등)는 프로젝트가 설치하거나 Docker 이미지로 돌린다
 - SLO 값(p99 기준 · 에러율)은 서비스가 정한다. 문서의 `300 ms` · `1%` 는 예시다

@@ -29,7 +29,7 @@ Node.js · Express 앱의 부하 측정을 준비한다 — prom-client 지연 �
 
 | 스크립트 | 이벤트 | 동작 |
 |---|---|---|
-| express-stress-config-validate.sh | PreToolUse (Bash) | 명령이 부하 도구(`k6 run` · `k6 cloud` · `wrk` · `wrk2` · `autocannon` · `locust` · `jmeter` · `gatling` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery`, 그 이미지의 `docker run` · compose, `mvn` · `gradle` 의 gatling 태스크)일 때만 프로젝트를 검사해 **경고**한다. 막지 않는다 |
+| express-stress-config-validate.sh | PreToolUse (Bash) | 명령이 부하 도구(`k6 run` · `k6 cloud` · `wrk` · `wrk2` · `autocannon` · `locust` · `jmeter` · `gatling` · `vegeta attack` · `hey` · `ab` · `oha` · `artillery` · `bombardier` · `siege` · `h2load` · `httperf` · `ghz` · `plow` · `drill` · `fortio load`, 그 이미지의 `docker run` · compose, `mvn` · `gradle` 의 gatling 태스크)일 때만 프로젝트를 검사해 **경고**한다. 막지 않는다 |
 
 ## 주의
 
