@@ -1,7 +1,5 @@
 # marketplace-directory-structure
 
-[English](README.md) · **한국어** · [简体中文](README.zh-CN.md)
-
 마켓플레이스 루트와 개별 플러그인의 **디렉터리 구조**를 강제한다.
 
 다루는 것은 **무엇을 어디에 두는가** 하나뿐이다. 이름이 올바른지(`plugin-naming`), public 인지 internal 인지와 등록이 맞는지(저장소 `.claude/hooks/`)는 이 플러그인의 관심사가 아니다.
@@ -66,7 +64,7 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 �
 
 충돌하면 [`references/directory-structure-rules.md`](references/directory-structure-rules.md) 가 우선한다.
 
-플러그인 루트: `.claude-plugin/plugin.json` · `README.md` · `README.ko.md` · `README.zh-CN.md` · `CHANGELOG.md` 는 필수. 루트에 둘 수 있는 파일은 `README.md` · `README.ko.md` · `README.zh-CN.md` · `CHANGELOG.md` · `LICENSE` · `.gitignore` 뿐이다.
+플러그인 루트: `.claude-plugin/plugin.json` · `README.ko.md` · `CHANGELOG.md` 는 필수, public 은 `README.md` · `README.zh-CN.md` 도 필수. 루트에 둘 수 있는 파일은 `README.md` · `README.ko.md` · `README.zh-CN.md` · `CHANGELOG.md` · `LICENSE` · `.gitignore` 뿐이다.
 
 | 디렉터리 | 둘 수 있는 것 |
 |---|---|

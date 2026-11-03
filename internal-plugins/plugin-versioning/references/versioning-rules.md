@@ -137,7 +137,7 @@ AI 가 판단할 것은 셋이다.
 4. marketplace 엔트리가 `version` 을 선언하고 있으면 같이 올린다
 5. `validate-versioning.sh --all .` 와 `--since origin/main` 으로 검증한다
 6. 커밋 → PR → 머지 (`github-workflow`)
-7. **main 에서, 머지 뒤, 설치 확인 뒤에** `claude plugin tag --push` — 리베이스가 SHA 를 바꾸므로 브랜치에서 단 태그는 머지 뒤 어디에도 없는 커밋을 가리킨다
+7. **main 에서, 머지 뒤, 설치 확인 뒤에** public 플러그인만 `claude plugin tag --push` (internal 은 배포하지 않아 태그를 달지 않는다) — 리베이스가 SHA 를 바꾸므로 브랜치에서 단 태그는 머지 뒤 어디에도 없는 커밋을 가리킨다
 
 ## 8. 검증
 

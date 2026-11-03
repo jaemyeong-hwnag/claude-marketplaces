@@ -72,7 +72,7 @@ Write the marketplace and plugins into the project's `.claude/settings.json` and
 
 ## Plugins
 
-Install: `/plugin install <name>@jaemyeong-hwnag-plugins`. Every plugin has a README in English, Korean, and Chinese.
+Install: `/plugin install <name>@jaemyeong-hwnag-plugins`. Every public plugin has a README in English, Korean, and Chinese.
 
 | Area | Plugin | What it does |
 |---|---|---|
@@ -136,7 +136,7 @@ issue → worktree · branch → work → version → verify · test → rebase 
 
 - Issue, branch, PR, and commit types are only `feature` / `bugfix`. Issue forms and PR templates live in [`.github/`](.github)
 - Bump the version of every plugin whose files changed — CHANGELOG first, then `plugin.json`
-- Merge commits only. Tag and release with the `plugin-release-create` skill after merging and checking the install on main
+- Merge commits only. Tag and release public plugins with the `plugin-release-create` skill after merging and checking the install on main. Internal plugins are not distributed, so they get no tags or releases
 - Use the `plugin-create` skill to create a plugin, `plugin-name-update` to rename one, and `plugin-delete` to remove one
 
 ### Who owns what
@@ -148,7 +148,7 @@ Each concern has exactly one owner. `Write` · `Edit` · `Bash` hooks block or n
 | Names | `plugin-naming` | [`naming-rules.md`](internal-plugins/plugin-naming/references/naming-rules.md) · [`glossary.json`](internal-plugins/plugin-naming/references/glossary.json) |
 | File locations | `marketplace-directory-structure` | [`directory-structure-rules.md`](internal-plugins/marketplace-directory-structure/references/directory-structure-rules.md) |
 | Versions · CHANGELOG | `plugin-versioning` | [`versioning-rules.md`](internal-plugins/plugin-versioning/references/versioning-rules.md) |
-| File content format (frontmatter · three-language READMEs) | `plugin-authoring` | [`authoring-rules.md`](internal-plugins/plugin-authoring/references/authoring-rules.md) |
+| File content format (frontmatter · READMEs) | `plugin-authoring` | [`authoring-rules.md`](internal-plugins/plugin-authoring/references/authoring-rules.md) |
 | Dependencies between plugins | `plugin-dependency` | [`dependency-rules.md`](internal-plugins/plugin-dependency/references/dependency-rules.md) |
 | Whether written enforcement actually takes effect at runtime | `plugin-enforcement-effectiveness` | [`enforcement-effectiveness-rules.md`](internal-plugins/plugin-enforcement-effectiveness/references/enforcement-effectiveness-rules.md) |
 | Issue → branch → PR → merge | `github-workflow` | [`workflow-rules.md`](public-plugins/github-workflow/references/workflow-rules.md) |
@@ -166,7 +166,7 @@ internal-plugins/plugin-workflow/scripts/eval-all.sh --quick .  # skill-trigger 
 
 ### READMEs in three languages
 
-Every plugin and this repository keep `README.md` (English, default) · `README.ko.md` · `README.zh-CN.md` with the same content. `verify-all.sh` blocks if one is missing, if a component table does not match reality, or if a public plugin is missing from the root READMEs (`P-01` · `A-20` ~ `A-30`).
+Every public plugin and this repository keep `README.md` (English, default) · `README.ko.md` · `README.zh-CN.md` with the same content. Internal plugins keep only `README.ko.md`. `verify-all.sh` blocks if one is missing, if a component table does not match reality, or if a public plugin is missing from the root READMEs (`P-01` · `A-20` ~ `A-30`).
 
 ## License
 

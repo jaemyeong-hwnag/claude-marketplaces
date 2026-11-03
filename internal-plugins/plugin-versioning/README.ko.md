@@ -1,7 +1,5 @@
 # plugin-versioning
 
-[English](README.md) · **한국어** · [简体中文](README.zh-CN.md)
-
 플러그인 버전 값과 그 값이 남는 자리의 정합성을 강제하는 내부 플러그인이다.
 
 이름은 `plugin-naming`, 디렉터리 구조는 `marketplace-directory-structure`, 배치·배포는 저장소 `.claude/hooks/` 가 본다.
@@ -90,7 +88,7 @@ test/validate-versioning.test.sh
 # 1. 등급 판단 → 2. CHANGELOG → 3. plugin.json → 4. 엔트리 → 5. 검증 → 6. 커밋·PR·머지
 ```
 
-7. 태그 · 릴리즈는 이 플러그인이 하지 않는다. 머지하고 설치를 확인한 뒤 main 에서 `plugin-release-create` 스킬(`plugin-workflow`)로 한다. 그 스크립트가 플러그인마다 `claude plugin tag --push` 로 `{플러그인명}--v{버전}` 태그를 만들고 GitHub 릴리즈를 단다.
+7. 태그 · 릴리즈는 이 플러그인이 하지 않는다. 머지하고 설치를 확인한 뒤 main 에서 `plugin-release-create` 스킬(`plugin-workflow`)로 한다. 그 스크립트가 public 플러그인마다 `claude plugin tag --push` 로 `{플러그인명}--v{버전}` 태그를 만들고 GitHub 릴리즈를 단다.
 
 ## 변경 이력
 

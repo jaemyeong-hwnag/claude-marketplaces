@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.2.0
+
+### Removed
+- 배포하지 않는 internal 플러그인이라 README 를 한국어 `README.ko.md` 하나로 줄였다 — `README.md` · `README.zh-CN.md` 와 언어 전환 줄을 지웠다 (#252)
+
 ## 0.1.1
 
 ### Changed

@@ -39,7 +39,8 @@ N="$(mktemp -d)"
 - 코드 · 경로 · 조항 번호 · 이슈 번호(`#229`)는 옮기지 않는다
 - 원문에 없는 내용을 더하지 않는다
 
-- 현재 `version` 의 `{name}--v{version}` 태그가 없는 플러그인을 모두 고른다 — PR 여럿을 머지한 뒤 한 번 돌려도 빠지지 않는다
+- 현재 `version` 의 `{name}--v{version}` 태그가 없는 public 플러그인을 모두 고른다 — PR 여럿을 머지한 뒤 한 번 돌려도 빠지지 않는다
+- internal 플러그인(`internal-plugins/`)은 배포하지 않으므로 태그 · 릴리즈하지 않는다. 9 단계 설치 확인은 그대로 한다
 - 플러그인마다 `claude plugin tag --push` (`{name}--v{version}`) → `gh release create --verify-tag --latest=false`
 - 노트는 **직전 태그 이후의 CHANGELOG 절 전부**다. 태그가 없었으면(첫 릴리즈) 끝까지 담는다
 - 노트 본문은 `## English` · `## 한국어` · `## 简体中文` 세 절이다. 한국어는 늘 CHANGELOG 에서 뽑는다. 번역 파일이 하나라도 없거나 비면 스크립트가 아무것도 하지 않는다

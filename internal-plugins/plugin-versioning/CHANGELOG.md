@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.4.0
+
+### Changed
+- 릴리즈 순서 7 단계 · README 가 태그를 public 플러그인에만 단다고 적는다 (#252)
+
+### Removed
+- 배포하지 않는 internal 플러그인이라 README 를 한국어 `README.ko.md` 하나로 줄였다 — `README.md` · `README.zh-CN.md` 와 언어 전환 줄을 지웠다 (#252)
+
 ## 0.3.6
 
 ### Changed

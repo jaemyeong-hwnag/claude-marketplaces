@@ -1,7 +1,5 @@
 # plugin-enforcement-effectiveness
 
-[English](README.md) · **한국어** · [简体中文](README.zh-CN.md)
-
 플러그인이 훅 설정 · 에이전트 프런트매터 · 규칙 원본에 적어 둔 강제가 **실행에서 알림 없이 꺼지지 않았는지** 재현해 막는다.
 
 차단 훅의 스크립트가 없거나 실행 권한이 없거나 상대 경로면 훅은 실패하고 도구 호출은 그대로 통과한다. 플러그인 에이전트의 `permissionMode` · `hooks` · `mcpServers` 는 무시된다. `claude plugin validate --strict` 는 이것들을 모두 통과시킨다 (규칙 원본 5절에 재현 명령).

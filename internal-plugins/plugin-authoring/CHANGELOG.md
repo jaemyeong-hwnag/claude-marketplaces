@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.4.0
+
+### Changed
+- `A-29` 언어 전환 링크를 public 플러그인에만 본다. internal 은 `README.ko.md` 하나라 보지 않는다. `A-20` ~ `A-28` 은 있는 README 마다 본다 (#252)
+- `plugin-document-create` 스킬이 internal 은 `README.ko.md` 하나만 쓰게 한다 (#252)
+- 배포하지 않는 internal 플러그인이라 README 를 한국어 `README.ko.md` 하나로 줄였다 — `README.md` · `README.zh-CN.md` 와 언어 전환 줄을 지웠다 (#252)
+
 ## 0.3.0
 
 ### Added

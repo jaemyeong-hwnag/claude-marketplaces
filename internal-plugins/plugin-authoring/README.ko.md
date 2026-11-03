@@ -1,8 +1,6 @@
 # plugin-authoring
 
-[English](README.md) · **한국어** · [简体中文](README.zh-CN.md)
-
-플러그인 파일의 **내용 형식**을 강제한다 — 스킬·커맨드·에이전트 프런트매터, 스킬 본문·참조 문서 크기, 세 언어 README 의 절 구성과 실제 구성요소의 일치.
+플러그인 파일의 **내용 형식**을 강제한다 — 스킬·커맨드·에이전트 프런트매터, 스킬 본문·참조 문서 크기, README 의 절 구성과 실제 구성요소의 일치.
 
 이름은 `plugin-naming`, 파일 위치는 `marketplace-directory-structure`, 버전은 `plugin-versioning` 이 본다. 여기서는 **이미 올바른 자리에 있는 파일의 안쪽**만 본다.
 
@@ -19,7 +17,7 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 �
 
 | 스킬 | 트리거 | 설명 |
 |---|---|---|
-| plugin-document-create | SKILL.md · description · README 쓰기 | 프런트매터·description 판단, 세 언어 README 템플릿 |
+| plugin-document-create | SKILL.md · description · README 쓰기 | 프런트매터·description 판단, README 템플릿 (public 세 언어 · internal 한국어) |
 | /authoring-validate | 직접 호출 | 저장소 전체 플러그인의 작성 규칙을 검증한다 |
 
 ## 포함된 훅
@@ -45,8 +43,8 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다. 다른 �
 | 프런트매터 | `A-01` 열고 닫힘 · `A-02` name = 디렉터리명·파일명 · `A-03` description · `A-04` "~할 때 사용한다" |
 | 크기 (경고) | `A-05` description 300자 · `A-06` SKILL.md 200줄 · `A-07` references 500줄 |
 | 참조 | `A-08` 상대 링크가 가리키는 파일 존재 · `A-09` skills·references 에 외부 URL 금지 |
-| README | `A-20` 첫 제목 · `A-21` 필수 절 · `A-22` 구성요소별 절 · `A-23` 순서 · `A-24` ~ `A-27` 표 ↔ 실제 · `A-28` public 설치 명령 — 세 언어 파일마다 그 언어의 절 제목으로 |
-| 언어 | `A-29` 세 언어 README 가 서로를 링크 · `A-30` 루트 README 세 개가 모든 public 플러그인을 싣는다 |
+| README | `A-20` 첫 제목 · `A-21` 필수 절 · `A-22` 구성요소별 절 · `A-23` 순서 · `A-24` ~ `A-27` 표 ↔ 실제 · `A-28` public 설치 명령 — 있는 README 파일마다 그 언어의 절 제목으로 |
+| 언어 | `A-29` public 의 세 언어 README 가 서로를 링크 · `A-30` 루트 README 세 개가 모든 public 플러그인을 싣는다 |
 
 ## 훅이 두 갈래인 이유
 
