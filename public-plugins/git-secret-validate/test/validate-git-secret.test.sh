@@ -277,6 +277,28 @@ r="$(repo)"; mkdir -p "$r/sub"
 run_stdin "$(payload_bash "$r/sub" 'cd "$(git rev-parse --show-toplevel)" && git commit -m x')"; expect_code 0; expect_no_out
 run_stdin "$(payload_bash "$TMP" "cd \"\$(git -C $r rev-parse --show-toplevel)\" && git commit -m x")"; expect_code 0; expect_no_out
 
+tc TC-S62 "bash -c · sh -c · zsh -c · eval 로 감싼 git commit · push · add 도 본다"
+r="$(repo)"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py
+for c in "bash -c 'git commit -m x'" 'sh -c "git commit -m x"' "zsh -c 'git commit -m x'" "bash -lc 'git commit -m x'" \
+  "eval 'git commit -m x'" 'eval "git commit -m x"' "bash -c \"eval 'git commit -m x'\"" "sh -c \"bash -c 'git commit -m x'\"" \
+  "bash -c 'git status; git commit -m x'"; do
+  run_stdin "$(payload_bash "$r" "$c")"; expect_code 2; expect_out "[GS-01] c.py"
+done
+run_stdin "$(payload_bash "$TMP" "bash -c \"git -C '$r' commit -m x\"")"; expect_code 2; expect_out "[GS-01] c.py"
+r="$(repo)"; printf 'X=1\n' > "$r/.env"
+run_stdin "$(payload_bash "$r" "bash -c 'git add -A && git commit -m x'")"; expect_code 2; expect_out "[GS-02] .env"
+r="$(repo)"; git init -q --bare "$r.remote.git"; git -C "$r" remote add origin "$r.remote.git"; git -C "$r" push -q origin work 2>/dev/null
+printf 'key = "%s"\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py && git -C "$r" commit -qm k
+for c in "bash -c 'git push'" "eval 'git push origin work'"; do
+  run_stdin "$(payload_bash "$r" "$c")"; expect_code 2; expect_out "[GS-01] c.py"
+done
+
+tc TC-S63 "따옴표 안에 git commit · push 를 적기만 한 명령은 보지 않는다 (과잉 차단 방지)"
+r="$(repo)"; printf 'key = "%s"\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py
+for c in "grep -rn 'git commit' ." 'echo "git push origin work"' "bash -c 'git status'" "eval 'git log'"; do
+  run_stdin "$(payload_bash "$r" "$c")"; expect_code 0; expect_no_out
+done
+
 tc TC-S38 "시크릿을 지우는 커밋은 통과한다 (추가된 줄만 본다)"
 r="$(repo)"; printf 'key = "%s"  # gitleaks:allow\n' "$AWS_KEY" > "$r/c.py"; git -C "$r" add c.py && git -C "$r" commit -qm k
 printf 'key = os.environ["KEY"]\n' > "$r/c.py"; git -C "$r" add c.py

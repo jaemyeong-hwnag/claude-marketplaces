@@ -194,9 +194,11 @@ engine_note() {
 # git 과 하위 명령 사이의 전역 옵션 — git -C dir · git -c k=v · git --no-pager. 값은 따옴표 문자열도 된다. 두 함수가 같이 쓴다
 GIT_OPT_VAL="(\"[^\"]*\"|'[^']*'|[^[:space:]\"'])+"
 GIT_GLOBAL_OPTS="([[:space:]]+-[Cc][[:space:]]+$GIT_OPT_VAL|[[:space:]]+--?[A-Za-z][A-Za-z-]*(=$GIT_OPT_VAL)?)*"
-# 명령에서 git 하위 명령이 있는지 — /usr/bin/git 처럼 경로로 불러도
-has_git_sub() { # $1=명령 $2=하위 명령
-  printf '%s' "$1" | grep -qE "(^|[;&|(\`[:space:]])([^[:space:];&|(\`]*/)?git$GIT_GLOBAL_OPTS[[:space:]]+$2([[:space:]]|\$|[;&|)])"
+# 명령에서 git 하위 명령이 있는지 — /usr/bin/git 처럼 경로로 불러도. $3 이 있으면 따옴표 바로 뒤의 git 도 (bash -c 'git …')
+has_git_sub() { # $1=명령 $2=하위 명령 [$3=따옴표 뒤도 볼지]
+  local q=""
+  [ -n "${3:-}" ] && q="\"'"
+  printf '%s' "$1" | grep -qE "(^|[;&|(\`[:space:]$q])([^[:space:];&|(\`$q]*/)?git$GIT_GLOBAL_OPTS[[:space:]]+$2([[:space:]]|\$|[;&|)$q])"
 }
 # 하위 명령 뒤 인자 — 다음 셸 구분자까지. GIT_GLOBAL_OPTS 가 묶음 넷을 써서 인자는 여섯째 묶음이다
 git_sub_args() { # $1=명령 $2=하위 명령
@@ -410,7 +412,7 @@ parse_git_add() { # $1=명령
   local seg tok seen=0
   ADD_SPECS=(); ADD_FORCE=0; ADD_ALL=0
   while IFS= read -r seg; do
-    has_git_sub "$seg" add || continue
+    has_git_sub "$seg" add q || continue
     seen=1
     while IFS= read -r tok; do
       case "$tok" in
@@ -515,13 +517,16 @@ hook_bash() { # $1=payload
   [ -n "$cmd" ] || exit 0
   has_git_sub "$cmd" commit && what="commit"
   has_git_sub "$cmd" push && what="$what push"
-  [ -n "$what" ] || exit 0
+  # 따옴표 뒤의 git 은 렉서가 bash -c · eval 안에서 찾은 것만 본다 — echo "git push" 는 보지 않는다
+  [ -n "$what" ] || has_git_sub "$cmd" '(commit|push)' q || exit 0
   cwd="$(printf '%s' "$1" | jq -r '.cwd // ""' 2>/dev/null)"
   [ -n "$cwd" ] || cwd="${CLAUDE_PROJECT_DIR:-$(pwd)}"
   TARGETS=()
   find_targets "$cmd" "$cwd"
   # 렉서가 git 명령으로 보지 못한 형태는 cwd 를 본다
   if [ "${#TARGETS[@]}" = 0 ]; then for t in $what; do TARGETS+=("$t"$'\037'"$cwd"); done; fi
+  [ "${#TARGETS[@]}" -gt 0 ] || exit 0
+  [ -n "$what" ] || for t in "${TARGETS[@]}"; do case "$what " in *" ${t%%$'\037'*} "*) ;; *) what="$what ${t%%$'\037'*}" ;; esac; done
   for t in "${TARGETS[@]}"; do
     [ -n "${t#*$'\037'}" ] && continue
     echo "❌ git ${t%%$'\037'*} 의 대상 저장소를 알 수 없어 막는다 ($LABEL) — cd · git -C 의 대상에 변수 · 명령 치환이 있다." >&2
