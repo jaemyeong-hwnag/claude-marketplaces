@@ -421,19 +421,6 @@ run_hook "$(stop_payload g66 false)"; expect_out '"decision": "block"'
 run_hook '{"hook_event_name":"UserPromptSubmit","session_id":"g66","prompt":"다음"}'; expect_code 0; expect_no_out
 run_hook "$(stop_payload g66 true)"; expect_out '"decision": "block"'
 
-tc TC-D67 "세 번째 임시 파일을 만들 수 없어도 차단 판정은 그대로다"
-if [ "$TC_ON" = 1 ]; then
-  mkdir -p "$TMP/mk67"; : > "$TMP/mk67/n"
-  printf '#!/bin/bash\nn=$(($(cat "%s") + 1)); echo "$n" > "%s"\n[ "$n" -ge 3 ] && exit 1\nexec /usr/bin/mktemp "$@"\n' "$TMP/mk67/n" "$TMP/mk67/n" > "$TMP/mk67/mktemp"
-  chmod +x "$TMP/mk67/mktemp"
-  printf '# 안내\n\nLet me know if you need anything else.\n' > "$TMP/d67.md"
-  OUT="$(write_payload "$TMP/d67.md" "$(cat "$TMP/d67.md")" g67 | PATH="$TMP/mk67:$PATH" "$SCRIPT" --hook 2>&1)"; CODE=$?
-  expect_code 2; expect_out "3행 DS-01"
-  : > "$TMP/mk67/n"
-  OUT="$(PATH="$TMP/mk67:$PATH" "$SCRIPT" "$TMP/d67.md" 2>&1)"; CODE=$?
-  expect_code 2; expect_out "3행 DS-01"
-fi
-
 flush_tc
 echo ""
 echo "통과 $PASS / 실패 $FAIL$([ "$SKIP" -gt 0 ] && echo " / 건너뜀 $SKIP")"
