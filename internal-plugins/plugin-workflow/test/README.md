@@ -12,7 +12,7 @@ test/workflow-scripts.test.sh TC-W12    # ID 접두사로 필터
 
 **실제 git 저장소**로 돈다 — 임시 bare 저장소를 `origin` 으로 두고 클론해서 머지 커밋 · 태그 상태를 만든다. `gh` · `claude` 는 PATH 스텁이라 GitHub 과 설치 상태를 건드리지 않는다.
 
-## 자동 TC (52건)
+## 자동 TC (58건)
 
 ### G. release · verify-all
 
@@ -69,18 +69,6 @@ test/workflow-scripts.test.sh TC-W12    # ID 접두사로 필터
 | TC-W131 | verify-all: 루트가 .claude/worktrees/ 안이어도 플러그인을 찾는다 |
 | TC-W132 | eval-all: 루트가 .claude/worktrees/ 안이어도 케이스를 찾는다 |
 
-### K. verify-all 범위
-
-| ID | 케이스 |
-|---|---|
-| TC-W153 | verify-all: 기본 모드는 바뀐 플러그인만 돈다 — 미추적 파일도 바뀐 것이다 |
-| TC-W154 | verify-all: 바뀐 플러그인에 기대는 플러그인(전이 포함)도 돈다 |
-| TC-W155 | verify-all: 무관한 플러그인의 실패는 기본 모드에서 돌지 않고 --all 에서 잡힌다 |
-| TC-W156 | verify-all: 저장소 파일(.claude-plugin/ · test/ · .claude/hooks/ · CLAUDE.md)이 바뀌면 저장소 테스트를 돈다 |
-| TC-W157 | verify-all: 바뀐 플러그인이 없으면 한 줄 알리고 저장소 정합성만 |
-| TC-W158 | verify-all: origin/main 이 없으면 전체를 돌고 그렇게 알린다 |
-| TC-W159 | verify-all: --no-run 을 아는 검증기는 기본 모드에서 --all --no-run, --all 에서는 --all |
-
 ### J. 이름 변경
 
 | ID | 케이스 |
@@ -95,6 +83,19 @@ test/workflow-scripts.test.sh TC-W12    # ID 접두사로 필터
 | TC-W145 | name-update: 옛 이름이 없거나 새 이름이 kebab-case 가 아니면 거부한다 |
 | TC-W146 | name-update: 바꿀 파일(기대는 플러그인의 plugin.json 포함)에 커밋하지 않은 변경이 있으면 거부한다 |
 | TC-W147 | name-update: marketplace.json 이 깨져 있으면 아무것도 바꾸지 않는다 |
+
+### K. verify-all 범위
+
+| ID | 케이스 |
+|---|---|
+| TC-W153 | verify-all: 기본 모드는 바뀐 플러그인만 돈다 — 미추적 파일도 바뀐 것이다 |
+| TC-W154 | verify-all: 바뀐 플러그인에 기대는 플러그인(전이 포함)도 돈다 |
+| TC-W155 | verify-all: 무관한 플러그인의 실패는 기본 모드에서 돌지 않고 --all 에서 잡힌다 |
+| TC-W156 | verify-all: 저장소 파일(.claude-plugin/ · test/ · .claude/hooks/ · CLAUDE.md)이 바뀌면 저장소 테스트를 돈다 |
+| TC-W157 | verify-all: 바뀐 플러그인이 없으면 한 줄 알리고 저장소 정합성만 |
+| TC-W158 | verify-all: origin/main 이 없으면 전체를 돌고 그렇게 알린다 |
+| TC-W159 | verify-all: --no-run 을 아는 검증기는 기본 모드에서 --all --no-run, --all 에서는 --all |
+| TC-W160 | verify-all: --all 은 루트 앞뒤 어디에 와도 받고, 모르는 옵션은 2 |
 
 ## 수동 TC (새 세션 필요)
 
@@ -130,3 +131,4 @@ test/workflow-scripts.test.sh TC-W12    # ID 접두사로 필터
 | M36 verify-all 저장소 테스트를 돌지 않음 | 1 (TC-W156) |
 | M37 verify-all origin/main 이 없을 때 플러그인을 돌지 않음 | 1 (TC-W158) |
 | M38 verify-all 기본 모드에 `--no-run` 을 주지 않음 | 1 (TC-W159) |
+| M39 verify-all 첫 인자만 옵션으로 봄 (루트 뒤 `--all` 무시) | 1 (TC-W160) |

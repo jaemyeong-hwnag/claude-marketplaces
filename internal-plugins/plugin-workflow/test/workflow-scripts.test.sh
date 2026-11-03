@@ -334,65 +334,6 @@ printf -- '---\n---\n\nq\n' > "$R/internal-plugins/ok-sync/evals/c1/prompt.md"
 : > "$CALLS"; run "$EA" "$R"
 [ "$TC_ON" = 1 ] && { grep -q 'plugin eval .*/evals/c1/prompt.md' "$CALLS" || fail_tc "케이스를 찾지 못했다"; }; true
 
-echo "== K. verify-all 범위 =="
-
-# 범위 픽스처: base-sync ← user-sync ← far-sync (dependencies), 무관한 other-sync 는 테스트가 실패한다. 저장소 테스트 하나.
-mkscope() { # $1=이름
-  mkrepo "$1"; local n d
-  for n in base-sync user-sync far-sync other-sync; do
-    mkdir -p "$W/internal-plugins/$n/.claude-plugin" "$W/internal-plugins/$n/test"
-    printf '#!/usr/bin/env bash\necho "%s 통과"\n' "$n" > "$W/internal-plugins/$n/test/t.test.sh"
-  done
-  printf '{"name":"base-sync"}' > "$W/internal-plugins/base-sync/.claude-plugin/plugin.json"
-  printf '{"name":"user-sync","dependencies":["base-sync"]}' > "$W/internal-plugins/user-sync/.claude-plugin/plugin.json"
-  printf '{"name":"far-sync","dependencies":[{"name":"user-sync"}]}' > "$W/internal-plugins/far-sync/.claude-plugin/plugin.json"
-  printf '{"name":"other-sync"}' > "$W/internal-plugins/other-sync/.claude-plugin/plugin.json"
-  printf '#!/usr/bin/env bash\necho "other 실패"; exit 1\n' > "$W/internal-plugins/other-sync/test/t.test.sh"
-  mkdir -p "$W/test" "$W/.claude-plugin"; printf '#!/usr/bin/env bash\necho "repo 통과"\n' > "$W/test/repo.test.sh"
-  printf '{"name":"x-marketplace"}' > "$W/.claude-plugin/marketplace.json"
-  chmod +x "$W"/internal-plugins/*/test/t.test.sh "$W/test/repo.test.sh"
-  gitq "$W" add -A; gitq "$W" commit -qm scope; gitq "$W" push -q origin main
-  on_branch feature/9-scope
-}
-
-tc TC-W153 "verify-all: 기본 모드는 바뀐 플러그인만 돈다 — 미추적 파일도 바뀐 것이다"
-mkscope vs1; echo x > "$W/internal-plugins/far-sync/new.md"; : > "$CALLS"
-run "$VA" "$W"; expect_code 0; expect_out "대상: far-sync"; expect_out "✅ internal-plugins/far-sync/test/t.test.sh"
-expect_not "base-sync/test"; expect_not "user-sync/test"; expect_not "test/repo.test.sh"; expect_not "역의존"
-expect_call "plugin validate $W/internal-plugins/far-sync --strict"; expect_nocall "internal-plugins/user-sync --strict"
-expect_call "plugin validate $W/.claude-plugin/marketplace.json --strict"
-
-tc TC-W154 "verify-all: 바뀐 플러그인에 기대는 플러그인(전이 포함)도 돈다"
-mkscope vs2; commit_file internal-plugins/base-sync/x.md x
-run "$VA" "$W"; expect_code 0; expect_out "대상: base-sync (+역의존 2)"
-expect_out "✅ internal-plugins/user-sync/test/t.test.sh"; expect_out "✅ internal-plugins/far-sync/test/t.test.sh"
-
-tc TC-W155 "verify-all: 무관한 플러그인의 실패는 기본 모드에서 돌지 않고 --all 에서 잡힌다"
-expect_not "other-sync"
-run "$VA" --all "$W"; expect_code 1; expect_out "대상: 전체 (--all)"; expect_out "❌ internal-plugins/other-sync/test/t.test.sh — other 실패"
-expect_out "✅ test/repo.test.sh"
-
-tc TC-W156 "verify-all: 저장소 파일(.claude-plugin/ · test/ · .claude/hooks/ · CLAUDE.md)이 바뀌면 저장소 테스트를 돈다"
-mkscope vs3; echo '{"name":"x-marketplace","owner":{}}' > "$W/.claude-plugin/marketplace.json"
-run "$VA" "$W"; expect_code 0; expect_out "· 저장소 테스트"; expect_out "✅ test/repo.test.sh — repo 통과"
-mkscope vs4; echo '# 규칙' > "$W/CLAUDE.md"
-run "$VA" "$W"; expect_out "✅ test/repo.test.sh"
-
-tc TC-W157 "verify-all: 바뀐 플러그인이 없으면 한 줄 알리고 저장소 정합성만"
-mkscope vs5; commit_file README.md readme
-run "$VA" "$W"; expect_code 0; expect_out "대상: 바뀐 플러그인 없음 — 저장소 정합성만"; expect_not "/test/t.test.sh"; expect_not "test/repo.test.sh"
-
-tc TC-W158 "verify-all: origin/main 이 없으면 전체를 돌고 그렇게 알린다"
-mkscope vs6; gitq "$W" remote remove origin
-run "$VA" "$W"; expect_code 1; expect_out "대상: 전체 — origin/main 이 없어"; expect_out "❌ internal-plugins/other-sync/test/t.test.sh"
-
-tc TC-W159 "verify-all: --no-run 을 아는 검증기는 기본 모드에서 --all --no-run, --all 에서는 --all"
-mkscope vs7; mkdir -p "$W/internal-plugins/base-sync/scripts"
-printf '#!/usr/bin/env bash\n# --all [--no-run] · --since) \necho "validate-run $*" >> "$STUB_CALLS"\n' > "$W/internal-plugins/base-sync/scripts/validate-run.sh"
-chmod +x "$W/internal-plugins/base-sync/scripts/validate-run.sh"; : > "$CALLS"
-run "$VA" "$W"; expect_out "validate-run.sh --all --no-run"; expect_call "validate-run --all --no-run $W"; expect_call "validate-run --since origin/main $W"
-: > "$CALLS"; run "$VA" --all "$W"; expect_call "validate-run --all $W"; expect_nocall "--no-run"
-
 echo "== J. 이름 변경 =="
 NU="$PLUGIN_ROOT/scripts/plugin-name-update.sh"
 
@@ -485,6 +426,72 @@ tc TC-W147 "name-update: marketplace.json 이 깨져 있으면 아무것도 바�
 mkname nu11; echo x >> "$W/.claude-plugin/marketplace.json"
 run "$NU" order-sync order-sync-v2 "$W"; expect_code 2; expect_out "JSON 이 아니다"
 [ -d "$W/public-plugins/order-sync" ] || fail_tc "옛 디렉터리가 옮겨졌다"
+
+
+flush_tc; echo "== K. verify-all 범위 =="
+
+# 범위 픽스처: base-sync ← user-sync ← far-sync (dependencies), 무관한 other-sync 는 테스트가 실패한다. 저장소 테스트 하나.
+mkscope() { # $1=이름
+  mkrepo "$1"; local n d
+  for n in base-sync user-sync far-sync other-sync; do
+    mkdir -p "$W/internal-plugins/$n/.claude-plugin" "$W/internal-plugins/$n/test"
+    printf '#!/usr/bin/env bash\necho "%s 통과"\n' "$n" > "$W/internal-plugins/$n/test/t.test.sh"
+  done
+  printf '{"name":"base-sync"}' > "$W/internal-plugins/base-sync/.claude-plugin/plugin.json"
+  printf '{"name":"user-sync","dependencies":["base-sync"]}' > "$W/internal-plugins/user-sync/.claude-plugin/plugin.json"
+  printf '{"name":"far-sync","dependencies":[{"name":"user-sync"}]}' > "$W/internal-plugins/far-sync/.claude-plugin/plugin.json"
+  printf '{"name":"other-sync"}' > "$W/internal-plugins/other-sync/.claude-plugin/plugin.json"
+  printf '#!/usr/bin/env bash\necho "other 실패"; exit 1\n' > "$W/internal-plugins/other-sync/test/t.test.sh"
+  mkdir -p "$W/test" "$W/.claude-plugin"; printf '#!/usr/bin/env bash\necho "repo 통과"\n' > "$W/test/repo.test.sh"
+  printf '{"name":"x-marketplace"}' > "$W/.claude-plugin/marketplace.json"
+  chmod +x "$W"/internal-plugins/*/test/t.test.sh "$W/test/repo.test.sh"
+  gitq "$W" add -A; gitq "$W" commit -qm scope; gitq "$W" push -q origin main
+  on_branch feature/9-scope
+}
+
+tc TC-W153 "verify-all: 기본 모드는 바뀐 플러그인만 돈다 — 미추적 파일도 바뀐 것이다"
+mkscope vs1; echo x > "$W/internal-plugins/far-sync/new.md"; : > "$CALLS"
+run "$VA" "$W"; expect_code 0; expect_out "대상: far-sync"; expect_out "✅ internal-plugins/far-sync/test/t.test.sh"
+expect_not "base-sync/test"; expect_not "user-sync/test"; expect_not "test/repo.test.sh"; expect_not "역의존"
+expect_call "plugin validate $W/internal-plugins/far-sync --strict"; expect_nocall "internal-plugins/user-sync --strict"
+expect_call "plugin validate $W/.claude-plugin/marketplace.json --strict"
+
+tc TC-W154 "verify-all: 바뀐 플러그인에 기대는 플러그인(전이 포함)도 돈다"
+mkscope vs2; commit_file internal-plugins/base-sync/x.md x
+run "$VA" "$W"; expect_code 0; expect_out "대상: base-sync (+역의존 2)"
+expect_out "✅ internal-plugins/user-sync/test/t.test.sh"; expect_out "✅ internal-plugins/far-sync/test/t.test.sh"
+
+tc TC-W155 "verify-all: 무관한 플러그인의 실패는 기본 모드에서 돌지 않고 --all 에서 잡힌다"
+expect_not "other-sync"
+run "$VA" --all "$W"; expect_code 1; expect_out "대상: 전체 (--all)"; expect_out "❌ internal-plugins/other-sync/test/t.test.sh — other 실패"
+expect_out "✅ test/repo.test.sh"
+
+tc TC-W156 "verify-all: 저장소 파일(.claude-plugin/ · test/ · .claude/hooks/ · CLAUDE.md)이 바뀌면 저장소 테스트를 돈다"
+mkscope vs3; echo '{"name":"x-marketplace","owner":{}}' > "$W/.claude-plugin/marketplace.json"
+run "$VA" "$W"; expect_code 0; expect_out "· 저장소 테스트"; expect_out "✅ test/repo.test.sh — repo 통과"
+mkscope vs4; echo '# 규칙' > "$W/CLAUDE.md"
+run "$VA" "$W"; expect_out "✅ test/repo.test.sh"
+
+tc TC-W157 "verify-all: 바뀐 플러그인이 없으면 한 줄 알리고 저장소 정합성만"
+mkscope vs5; commit_file README.md readme
+run "$VA" "$W"; expect_code 0; expect_out "대상: 바뀐 플러그인 없음 — 저장소 정합성만"; expect_not "/test/t.test.sh"; expect_not "test/repo.test.sh"
+
+tc TC-W158 "verify-all: origin/main 이 없으면 전체를 돌고 그렇게 알린다"
+mkscope vs6; gitq "$W" remote remove origin
+run "$VA" "$W"; expect_code 1; expect_out "대상: 전체 — origin/main 이 없어"; expect_out "❌ internal-plugins/other-sync/test/t.test.sh"
+
+tc TC-W159 "verify-all: --no-run 을 아는 검증기는 기본 모드에서 --all --no-run, --all 에서는 --all"
+mkscope vs7; mkdir -p "$W/internal-plugins/base-sync/scripts"
+printf '#!/usr/bin/env bash\n# --all [--no-run] · --since) \necho "validate-run $*" >> "$STUB_CALLS"\n' > "$W/internal-plugins/base-sync/scripts/validate-run.sh"
+chmod +x "$W/internal-plugins/base-sync/scripts/validate-run.sh"; : > "$CALLS"
+run "$VA" "$W"; expect_out "validate-run.sh --all --no-run"; expect_call "validate-run --all --no-run $W"; expect_call "validate-run --since origin/main $W"
+: > "$CALLS"; run "$VA" --all "$W"; expect_call "validate-run --all $W"; expect_nocall "--no-run"
+
+tc TC-W160 "verify-all: --all 은 루트 앞뒤 어디에 와도 받고, 모르는 옵션은 2"
+mkscope vs8; commit_file internal-plugins/far-sync/x.md x
+run "$VA" "$W" --all; expect_code 1; expect_out "대상: 전체 (--all)"; expect_out "❌ internal-plugins/other-sync/test/t.test.sh"
+run "$VA" --bogus "$W"; expect_code 2; expect_out "알 수 없는 옵션: --bogus"
+run "$VA" "$W" --bogus; expect_code 2; expect_out "알 수 없는 옵션: --bogus"
 
 flush_tc
 echo

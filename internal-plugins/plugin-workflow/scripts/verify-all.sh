@@ -24,13 +24,16 @@
 # 종료 코드: 0 전부 통과 / 1 하나라도 실패 / 2 사용법 오류
 set -uo pipefail
 
-ALL=0
-case "${1:-}" in
-  --all) ALL=1; shift ;;
-  -h|--help) sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-  -*) echo "알 수 없는 옵션: $1 (verify-all.sh [--all] [루트])" >&2; exit 2 ;;
-esac
-ROOT="$(cd "${1:-${CLAUDE_PROJECT_DIR:-$(pwd)}}" && pwd)"
+ALL=0; ARG_ROOT=""
+for a in "$@"; do
+  case "$a" in
+    --all) ALL=1 ;;
+    -h|--help) sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -*) echo "알 수 없는 옵션: $a (verify-all.sh [--all] [루트])" >&2; exit 2 ;;
+    *) [ -z "$ARG_ROOT" ] || { echo "루트는 하나만: $ARG_ROOT · $a" >&2; exit 2; }; ARG_ROOT="$a" ;;
+  esac
+done
+ROOT="$(cd "${ARG_ROOT:-${CLAUDE_PROJECT_DIR:-$(pwd)}}" && pwd)"
 BASE_REF=origin/main
 FAILED=0
 LINES=()
