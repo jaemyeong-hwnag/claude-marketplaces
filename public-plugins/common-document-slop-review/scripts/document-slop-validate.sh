@@ -14,15 +14,21 @@
 # 줄이나 바로 윗줄에 `document-slop-ignore` 가 있으면 그 줄은 보지 않는다.
 set -uo pipefail
 
-ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+if [ -z "$ROOT" ]; then
+  SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
+  ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+fi
 RULES="$ROOT/references/document-slop-rules.md"
 PATTERNS="$ROOT/references/document-slop-patterns.json"
 GATE_MIN_LINES=3
+NL='
+'
 die() { echo "document-slop-validate: $*" >&2; exit 1; }
 
 is_doc() {
   local b
-  b="$(printf '%s' "${1##*/}" | tr 'A-Z' 'a-z')"
+  b=$(printf '%s' "${1##*/}" | tr 'A-Z' 'a-z')
   case "$1" in */node_modules/*|*/.git/*|*/vendor/*) return 1 ;; esac
   case "$b" in
     requirements*.txt|constraints*.txt|cmakelists.txt|robots.txt|license*|*-lock.txt) return 1 ;;
@@ -37,7 +43,7 @@ load_patterns() {
   [ -n "$PAT_FILE" ] && return 0
   command -v jq >/dev/null 2>&1 || return 1
   [ -f "$PATTERNS" ] || return 1
-  PAT_FILE="$(mktemp "${TMPDIR:-/tmp}/document-slop.XXXXXX")" || return 1
+  PAT_FILE=$(mktemp "${TMPDIR:-/tmp}/document-slop.XXXXXX") || return 1
   jq -r '
     (.rules | to_entries[] | .key as $k | .value as $v |
       ("msg\u001f\($k)\u001f\($v.message)"),
@@ -172,17 +178,17 @@ function emit_link(n, tgt) {
   sub(/[#?].*$/, "", tgt)
   if (tgt != "") emit(n, "DS-04", "link", tgt)
 }
-' "$PAT_FILE" "$3" "$1" | sort -t "$(printf '\037')" -k1,1n
+' "$PAT_FILE" "$3" "$1" | sort -t $'\037' -k1,1n
 }
 
 # 링크 대상 · 수준을 판정해 "줄번호 \x1f 조항 \x1f 수준 \x1f 메시지" 로 낸다
 resolve() { # $1=파일
   local dir ln rule lvl msg p
-  dir="$(dirname "$1")"
+  dir=$(dirname "$1")
   while IFS=$'\x1f' read -r ln rule lvl msg; do
     [ -n "$rule" ] || continue
     if [ "$lvl" = link ]; then
-      p="$(printf '%s' "$msg" | sed 's/%20/ /g')"
+      p=$(printf '%s' "$msg" | sed 's/%20/ /g')
       [ -e "$dir/$p" ] && continue
       printf '%s\037%s\037block\037%s (%s)\n' "$ln" "$rule" "상대 링크가 가리키는 경로가 없다 — 경로를 고치거나 링크를 지운다" "$msg"
     else
@@ -193,41 +199,55 @@ resolve() { # $1=파일
 
 where() { [ "$1" = 0 ] && echo "문서 전체" || echo "${1}행"; }
 
+# 판정 줄 → 차단은 "B위치 조항 메시지", 나머지는 "W위치 조항 메시지"
+tag_results() {
+  local ln rule lvl msg at
+  while IFS=$'\x1f' read -r ln rule lvl msg; do
+    [ -n "$rule" ] || continue
+    at=$(where "$ln")
+    if [ "$lvl" = block ]; then printf 'B%s %s %s\n' "$at" "$rule" "$msg"; else printf 'W%s %s %s\n' "$at" "$rule" "$msg"; fi
+  done
+}
+
 state_file() { # $1=훅 입력
   local sid dir
-  sid="$(printf '%s' "$1" | jq -r '.session_id // "nosession"' | tr -cd 'A-Za-z0-9_-')"
+  sid=$(printf '%s' "$1" | jq -r '.session_id // "nosession"' | tr -cd 'A-Za-z0-9_-')
   dir="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/common-document-slop-review}"
   mkdir -p "$dir" 2>/dev/null || return 1
   echo "$dir/gate-${sid:-nosession}.list"
 }
 
 hook_edit() { # $1=훅 입력
-  local f new sel blocks="" warns="" nb=0 nw=0 ln rule lvl msg cwd st
-  f="$(printf '%s' "$1" | jq -r '.tool_input.file_path // ""')"
+  local f new sel blocks="" warns="" nb=0 nw=0 cwd st left more nonblank tagged rest line
+  f=$(printf '%s' "$1" | jq -r '.tool_input.file_path // ""')
   [ -n "$f" ] && [ -f "$f" ] && is_doc "$f" || exit 0
   load_patterns || exit 0
-  new="$(printf '%s' "$1" | jq -r '[.tool_input.content // empty, .tool_input.new_string // empty, (.tool_input.edits // [] | .[].new_string)] | join("\n")')"
-  [ -n "$(printf '%s' "$new" | tr -d '[:space:]')" ] || exit 0
-  SEL_FILE="$(mktemp "${TMPDIR:-/tmp}/document-slop.XXXXXX")" || exit 0
+  new=$(printf '%s' "$1" | jq -r '[.tool_input.content // empty, .tool_input.new_string // empty, (.tool_input.edits // [] | .[].new_string)] | join("\n")')
+  left=$(printf '%s' "$new" | tr -d '[:space:]')
+  [ -n "$left" ] || exit 0
+  SEL_FILE=$(mktemp "${TMPDIR:-/tmp}/document-slop.XXXXXX") || exit 0
   printf '%s\n' "$new" > "$SEL_FILE"
-  while IFS=$'\x1f' read -r ln rule lvl msg; do
-    [ -n "$rule" ] || continue
-    if [ "$lvl" = block ]; then nb=$((nb+1)); blocks="${blocks}- $(where "$ln") ${rule} ${msg}
-"
-    else nw=$((nw+1)); [ "$nw" -le 10 ] && warns="${warns}- $(where "$ln") ${rule} ${msg}
-"
-    fi
-  done <<EOF
-$(check_file "$f" text "$SEL_FILE" | resolve "$f")
-EOF
-  [ "$nw" -gt 10 ] && warns="${warns}- … 외 $((nw - 10))건 — document-slop-validate.sh ${f##*/} 로 전체를 본다
+  tagged=$(check_file "$f" text "$SEL_FILE" | resolve "$f" | tag_results)
+  rest="$tagged$NL"
+  while [ -n "$rest" ]; do
+    line="${rest%%"$NL"*}"; rest="${rest#*"$NL"}"
+    case "$line" in
+      B*) nb=$((nb+1)); blocks="${blocks}- ${line#B}
+" ;;
+      W*) nw=$((nw+1)); [ "$nw" -le 10 ] && warns="${warns}- ${line#W}
+" ;;
+    esac
+  done
+  more=$((nw - 10))
+  [ "$nw" -gt 10 ] && warns="${warns}- … 외 ${more}건 — document-slop-validate.sh ${f##*/} 로 전체를 본다
 "
 
   # DS-30 기록 — 프로젝트 안 문서를 실질적으로 고쳤을 때만
-  cwd="$(printf '%s' "$1" | jq -r '.cwd // ""')"
+  cwd=$(printf '%s' "$1" | jq -r '.cwd // ""')
+  nonblank=$(grep -c '[^[:space:]]' "$SEL_FILE")
   if [ "${DOCUMENT_SLOP_REVIEW_GATE:-1}" != 0 ] && [ -n "$cwd" ] && case "$f" in "$cwd"/*) true ;; *) false ;; esac \
-     && [ "$(grep -c '[^[:space:]]' "$SEL_FILE")" -ge "$GATE_MIN_LINES" ]; then
-    st="$(state_file "$1")" && { grep -qxF -- "$f" "$st" 2>/dev/null || printf '%s\n' "$f" >> "$st"; }
+     && [ "$nonblank" -ge "$GATE_MIN_LINES" ]; then
+    st=$(state_file "$1") && { grep -qxF -- "$f" "$st" 2>/dev/null || printf '%s\n' "$f" >> "$st"; }
   fi
 
   if [ "$nb" -gt 0 ]; then
@@ -248,9 +268,9 @@ ${warns}경고는 후보다. 출처 · 미확인 표시 · 단서는 지우지 �
 
 hook_review() { # $1=훅 입력 — 리뷰가 돌았으면 DS-30 기록을 지운다. 백그라운드 리뷰어는 SubagentStop 까지 리뷰 중
   local who st
-  who="$(printf '%s' "$1" | jq -r '(.tool_input.skill // "") + " " + (.tool_input.subagent_type // "")')"
+  who=$(printf '%s' "$1" | jq -r '(.tool_input.skill // "") + " " + (.tool_input.subagent_type // "")')
   case "$who" in *document-slop-review*) ;; *) exit 0 ;; esac
-  st="$(state_file "$1")" || exit 0
+  st=$(state_file "$1") || exit 0
   if printf '%s' "$1" | jq -e '(.tool_response | objects | (.isAsync == true or .status == "async_launched")) // false' >/dev/null 2>&1; then
     : > "${st%.list}.pending"
   else
@@ -260,9 +280,10 @@ hook_review() { # $1=훅 입력 — 리뷰가 돌았으면 DS-30 기록을 지�
 }
 
 hook_subagent_stop() { # $1=훅 입력
-  local st
-  case "$(printf '%s' "$1" | jq -r '.agent_type // ""')" in
-    *document-slop-reviewer*) st="$(state_file "$1")" && rm -f "$st" "${st%.list}.pending" "${st%.list}.blocked" ;;
+  local st who
+  who=$(printf '%s' "$1" | jq -r '.agent_type // ""')
+  case "$who" in
+    *document-slop-reviewer*) st=$(state_file "$1") && rm -f "$st" "${st%.list}.pending" "${st%.list}.blocked" ;;
   esac
   exit 0
 }
@@ -270,14 +291,14 @@ hook_subagent_stop() { # $1=훅 입력
 hook_stop() { # $1=훅 입력
   local st active list
   [ "${DOCUMENT_SLOP_REVIEW_GATE:-1}" != 0 ] || exit 0
-  st="$(state_file "$1")" || exit 0
+  st=$(state_file "$1") || exit 0
   [ -s "$st" ] || exit 0
   # 백그라운드 리뷰어를 기다리며 끝내는 응답 — 막지 않고 기록을 남긴다 (완료 알림 뒤 다시 판정)
   [ -e "${st%.list}.pending" ] && exit 0
-  active="$(printf '%s' "$1" | jq -r '.stop_hook_active // false')"
+  active=$(printf '%s' "$1" | jq -r '.stop_hook_active // false')
   # stop_hook_active 는 다른 플러그인의 Stop 훅이 막아도 true 다 — 이 훅이 막은 뒤일 때만 통과시킨다
   if [ "$active" = true ] && [ -e "${st%.list}.blocked" ]; then rm -f "$st" "${st%.list}.blocked"; exit 0; fi
-  list="$(head -10 "$st" | sed 's/^/  - /')"
+  list=$(head -10 "$st" | sed 's/^/  - /')
   : > "${st%.list}.blocked"
   jq -n --arg r "완료 보류 (common-document-slop-review DS-30): 이번 세션에서 고친 문서를 판단 리뷰하지 않았다.
 ${list}
@@ -289,16 +310,18 @@ document-slop-review 스킬로 리뷰하고 결함을 고친다 (근거 대조 �
 
 if [ "${1:-}" = "--hook" ]; then
   command -v jq >/dev/null 2>&1 || exit 0
-  INPUT="$(cat)"
+  INPUT=$(cat)
   printf '%s' "$INPUT" | jq -e 'type == "object"' >/dev/null 2>&1 || exit 0
-  case "$(printf '%s' "$INPUT" | jq -r '.hook_event_name // ""')" in
+  EVENT=$(printf '%s' "$INPUT" | jq -r '.hook_event_name // ""')
+  case "$EVENT" in
     PostToolUse)
-      case "$(printf '%s' "$INPUT" | jq -r '.tool_name // ""')" in
+      TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name // ""')
+      case "$TOOL_NAME" in
         Write|Edit|MultiEdit) hook_edit "$INPUT" ;;
         Skill|Agent|Task) hook_review "$INPUT" ;;
       esac ;;
     SubagentStop) hook_subagent_stop "$INPUT" ;;
-    UserPromptSubmit) st="$(state_file "$INPUT")" && rm -f "${st%.list}.blocked" ;;
+    UserPromptSubmit) st=$(state_file "$INPUT") && rm -f "${st%.list}.blocked" ;;
     Stop) hook_stop "$INPUT" ;;
   esac
   exit 0
@@ -333,34 +356,37 @@ list_dir() {
 }
 
 if [ "$DIFF" = 1 ]; then
-  TOP="$(git rev-parse --show-toplevel 2>/dev/null)" || die "--diff 는 git 저장소 안에서만 쓴다"
+  TOP=$(git rev-parse --show-toplevel 2>/dev/null) || die "--diff 는 git 저장소 안에서만 쓴다"
   if [ -z "$BASE" ]; then
-    BASE="$(git -C "$TOP" merge-base HEAD origin/HEAD 2>/dev/null || git -C "$TOP" merge-base HEAD origin/main 2>/dev/null || git -C "$TOP" rev-parse HEAD)"
+    BASE=$(git -C "$TOP" merge-base HEAD origin/HEAD 2>/dev/null || git -C "$TOP" merge-base HEAD origin/main 2>/dev/null || git -C "$TOP" rev-parse HEAD)
   fi
-  while IFS= read -r rel; do
+  CHANGED=$(git -C "$TOP" diff --name-only --diff-filter=AMR "$BASE")
+  REST="$CHANGED$NL"
+  while [ -n "$REST" ]; do
+    rel="${REST%%"$NL"*}"; REST="${REST#*"$NL"}"
     [ -n "$rel" ] && [ -f "$TOP/$rel" ] && is_doc "$TOP/$rel" || continue
-    lines="$(git -C "$TOP" diff -U0 "$BASE" -- "$rel" | awk '/^@@/ { s = $3; sub(/^\+/, "", s); k = split(s, a, ","); c = (k < 2) ? 1 : a[2]; for (i = 0; i < c; i++) printf " %d", a[1] + i }')"
+    lines=$(git -C "$TOP" diff -U0 "$BASE" -- "$rel" | awk '/^@@/ { s = $3; sub(/^\+/, "", s); k = split(s, a, ","); c = (k < 2) ? 1 : a[2]; for (i = 0; i < c; i++) printf " %d", a[1] + i }')
     [ -n "$lines" ] && add_file "$TOP/$rel" "$lines"
-  done <<EOF
-$(git -C "$TOP" diff --name-only --diff-filter=AMR "$BASE")
-EOF
-  while IFS= read -r rel; do
+  done
+  UNTRACKED=$(git -C "$TOP" ls-files --others --exclude-standard)
+  REST="$UNTRACKED$NL"
+  while [ -n "$REST" ]; do
+    rel="${REST%%"$NL"*}"; REST="${REST#*"$NL"}"
     [ -n "$rel" ] && [ -f "$TOP/$rel" ] && is_doc "$TOP/$rel" || continue
     add_file "$TOP/$rel" ""
-  done <<EOF
-$(git -C "$TOP" ls-files --others --exclude-standard)
-EOF
+  done
 else
   [ "${#TARGETS[@]}" -gt 0 ] || TARGETS=(".")
   for t in "${TARGETS[@]}"; do
     [ -e "$t" ] || die "없는 경로: $t"
     if [ -d "$t" ]; then
-      while IFS= read -r f; do
+      LISTED=$(list_dir "$t")
+      REST="$LISTED$NL"
+      while [ -n "$REST" ]; do
+        f="${REST%%"$NL"*}"; REST="${REST#*"$NL"}"
         [ -n "$f" ] && [ -f "$f" ] && is_doc "$f" || continue
         add_file "$f" ""
-      done <<EOF
-$(list_dir "$t")
-EOF
+      done
     else
       is_doc "$t" && add_file "$t" ""
     fi
@@ -368,25 +394,26 @@ EOF
 fi
 
 N=0; B=0; W=0
-SEL_FILE="$(mktemp "${TMPDIR:-/tmp}/document-slop.XXXXXX")" || die "임시 파일을 만들지 못했다"
+SEL_FILE=$(mktemp "${TMPDIR:-/tmp}/document-slop.XXXXXX") || die "임시 파일을 만들지 못했다"
 for i in ${FILES+"${!FILES[@]}"}; do
   f="${FILES[$i]}"; set_="${LINESETS[$i]}"
   N=$((N+1)); OUT=""
   if [ -n "$set_" ]; then printf '%s\n' "$set_" > "$SEL_FILE"; mode=lines; else : > "$SEL_FILE"; mode=all; fi
-  while IFS=$'\x1f' read -r ln rule lvl msg; do
-    [ -n "$rule" ] || continue
-    if [ "$lvl" = block ]; then B=$((B+1)); OUT="${OUT}  ❌ $(where "$ln") ${rule} ${msg}
-"
-    else W=$((W+1)); OUT="${OUT}  ⚠️  $(where "$ln") ${rule} ${msg}
-"
-    fi
-  done <<EOF
-$(check_file "$f" "$mode" "$SEL_FILE" | resolve "$f")
-EOF
+  TAGGED=$(check_file "$f" "$mode" "$SEL_FILE" | resolve "$f" | tag_results)
+  REST="$TAGGED$NL"
+  while [ -n "$REST" ]; do
+    LINE="${REST%%"$NL"*}"; REST="${REST#*"$NL"}"
+    case "$LINE" in
+      B*) B=$((B+1)); OUT="${OUT}  ❌ ${LINE#B}
+" ;;
+      W*) W=$((W+1)); OUT="${OUT}  ⚠️  ${LINE#W}
+" ;;
+    esac
+  done
   [ -z "$OUT" ] || { echo "$f"; printf '%s' "$OUT"; }
 done
 
-if [ "$DIFF" = 1 ]; then SCOPE="변경 문서 ${N}개 (기준 $(git -C "$TOP" rev-parse --short "$BASE"))"; else SCOPE="문서 ${N}개"; fi
+if [ "$DIFF" = 1 ]; then SHORT=$(git -C "$TOP" rev-parse --short "$BASE"); SCOPE="변경 문서 ${N}개 (기준 ${SHORT})"; else SCOPE="문서 ${N}개"; fi
 echo "${SCOPE}, 차단 ${B}건 · 경고 ${W}건 — 경고는 후보다. 판정은 document-slop-review 스킬 · 규칙: $RULES"
 [ "$B" -gt 0 ] && exit 2
 [ "$STRICT" = 1 ] && [ "$W" -gt 0 ] && exit 2

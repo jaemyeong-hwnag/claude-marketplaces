@@ -4,12 +4,15 @@
 #   design-soundness-validate.sh [--plan] [--strict] <파일>…  설계 파일의 DD-20 ~ DD-24 신호
 set -uo pipefail
 
-PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
+PLUGIN_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 RULES="$PLUGIN_ROOT/references/design-soundness-rules.md"
 PATTERNS="$PLUGIN_ROOT/references/design-soundness-patterns.json"
 MIN_LINES=3
 REQ_ID_RE="${DESIGN_SOUNDNESS_REQUIREMENT_ID:-(R|FR|NFR|QA|REQ)-[0-9]+}"
-US="$(printf '\037')"
+US=$(printf '\037')
+NL='
+'
 
 die() { echo "design-soundness-validate: $*" >&2; exit 1; }
 
@@ -17,12 +20,14 @@ pat() { jq -r "$1" "$PATTERNS"; }
 
 # $1=파일 $2=document|plan → "DD-2x<US>메시지" 줄
 analyze() {
-  local secs edges
-  secs="$(jq -r --arg k "$2" '[.sections[$k][] | "\(.name)\u001f\(.re)"] | join("\u001e")' "$PATTERNS")"
-  edges="$(mktemp "${TMPDIR:-/tmp}/design-soundness.XXXXXX")" || return 0
+  local secs edges reqre decre glore qre
+  secs=$(jq -r --arg k "$2" '[.sections[$k][] | "\(.name)\u001f\(.re)"] | join("\u001e")' "$PATTERNS")
+  edges=$(mktemp "${TMPDIR:-/tmp}/design-soundness.XXXXXX") || return 0
   # LC_ALL=C — 글자 수 · 대소문자를 awk 구현과 상관없이 바이트로 같게 센다
-  LC_ALL=C awk -v secs="$secs" -v reqre="$(pat .requirement_section_re)" -v decre="$(pat .decision_section_re)" \
-      -v glore="$(pat .glossary_section_re)" -v qre="$(pat .quality_words_re)" -v idre="$REQ_ID_RE" \
+  reqre=$(pat .requirement_section_re); decre=$(pat .decision_section_re)
+  glore=$(pat .glossary_section_re); qre=$(pat .quality_words_re)
+  LC_ALL=C awk -v secs="$secs" -v reqre="$reqre" -v decre="$decre" \
+      -v glore="$glore" -v qre="$qre" -v idre="$REQ_ID_RE" \
       -v edges="$edges" -v US="$US" '
     function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t]+$/, "", s); return s }
     function nodeid(s) { s = trim(s); if (s ~ /^\[\*\]/) return "[*]"; if (match(s, /^[^ \t\[\(\{>:;]+/)) return substr(s, 1, RLENGTH); return "" }
@@ -164,23 +169,25 @@ state_dir() {
 
 state() { # $1=훅 입력 $2=확장자
   local sid d
-  sid="$(printf '%s' "$1" | jq -r '.session_id // "nosession"' | tr -cd 'A-Za-z0-9_-')"
-  d="$(state_dir)" || return 1
+  sid=$(printf '%s' "$1" | jq -r '.session_id // "nosession"' | tr -cd 'A-Za-z0-9_-')
+  d=$(state_dir) || return 1
   echo "$d/${sid:-nosession}.$2"
 }
 
 clear_state() {
   local x f
   for x in edits request design reviewed pending blocked plan plan.md alerted; do
-    f="$(state "$1" "$x")" && rm -f "$f"
+    f=$(state "$1" "$x") && rm -f "$f"
   done
-  f="$(state "$1" seen)" && rm -rf "$f"
+  f=$(state "$1" seen) && rm -rf "$f"
 }
 
 gate_on() { [ "${DESIGN_SOUNDNESS_GATE:-1}" != 0 ]; }
 
 is_doc() {
-  case "$(printf '%s' "${1##*/}" | tr '[:upper:]' '[:lower:]')" in
+  local b
+  b=$(printf '%s' "${1##*/}" | tr '[:upper:]' '[:lower:]')
+  case "$b" in
     requirements*.txt|constraints*.txt|*-lock.txt|cmakelists.txt|robots.txt) return 1 ;;
     *.md|*.mdx|*.markdown|*.rst|*.txt|*.adoc) return 0 ;;
   esac
@@ -189,7 +196,7 @@ is_doc() {
 
 is_design() { # $1=절대 경로 $2=프로젝트 기준 경로
   local rel lc g old
-  rel="$2"; lc="$(printf '%s' "/$rel" | tr '[:upper:]' '[:lower:]')"
+  rel="$2"; lc=$(printf '%s' "/$rel" | tr '[:upper:]' '[:lower:]')
   case "$lc" in *.md|*.mdx|*.markdown) ;; *) return 1 ;; esac
   if [ -f "$1" ] && head -20 "$1" 2>/dev/null | grep -qF '<!-- design-document -->'; then return 0; fi
   if [ -n "${DESIGN_SOUNDNESS_PATHS:-}" ]; then
@@ -211,93 +218,95 @@ nonblank() { grep -c '[^[:space:]]' | tr -d ' '; }
 list() { awk -F "$US" '{print "- " $1 ": " $2}'; }
 
 hook_prompt() {
-  local p f
-  p="$(printf '%s' "$1" | jq -r '.prompt // ""')"
+  local p f now re
+  p=$(printf '%s' "$1" | jq -r '.prompt // ""')
   case "$p" in ''|'<task-notification>'*) exit 0 ;; esac
   clear_state "$1"
-  f="$(state "$1" request)" || exit 0
-  { printf -- '--- %s\n' "$(date '+%Y-%m-%d %H:%M:%S')"; printf '%s\n' "$p"; } > "$f"
-  if printf '%s' "$p" | grep -qiE -- "$(pat .design_request_re)"; then
-    f="$(state "$1" design)" && : > "$f"
+  f=$(state "$1" request) || exit 0
+  now=$(date '+%Y-%m-%d %H:%M:%S')
+  { printf -- '--- %s\n' "$now"; printf '%s\n' "$p"; } > "$f"
+  re=$(pat .design_request_re)
+  if printf '%s' "$p" | grep -qiE -- "$re"; then
+    f=$(state "$1" design) && : > "$f"
   fi
   exit 0
 }
 
 hook_plan() { # PreToolUse ExitPlanMode — DD-31
-  local plan path h bl rv pd pf sig rq
+  local plan path h bl rv pd pf sig rq prev rq_note msg
   gate_on && [ "${DESIGN_SOUNDNESS_PLAN_GATE:-1}" != 0 ] || exit 0
-  rv="$(state "$1" reviewed)" || exit 0
+  rv=$(state "$1" reviewed) || exit 0
   [ -e "$rv" ] && exit 0
-  pd="$(state "$1" pending)"
+  pd=$(state "$1" pending)
   if [ -e "$pd" ]; then   # 백그라운드 검증자가 아직 판정 중 — 같은 계획이어도 막는다
-    cat >&2 <<EOF
-설계 검토 중 (common-design-soundness-review DD-31): 백그라운드로 띄운 design-soundness-reviewer 가 아직 끝나지 않았다.
+    msg="설계 검토 중 (common-design-soundness-review DD-31): 백그라운드로 띄운 design-soundness-reviewer 가 아직 끝나지 않았다.
 완료 알림으로 판정을 받고, 결함 · 빈 곳을 계획에 반영한 뒤 다시 플랜 모드를 나간다.
-규칙: $RULES
-EOF
+규칙: $RULES"
+    printf '%s\n' "$msg" >&2
     exit 2
   fi
-  plan="$(printf '%s' "$1" | jq -r '.tool_input.plan // ""')"
-  path="$(printf '%s' "$1" | jq -r '.tool_input.planFilePath // ""')"
-  if [ -z "$plan" ] && [ -n "$path" ] && [ -f "$path" ]; then plan="$(cat "$path")"; fi
+  plan=$(printf '%s' "$1" | jq -r '.tool_input.plan // ""')
+  path=$(printf '%s' "$1" | jq -r '.tool_input.planFilePath // ""')
+  if [ -z "$plan" ] && [ -n "$path" ] && [ -f "$path" ]; then plan=$(cat "$path"); fi
   [ -n "$plan" ] || exit 0
-  h="$(printf '%s' "$plan" | cksum | tr -d ' \t')"
-  bl="$(state "$1" plan)"
-  if [ -e "$bl" ] && [ "$(cat "$bl")" = "$h" ]; then exit 0; fi
+  h=$(printf '%s' "$plan" | cksum | tr -d ' \t')
+  bl=$(state "$1" plan)
+  if [ -e "$bl" ]; then prev=$(cat "$bl"); [ "$prev" = "$h" ] && exit 0; fi
   printf '%s' "$h" > "$bl"
-  pf="$(state "$1" plan.md)" && printf '%s\n' "$plan" > "$pf" || pf=""
+  pf=$(state "$1" plan.md) && printf '%s\n' "$plan" > "$pf" || pf=""
   { [ -n "$path" ] && [ -f "$path" ]; } || path="$pf"
-  sig=""; [ -n "$pf" ] && sig="$(analyze "$pf" plan | list)"   # 해시와 같은 본문으로 본다
-  rq="$(state "$1" request)"
-  cat >&2 <<EOF
-설계 검토 전 (common-design-soundness-review DD-31): 이 계획을 작성 맥락 없는 검증자가 보지 않았다.
+  sig=""; [ -n "$pf" ] && sig=$(analyze "$pf" plan | list)   # 해시와 같은 본문으로 본다
+  rq=$(state "$1" request)
+  rq_note=$( [ -s "$rq" ] && echo "$rq" || echo "없음 — 대화의 사용자 요청을 원문 그대로 쓴다")
+  msg="설계 검토 전 (common-design-soundness-review DD-31): 이 계획을 작성 맥락 없는 검증자가 보지 않았다.
 계획 파일: $path
-요청 기록: $( [ -s "$rq" ] && echo "$rq" || echo "없음 — 대화의 사용자 요청을 원문 그대로 쓴다")
+요청 기록: $rq_note
 기계 신호:
 ${sig:-- 없음}
 design-soundness-review 스킬로 design-soundness-reviewer 에게 계획 파일 · 요구 출처 · 결론 없는 질문만 넘겨 판정받고, 결함 · 빈 곳을 계획에 반영한 뒤 다시 플랜 모드를 나간다.
 같은 계획으로 다시 나가면 막지 않는다.
-규칙: $RULES
-EOF
+규칙: $RULES"
+  printf '%s\n' "$msg" >&2
   exit 2
 }
 
 hook_edit() {
-  local f cwd tool rel before after n0 n1 n st rv pd seen key new msg al dsg
-  f="$(printf '%s' "$1" | jq -r '.tool_input.file_path // ""')"
+  local f cwd tool rel before after n0 n1 n st rv pd seen key new msg al dsg listed
+  f=$(printf '%s' "$1" | jq -r '.tool_input.file_path // ""')
   [ -n "$f" ] || exit 0
-  cwd="$(printf '%s' "$1" | jq -r '.cwd // ""')"
-  tool="$(printf '%s' "$1" | jq -r '.tool_name // ""')"
+  cwd=$(printf '%s' "$1" | jq -r '.cwd // ""')
+  tool=$(printf '%s' "$1" | jq -r '.tool_name // ""')
   rel="$f"; [ -n "$cwd" ] && case "$f" in "$cwd"/*) rel="${f#"$cwd"/}" ;; esac
 
   if is_design "$f" "$rel"; then
     if gate_on && [ -n "$cwd" ] && case "$f" in "$cwd"/*) true ;; *) false ;; esac; then
-      if rv="$(state "$1" reviewed)" && [ -e "$rv" ]; then   # 검토 뒤의 편집은 다시 센다 (DD-12)
-        rm -f "$rv"; st="$(state "$1" edits)" && rm -f "$st"
+      if rv=$(state "$1" reviewed) && [ -e "$rv" ]; then   # 검토 뒤의 편집은 다시 센다 (DD-12)
+        rm -f "$rv"; st=$(state "$1" edits) && rm -f "$st"
       fi
-      before="$(mktemp "${TMPDIR:-/tmp}/design-soundness.XXXXXX")" || exit 0
-      after="$(mktemp "${TMPDIR:-/tmp}/design-soundness.XXXXXX")" || { rm -f "$before"; exit 0; }
+      before=$(mktemp "${TMPDIR:-/tmp}/design-soundness.XXXXXX") || exit 0
+      after=$(mktemp "${TMPDIR:-/tmp}/design-soundness.XXXXXX") || { rm -f "$before"; exit 0; }
       if [ "$tool" = Write ]; then
         printf '%s' "$1" | jq -r '.tool_input.content // ""' > "$after"; : > "$before"
       else
         printf '%s' "$1" | jq -r '[.tool_input.old_string // empty, (.tool_input.edits // [] | .[].old_string)] | join("\n")' > "$before"
         printf '%s' "$1" | jq -r '[.tool_input.new_string // empty, (.tool_input.edits // [] | .[].new_string)] | join("\n")' > "$after"
       fi
-      n0="$(nonblank < "$before")"; n1="$(nonblank < "$after")"; rm -f "$before" "$after"
+      n0=$(nonblank < "$before"); n1=$(nonblank < "$after"); rm -f "$before" "$after"
       n="$n1"; [ "$n0" -gt "$n" ] && n="$n0"
-      if [ "$n" -gt 0 ] && st="$(state "$1" edits)"; then printf '%s%s%s\n' "$n" "$US" "$f" >> "$st"; fi
+      if [ "$n" -gt 0 ] && st=$(state "$1" edits); then printf '%s%s%s\n' "$n" "$US" "$f" >> "$st"; fi
     fi
     [ -f "$f" ] || exit 0
-    dsg="$(analyze "$f" document)"
+    dsg=$(analyze "$f" document)
     [ -n "$dsg" ] || exit 0
     # 같은 파일에서 이미 알린 신호는 다시 알리지 않는다
-    seen="$(state "$1" seen)" && mkdir -p "$seen" 2>/dev/null
-    key="$(printf '%s' "$f" | cksum | tr -d ' \t')"
-    new="$(printf '%s\n' "$dsg" | { if [ -f "$seen/$key" ]; then grep -vxF -f "$seen/$key"; else cat; fi; })"
+    seen=$(state "$1" seen) && mkdir -p "$seen" 2>/dev/null
+    key=$(printf '%s' "$f" | cksum | tr -d ' \t')
+    new=$(printf '%s\n' "$dsg" | { if [ -f "$seen/$key" ]; then grep -vxF -f "$seen/$key"; else cat; fi; })
     printf '%s\n' "$dsg" > "$seen/$key"
     [ -n "$new" ] || exit 0
+    listed=$(printf '%s\n' "$new" | list)
     msg="설계 신호 (common-design-soundness-review) — ${f##*/}
-$(printf '%s\n' "$new" | list)
+$listed
 신호는 후보다. 의도한 미완성이면 그대로 둔다. 판정은 design-soundness-review 스킬이 한다.
 규칙: $RULES"
     jq -n --arg c "$msg" '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $c}}'
@@ -308,9 +317,9 @@ $(printf '%s\n' "$new" | list)
   gate_on || exit 0
   is_doc "$f" && exit 0
   [ -n "$cwd" ] && case "$f" in "$cwd"/*) ;; *) exit 0 ;; esac
-  st="$(state "$1" design)" || exit 0
+  st=$(state "$1" design) || exit 0
   [ -e "$st" ] || exit 0
-  rv="$(state "$1" reviewed)"; al="$(state "$1" alerted)"; pd="$(state "$1" pending)"
+  rv=$(state "$1" reviewed); al=$(state "$1" alerted); pd=$(state "$1" pending)
   { [ -e "$rv" ] || [ -e "$pd" ] || [ -e "$al" ]; } && exit 0
   : > "$al"
   msg="설계 검토 없이 구현 시작 (common-design-soundness-review DD-32): 이번 요청은 설계를 포함하는데 design-soundness-reviewer 가 돌지 않았다 — ${f##*/}
@@ -322,54 +331,60 @@ $(printf '%s\n' "$new" | list)
 
 hook_review() { # PostToolUse Agent — 동기 실행은 끝난 것, 백그라운드 실행은 SubagentStop 까지 검토 중
   local who st
-  who="$(printf '%s' "$1" | jq -r '.tool_input.subagent_type // ""')"
+  who=$(printf '%s' "$1" | jq -r '.tool_input.subagent_type // ""')
   case "$who" in *design-soundness-reviewer*) ;; *) exit 0 ;; esac
   if printf '%s' "$1" | jq -e '(.tool_response | objects | (.isAsync == true or .status == "async_launched")) // false' >/dev/null 2>&1; then
-    st="$(state "$1" pending)" && : > "$st"
+    st=$(state "$1" pending) && : > "$st"
   else
-    st="$(state "$1" reviewed)" && : > "$st"
+    st=$(state "$1" reviewed) && : > "$st"
   fi
   exit 0
 }
 
 hook_subagent_stop() {
-  local st
-  case "$(printf '%s' "$1" | jq -r '.agent_type // ""')" in
+  local st who
+  who=$(printf '%s' "$1" | jq -r '.agent_type // ""')
+  case "$who" in
     *design-soundness-reviewer*)
-      st="$(state "$1" reviewed)" && : > "$st"
-      st="$(state "$1" pending)" && rm -f "$st" ;;
+      st=$(state "$1" reviewed) && : > "$st"
+      st=$(state "$1" pending) && rm -f "$st" ;;
   esac
   exit 0
 }
 
 hook_stop() { # DD-30
-  local ed rv bl rq active total files sig f
-  ed="$(state "$1" edits)" || exit 0
-  rv="$(state "$1" reviewed)"; bl="$(state "$1" blocked)"; rq="$(state "$1" request)"
+  local ed rv bl rq pd active total files sig f rest one file_list rq_note sig_list
+  ed=$(state "$1" edits) || exit 0
+  rv=$(state "$1" reviewed); bl=$(state "$1" blocked); rq=$(state "$1" request)
   # 백그라운드 검증자를 기다리며 끝내는 응답 — 막지 않고 기록을 남긴다 (완료 알림 뒤 다시 판정)
-  { [ ! -e "$rv" ] && [ -e "$(state "$1" pending)" ]; } && exit 0
-  active="$(printf '%s' "$1" | jq -r '.stop_hook_active // false')"
+  pd=$(state "$1" pending)
+  { [ ! -e "$rv" ] && [ -e "$pd" ]; } && exit 0
+  active=$(printf '%s' "$1" | jq -r '.stop_hook_active // false')
   if ! gate_on || { [ "$active" = true ] && [ -e "$bl" ]; } || [ -e "$rv" ] || [ ! -s "$ed" ]; then
     clear_state "$1"; exit 0
   fi
-  total="$(awk -F "$US" '{s += $1} END {print s + 0}' "$ed")"
+  total=$(awk -F "$US" '{s += $1} END {print s + 0}' "$ed")
   if [ "$total" -lt "$MIN_LINES" ]; then clear_state "$1"; exit 0; fi
-  files="$(awk -F "$US" '!seen[$2]++ {print $2}' "$ed" | head -10)"
+  files=$(awk -F "$US" '!seen[$2]++ {print $2}' "$ed" | head -10)
   sig=""
-  while IFS= read -r f; do
+  rest="$files$NL"
+  while [ -n "$rest" ]; do
+    f="${rest%%"$NL"*}"; rest="${rest#*"$NL"}"
     [ -f "$f" ] || continue
-    sig="$sig$(analyze "$f" document | awk -F "$US" -v n="${f##*/}" '{print "  - " n ": " $1 " " $2}')
+    one=$(analyze "$f" document | awk -F "$US" -v n="${f##*/}" '{print "  - " n ": " $1 " " $2}')
+    sig="$sig$one
 "
-  done <<EOF
-$files
-EOF
+  done
+  file_list=$(printf '%s\n' "$files" | sed 's/^/  - /')
+  rq_note=$( [ -s "$rq" ] && echo "$rq" || echo "없음 — 대화의 사용자 요청을 원문 그대로 쓴다")
+  sig_list=$(printf '%s' "$sig" | grep . || echo '  - 없음')
   : > "$bl"
   jq -n --arg r "완료 보류 (common-design-soundness-review DD-30): 이번 요청에서 고친 설계 문서를 작성 맥락 없는 검증자가 보지 않았다.
 고친 설계 문서:
-$(printf '%s\n' "$files" | sed 's/^/  - /')
-요청 기록: $( [ -s "$rq" ] && echo "$rq" || echo "없음 — 대화의 사용자 요청을 원문 그대로 쓴다")
+$file_list
+요청 기록: $rq_note
 기계 신호:
-$(printf '%s' "$sig" | grep . || echo '  - 없음')
+$sig_list
 design-soundness-review 스킬로 design-soundness-reviewer 에게 문서 경로 · 요구 출처 · 결론 없는 질문만 넘겨 판정받는다. common-document-slop-review 가 설치돼 있으면 그 리뷰도 같이 돌려 한 번에 끝낸다.
 판정할 설계가 없는 편집(오타 · 링크)이면 그 이유를 한 줄로 말하고 끝낸다 — 다음 종료는 막지 않는다.
 규칙: $RULES" '{decision: "block", reason: $r}'
@@ -378,14 +393,17 @@ design-soundness-review 스킬로 design-soundness-reviewer 에게 문서 경로
 
 if [ "${1:-}" = "--hook" ]; then
   command -v jq >/dev/null 2>&1 || exit 0
-  INPUT="$(cat)"
+  INPUT=$(cat)
   printf '%s' "$INPUT" | jq -e 'type == "object"' >/dev/null 2>&1 || exit 0
-  case "$(printf '%s' "$INPUT" | jq -r '.hook_event_name // ""')" in
+  EVENT=$(printf '%s' "$INPUT" | jq -r '.hook_event_name // ""')
+  case "$EVENT" in
     UserPromptSubmit) hook_prompt "$INPUT" ;;
     PreToolUse)
-      [ "$(printf '%s' "$INPUT" | jq -r '.tool_name // ""')" = ExitPlanMode ] && hook_plan "$INPUT" ;;
+      TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name // ""')
+      [ "$TOOL_NAME" = ExitPlanMode ] && hook_plan "$INPUT" ;;
     PostToolUse)
-      case "$(printf '%s' "$INPUT" | jq -r '.tool_name // ""')" in
+      TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name // ""')
+      case "$TOOL_NAME" in
         Write|Edit|MultiEdit) hook_edit "$INPUT" ;;
         Agent|Task) hook_review "$INPUT" ;;
       esac ;;
@@ -413,12 +431,13 @@ done
 N=0
 for f in "${FILES[@]}"; do
   [ -f "$f" ] || die "파일이 없다: $f"
-  while IFS= read -r s; do
+  SIGS=$(analyze "$f" "$KIND")
+  REST="$SIGS$NL"
+  while [ -n "$REST" ]; do
+    s="${REST%%"$NL"*}"; REST="${REST#*"$NL"}"
     [ -n "$s" ] || continue
     N=$((N+1)); echo "⚠️  $f: ${s%%"$US"*} ${s#*"$US"}"
-  done <<EOF
-$(analyze "$f" "$KIND")
-EOF
+  done
 done
 echo "설계 파일 ${#FILES[@]}개, 신호 ${N}건 — 신호는 후보다. 판정은 design-soundness-review 스킬 · 규칙: $RULES"
 [ "$STRICT" = 1 ] && [ "$N" -gt 0 ] && exit 2

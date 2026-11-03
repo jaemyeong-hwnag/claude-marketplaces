@@ -4,7 +4,8 @@
 #   evidence-validate.sh --diff [--strict]  기본 브랜치 대비 diff 의 E-20 신호
 set -uo pipefail
 
-PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
+PLUGIN_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 RULES="$PLUGIN_ROOT/references/evidence-rules.md"
 MIN_LINES="${EVIDENCE_REVIEW_MIN_LINES:-3}"
 case "$MIN_LINES" in ''|*[!0-9]*) MIN_LINES=3 ;; esac
@@ -23,7 +24,9 @@ is_test() { # $1=프로젝트 기준 경로 — 절대 경로면 프로젝트 �
 }
 
 is_doc() {
-  case "$(printf '%s' "${1##*/}" | tr '[:upper:]' '[:lower:]')" in
+  local b
+  b=$(printf '%s' "${1##*/}" | tr '[:upper:]' '[:lower:]')
+  case "$b" in
     requirements*.txt|constraints*.txt|*-lock.txt|cmakelists.txt|robots.txt) return 1 ;;
     *.md|*.mdx|*.markdown|*.rst|*.txt|*.adoc) return 0 ;;
   esac
@@ -38,8 +41,8 @@ nonblank() { grep -c '[^[:space:]]' | tr -d ' '; }
 
 signals() { # $1=고치기 전 파일 $2=고친 뒤 파일 → 신호 줄 (없으면 출력 없음)
   local s0 s1 a0 a1
-  s0="$(count "$SKIP_RE" < "$1")"; s1="$(count "$SKIP_RE" < "$2")"
-  a0="$(count "$ASSERT_RE" < "$1")"; a1="$(count "$ASSERT_RE" < "$2")"
+  s0=$(count "$SKIP_RE" < "$1"); s1=$(count "$SKIP_RE" < "$2")
+  a0=$(count "$ASSERT_RE" < "$1"); a1=$(count "$ASSERT_RE" < "$2")
   [ "$s1" -gt "$s0" ] && echo "skip · focus 표지 ${s0} → ${s1}"
   [ "$a1" -lt "$a0" ] && echo "단언 ${a0} → ${a1}"
   return 0
@@ -53,43 +56,45 @@ state_dir() {
 
 state() { # $1=훅 입력 $2=확장자
   local sid d
-  sid="$(printf '%s' "$1" | jq -r '.session_id // "nosession"' | tr -cd 'A-Za-z0-9_-')"
-  d="$(state_dir)" || return 1
+  sid=$(printf '%s' "$1" | jq -r '.session_id // "nosession"' | tr -cd 'A-Za-z0-9_-')
+  d=$(state_dir) || return 1
   echo "$d/${sid:-nosession}.$2"
 }
 
 clear_state() { # $1=훅 입력
   local x f
   for x in edits signals request reviewed pending blocked; do
-    f="$(state "$1" "$x")" && rm -f "$f"
+    f=$(state "$1" "$x") && rm -f "$f"
   done
 }
 
 hook_prompt() {
-  local p f
+  local p f now
   [ "${EVIDENCE_REVIEW_GATE:-1}" != 0 ] || exit 0
-  p="$(printf '%s' "$1" | jq -r '.prompt // ""')"
+  p=$(printf '%s' "$1" | jq -r '.prompt // ""')
   case "$p" in ''|'<task-notification>'*) exit 0 ;; esac
   clear_state "$1"   # 새 요청 — 중단돼 Stop 이 돌지 않은 요청의 기록을 잇지 않는다
-  f="$(state "$1" request)" || exit 0
-  { printf -- '--- %s\n' "$(date '+%Y-%m-%d %H:%M:%S')"; printf '%s\n' "$p"; } > "$f"
+  f=$(state "$1" request) || exit 0
+  now=$(date '+%Y-%m-%d %H:%M:%S')
+  { printf -- '--- %s\n' "$now"; printf '%s\n' "$p"; } > "$f"
   exit 0
 }
 
 hook_edit() {
-  local f cwd tool before after n0 n1 n sig rel st msg t rv line
-  f="$(printf '%s' "$1" | jq -r '.tool_input.file_path // ""')"
+  local f cwd tool before after n0 n1 n sig rel st msg t rv line dir list
+  f=$(printf '%s' "$1" | jq -r '.tool_input.file_path // ""')
   [ -n "$f" ] || exit 0
-  cwd="$(printf '%s' "$1" | jq -r '.cwd // ""')"
-  tool="$(printf '%s' "$1" | jq -r '.tool_name // ""')"
-  before="$(mktemp "${TMPDIR:-/tmp}/evidence.XXXXXX")" || exit 0
-  after="$(mktemp "${TMPDIR:-/tmp}/evidence.XXXXXX")" || { rm -f "$before"; exit 0; }
+  cwd=$(printf '%s' "$1" | jq -r '.cwd // ""')
+  tool=$(printf '%s' "$1" | jq -r '.tool_name // ""')
+  before=$(mktemp "${TMPDIR:-/tmp}/evidence.XXXXXX") || exit 0
+  after=$(mktemp "${TMPDIR:-/tmp}/evidence.XXXXXX") || { rm -f "$before"; exit 0; }
   trap 'rm -f "$before" "$after"' EXIT
   if [ "$tool" = Write ]; then
     printf '%s' "$1" | jq -r '.tool_input.content // ""' > "$after"
-    rel="$(cd "$(dirname "$f")" 2>/dev/null && git -c core.quotePath=false ls-files --full-name -- "${f##*/}" 2>/dev/null | head -1)"
+    dir=$(dirname "$f")
+    rel=$(cd "$dir" 2>/dev/null && git -c core.quotePath=false ls-files --full-name -- "${f##*/}" 2>/dev/null | head -1)
     if [ -n "$rel" ]; then
-      (cd "$(dirname "$f")" && git show "HEAD:$rel" 2>/dev/null) > "$before" || : > "$before"
+      (cd "$dir" && git show "HEAD:$rel" 2>/dev/null) > "$before" || : > "$before"
     fi
   else
     printf '%s' "$1" | jq -r '[.tool_input.old_string // empty, (.tool_input.edits // [] | .[].old_string)] | join("\n")' > "$before"
@@ -98,32 +103,31 @@ hook_edit() {
 
   t="$f"; [ -n "$cwd" ] && case "$f" in "$cwd"/*) t="${f#"$cwd"/}" ;; esac
   sig=""
-  is_test "$t" && sig="$(signals "$before" "$after")"
+  is_test "$t" && sig=$(signals "$before" "$after")
 
   # 검증 뒤의 편집은 다시 검증받는다 (E-11) — 그 뒤 편집만 센다
-  if [ "${EVIDENCE_REVIEW_GATE:-1}" != 0 ] && rv="$(state "$1" reviewed)" && [ -e "$rv" ]; then
+  if [ "${EVIDENCE_REVIEW_GATE:-1}" != 0 ] && rv=$(state "$1" reviewed) && [ -e "$rv" ]; then
     rm -f "$rv"
-    st="$(state "$1" edits)" && rm -f "$st"
-    st="$(state "$1" signals)" && rm -f "$st"
+    st=$(state "$1" edits) && rm -f "$st"
+    st=$(state "$1" signals) && rm -f "$st"
   fi
 
   if [ "${EVIDENCE_REVIEW_GATE:-1}" != 0 ] && [ -n "$cwd" ] && ! is_doc "$f" \
      && case "$f" in "$cwd"/*) true ;; *) false ;; esac; then
-    n0="$(nonblank < "$before")"; n1="$(nonblank < "$after")"
+    n0=$(nonblank < "$before"); n1=$(nonblank < "$after")
     n="$n1"; [ "$n0" -gt "$n" ] && n="$n0"
-    if [ "$n" -gt 0 ] && st="$(state "$1" edits)"; then
+    if [ "$n" -gt 0 ] && st=$(state "$1" edits); then
       printf '%s\037%s\n' "$n" "$f" >> "$st"
     fi
   fi
 
   [ -n "$sig" ] || exit 0
-  if st="$(state "$1" signals)"; then
-    while IFS= read -r line; do printf '%s: %s\n' "$f" "$line"; done <<EOF >> "$st"
-$sig
-EOF
+  if st=$(state "$1" signals); then
+    printf '%s\n' "$sig" | while IFS= read -r line; do printf '%s: %s\n' "$f" "$line"; done >> "$st"
   fi
+  list=$(printf '%s\n' "$sig" | sed 's/^/- /')
   msg="테스트 약화 신호 (common-evidence-review E-20) — ${f##*/}
-$(printf '%s\n' "$sig" | sed 's/^/- /')
+$list
 의도한 변경이면 그대로 둔다. 다만 \"테스트 통과\" 를 근거로 쓰려면 이 변경이 왜 필요한지 요청과 연결해 밝힌다 (E-08).
 규칙: $RULES"
   jq -n --arg c "$msg" '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $c}}'
@@ -132,22 +136,23 @@ $(printf '%s\n' "$sig" | sed 's/^/- /')
 
 hook_review() { # PostToolUse Agent — 동기 실행은 끝난 것, 백그라운드 실행은 SubagentStop 까지 검증 중
   local who st
-  who="$(printf '%s' "$1" | jq -r '.tool_input.subagent_type // ""')"
+  who=$(printf '%s' "$1" | jq -r '.tool_input.subagent_type // ""')
   case "$who" in *evidence-reviewer*) ;; *) exit 0 ;; esac
   if printf '%s' "$1" | jq -e '(.tool_response | objects | (.isAsync == true or .status == "async_launched")) // false' >/dev/null 2>&1; then
-    st="$(state "$1" pending)" && : > "$st"
+    st=$(state "$1" pending) && : > "$st"
   else
-    st="$(state "$1" reviewed)" && : > "$st"
+    st=$(state "$1" reviewed) && : > "$st"
   fi
   exit 0
 }
 
 hook_subagent_stop() {
-  local st
-  case "$(printf '%s' "$1" | jq -r '.agent_type // ""')" in
+  local st who
+  who=$(printf '%s' "$1" | jq -r '.agent_type // ""')
+  case "$who" in
     *evidence-reviewer*)
-      st="$(state "$1" reviewed)" && : > "$st"
-      st="$(state "$1" pending)" && rm -f "$st" ;;
+      st=$(state "$1" reviewed) && : > "$st"
+      st=$(state "$1" pending) && rm -f "$st" ;;
   esac
   exit 0
 }
@@ -164,30 +169,33 @@ claims() { # $1=훅 입력 → 최종 답의 주장 후보 줄 (코드 펜스 �
 }
 
 hook_stop() {
-  local ed sg rq rv bl active total files c sig
-  ed="$(state "$1" edits)" || exit 0
-  sg="$(state "$1" signals)"; rq="$(state "$1" request)"; rv="$(state "$1" reviewed)"; bl="$(state "$1" blocked)"
+  local ed sg rq rv bl pd active total files c sig rq_note sig_note
+  ed=$(state "$1" edits) || exit 0
+  sg=$(state "$1" signals); rq=$(state "$1" request); rv=$(state "$1" reviewed); bl=$(state "$1" blocked)
   # 백그라운드 검증자를 기다리며 끝내는 응답 — 막지 않고 기록을 남긴다 (완료 알림 뒤 다시 판정)
-  { [ ! -e "$rv" ] && [ -e "$(state "$1" pending)" ]; } && exit 0
-  active="$(printf '%s' "$1" | jq -r '.stop_hook_active // false')"
+  pd=$(state "$1" pending)
+  { [ ! -e "$rv" ] && [ -e "$pd" ]; } && exit 0
+  active=$(printf '%s' "$1" | jq -r '.stop_hook_active // false')
   # stop_hook_active 는 다른 플러그인의 Stop 훅이 막아도 true 다 — 이 훅이 막은 뒤일 때만 통과시킨다
   if [ "${EVIDENCE_REVIEW_GATE:-1}" = 0 ] || { [ "$active" = true ] && [ -e "$bl" ]; } || [ -e "$rv" ] || [ ! -s "$ed" ]; then
     clear_state "$1"; exit 0
   fi
-  total="$(awk -F '\037' '{s += $1} END {print s + 0}' "$ed")"
+  total=$(awk -F '\037' '{s += $1} END {print s + 0}' "$ed")
   if [ "$total" -lt "$MIN_LINES" ]; then clear_state "$1"; exit 0; fi
 
-  files="$(awk -F '\037' '!seen[$2]++ {print "  - " $2}' "$ed" | head -10)"
-  c="$(claims "$1" | sed 's/^/  - /')"
-  sig=""; [ -s "$sg" ] && sig="$(head -10 "$sg" | sed 's/^/  - /')"
+  files=$(awk -F '\037' '!seen[$2]++ {print "  - " $2}' "$ed" | head -10)
+  c=$(claims "$1" | sed 's/^/  - /')
+  sig=""; [ -s "$sg" ] && sig=$(head -10 "$sg" | sed 's/^/  - /')
+  rq_note=$( [ -s "$rq" ] && echo "$rq" || echo "없음 — 대화의 사용자 요청을 원문 그대로 쓴다")
+  sig_note=$( [ -n "$sig" ] && printf '테스트 약화 신호 (E-20):\n%s' "$sig")
   : > "$bl"
   jq -n --arg r "완료 보류 (common-evidence-review E-30): 이번 요청에서 바꾼 코드 · 설정을 독립 검증하지 않았다.
 바꾼 파일:
 ${files}
-요청 기록: $( [ -s "$rq" ] && echo "$rq" || echo "없음 — 대화의 사용자 요청을 원문 그대로 쓴다")
+요청 기록: $rq_note
 주장 후보 (최종 답에서):
 ${c:-  - 없음}
-$( [ -n "$sig" ] && printf '테스트 약화 신호 (E-20):\n%s' "$sig")
+$sig_note
 evidence-review 스킬로 evidence-reviewer 에게 요청 원문 · 바뀐 파일 · 결론을 뺀 질문만 넘겨 판정받는다.
 검증할 주장이 없는 변경(이름만 바꿈 · 포맷)이면 그 이유를 한 줄로 말하고 끝낸다 — 다음 종료는 막지 않는다.
 규칙: $RULES" '{decision: "block", reason: $r}'
@@ -196,12 +204,14 @@ evidence-review 스킬로 evidence-reviewer 에게 요청 원문 · 바뀐 파�
 
 if [ "${1:-}" = "--hook" ]; then
   command -v jq >/dev/null 2>&1 || exit 0
-  INPUT="$(cat)"
+  INPUT=$(cat)
   printf '%s' "$INPUT" | jq -e 'type == "object"' >/dev/null 2>&1 || exit 0
-  case "$(printf '%s' "$INPUT" | jq -r '.hook_event_name // ""')" in
+  EVENT=$(printf '%s' "$INPUT" | jq -r '.hook_event_name // ""')
+  case "$EVENT" in
     UserPromptSubmit) hook_prompt "$INPUT" ;;
     PostToolUse)
-      case "$(printf '%s' "$INPUT" | jq -r '.tool_name // ""')" in
+      TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name // ""')
+      case "$TOOL_NAME" in
         Write|Edit|MultiEdit) hook_edit "$INPUT" ;;
         Agent|Task) hook_review "$INPUT" ;;
       esac ;;
@@ -225,29 +235,34 @@ done
 [ "$DIFF" = 1 ] || die "--diff 가 필요하다 (--help)"
 git rev-parse --git-dir >/dev/null 2>&1 || die "git 저장소가 아니다"
 
-BASE="$(git merge-base HEAD origin/HEAD 2>/dev/null || git merge-base HEAD origin/main 2>/dev/null || git rev-parse HEAD 2>/dev/null)" \
+BASE=$(git merge-base HEAD origin/HEAD 2>/dev/null || git merge-base HEAD origin/main 2>/dev/null || git rev-parse HEAD 2>/dev/null) \
   || die "기준 커밋을 찾지 못했다"
-TOP="$(git rev-parse --show-toplevel)"
-B="$(mktemp "${TMPDIR:-/tmp}/evidence.XXXXXX")"; A="$(mktemp "${TMPDIR:-/tmp}/evidence.XXXXXX")"
+TOP=$(git rev-parse --show-toplevel)
+B=$(mktemp "${TMPDIR:-/tmp}/evidence.XXXXXX"); A=$(mktemp "${TMPDIR:-/tmp}/evidence.XXXXXX")
 trap 'rm -f "$B" "$A"' EXIT
 
+NL='
+'
 N=0; FILES=0
-while IFS= read -r rel; do
+CHANGED=$( { git -C "$TOP" -c core.quotePath=false diff --name-only "$BASE" --; git -C "$TOP" -c core.quotePath=false ls-files --others --exclude-standard; } | sort -u)
+REST="$CHANGED$NL"
+while [ -n "$REST" ]; do
+  rel="${REST%%"$NL"*}"; REST="${REST#*"$NL"}"
   [ -n "$rel" ] || continue
   is_test "$rel" || continue
   FILES=$((FILES+1))
   git -C "$TOP" show "$BASE:$rel" > "$B" 2>/dev/null || : > "$B"
   if [ -f "$TOP/$rel" ]; then cat "$TOP/$rel" > "$A"; else : > "$A"; fi
-  while IFS= read -r s; do
+  SIGS=$(signals "$B" "$A")
+  SREST="$SIGS$NL"
+  while [ -n "$SREST" ]; do
+    s="${SREST%%"$NL"*}"; SREST="${SREST#*"$NL"}"
     [ -n "$s" ] || continue
     N=$((N+1)); echo "⚠️  $rel: E-20 $s"
-  done <<EOF
-$(signals "$B" "$A")
-EOF
-done <<EOF
-$( { git -C "$TOP" -c core.quotePath=false diff --name-only "$BASE" --; git -C "$TOP" -c core.quotePath=false ls-files --others --exclude-standard; } | sort -u)
-EOF
+  done
+done
 
-echo "테스트 파일 ${FILES}개, E-20 신호 ${N}건 (기준 $(git rev-parse --short "$BASE")) — 신호는 후보다. 판정은 evidence-review 스킬 · 규칙: $RULES"
+SHORT=$(git rev-parse --short "$BASE")
+echo "테스트 파일 ${FILES}개, E-20 신호 ${N}건 (기준 $SHORT) — 신호는 후보다. 판정은 evidence-review 스킬 · 규칙: $RULES"
 [ "$STRICT" = 1 ] && [ "$N" -gt 0 ] && exit 2
 exit 0

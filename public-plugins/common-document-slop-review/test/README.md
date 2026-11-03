@@ -11,7 +11,7 @@ test/document-slop-validate.test.sh TC-D6    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. bash · awk · jq · git 만 쓴다. 게이트 기록은 임시 `CLAUDE_PLUGIN_DATA` 에 쓴다.
 
-## 자동 TC (32건)
+## 자동 TC (34건)
 
 조항마다 잡아야 하는 것과 잡으면 안 되는 것을 같이 둔다.
 

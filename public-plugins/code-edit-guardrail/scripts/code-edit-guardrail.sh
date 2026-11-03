@@ -14,12 +14,12 @@ set -uo pipefail
 MODE="${1:-}"
 command -v jq >/dev/null 2>&1 || { [ "$MODE" = validate ] && { echo "❌ jq 가 필요하다" >&2; exit 2; }; exit 0; }
 
-if [ "$MODE" = validate ] && [ -n "${2:-}" ]; then ROOT_IN="$2"; else ROOT_IN="${CLAUDE_PROJECT_DIR:-$(pwd)}"; fi
+if [ "$MODE" = validate ] && [ -n "${2:-}" ]; then ROOT_IN="$2"; else ROOT_IN="${CLAUDE_PROJECT_DIR:-}"; [ -n "$ROOT_IN" ] || ROOT_IN=$(pwd); fi
 # 훅 모드에서 exit 2 는 프롬프트 · 편집을 막는다 — 들어갈 수 없는 프로젝트는 fail-open
-ROOT="$(cd "$ROOT_IN" 2>/dev/null && pwd -P)" || { [ "$MODE" = validate ] || exit 0; echo "❌ $ROOT_IN 에 들어갈 수 없다" >&2; exit 2; }
+ROOT=$(cd "$ROOT_IN" 2>/dev/null && pwd -P) || { [ "$MODE" = validate ] || exit 0; echo "❌ $ROOT_IN 에 들어갈 수 없다" >&2; exit 2; }
 CONFIG_IN="${CODE_EDIT_GUARDRAIL_CONFIG:-.claude/code-edit-guardrail.json}"
 config_of() { case "$CONFIG_IN" in /*) printf '%s' "$CONFIG_IN" ;; *) printf '%s' "$1/$CONFIG_IN" ;; esac; } # $1=루트
-CONFIG="$(config_of "$ROOT")"
+CONFIG=$(config_of "$ROOT")
 
 # 글롭 → 정규식. `/` 가 있으면 루트 기준, 없으면 어느 깊이든. 끝 `/` 는 그 아래 전부, `!` 는 제외
 JQ_LIB='
@@ -30,7 +30,7 @@ def glob_re:
   | ($core | ltrimstr("./") | ltrimstr("/") | if $dir then . + "/**" else . end) as $g
   | "^" + (if $anchored then "" else "(.*/)?" end)
     + ($g
-      | gsub("(?<c>[.+^$(){}|\\[\\]\\\\])"; "\\\(.c)")
+      | gsub("(?<c>[.+^(){}$|\\[\\]\\\\])"; "\\\(.c)")
       | gsub("\\*\\*/"; "\u0001") | gsub("\\*\\*"; "\u0002")
       | gsub("\\*"; "[^/]*") | gsub("\\?"; "[^/]")
       | gsub("\u0001"; "(.*/)?") | gsub("\u0002"; ".*"))
@@ -42,13 +42,15 @@ def globs_match($globs):
   | any($in[]; . as $r | $f | test($r)) and (any($out[]; . as $r | $f | test($r)) | not);
 '
 
-read_input() { INPUT="$(cat 2>/dev/null || true)"; }
+read_input() { INPUT=$(cat 2>/dev/null || true); }
 input_get() { printf '%s' "$INPUT" | jq -r "$1 // empty" 2>/dev/null || true; }
 # 상태는 프로젝트 안에 둔다 — Bash 샌드박스 안의 Claude 가 면제 파일에 쓸 수 있어야 한다
+NL='
+'
 STATE_REL=".claude/code-edit-guardrail"
 STATE_DIR="${CODE_EDIT_GUARDRAIL_STATE_DIR:-$ROOT/$STATE_REL}"
 state_paths() {
-  local sid; sid="$(input_get .session_id)"; sid="$(printf '%s' "${sid:-nosession}" | tr -c 'A-Za-z0-9_.-' '_')"
+  local sid; sid=$(input_get .session_id); sid=$(printf '%s' "${sid:-nosession}" | tr -c 'A-Za-z0-9_.-' '_')
   EDITS="$STATE_DIR/$sid.edits"
   ACK="$STATE_DIR/$sid.ack"
 }
@@ -61,17 +63,18 @@ config_ok() { [ -f "$1" ] && jq -e 'type == "object"' "$1" >/dev/null 2>&1; } # 
 # $1=경로 → "파일 루트 \037 그 기준 상대 경로". 프로젝트 밖이면 빈 문자열. 아직 없는 디렉터리도 받는다
 # 파일 루트는 프로젝트 아래의 다른 작업 트리(워크트리 · 중첩 저장소)가 자기 설정을 가지면 그 작업 트리, 아니면 프로젝트 루트다 — 설정 없는 서브모듈은 프로젝트 설정이 덮는다
 rel_path() {
-  local p="$1" d rest top root="$ROOT"
+  local p="$1" d rest top root="$ROOT" base cfg sub
   [ -n "$p" ] || return 0
   case "$p" in /*) ;; *) p="$ROOT/$p" ;; esac
-  d="$(dirname "$p")"; rest="$(basename "$p")"
-  while [ ! -d "$d" ]; do rest="$(basename "$d")/$rest"; d="$(dirname "$d")"; done
-  d="$(cd "$d" && pwd -P)"
+  d=$(dirname "$p"); rest=$(basename "$p")
+  while [ ! -d "$d" ]; do base=$(basename "$d"); rest="$base/$rest"; d=$(dirname "$d"); done
+  d=$(cd "$d" && pwd -P)
   case "$d/" in "$ROOT"/*) ;; *) return 0 ;; esac
-  if top="$(git -C "$d" rev-parse --show-toplevel 2>/dev/null)" && top="$(cd "$top" && pwd -P)"; then
-    case "$top/" in "$ROOT"/?*) config_ok "$(config_of "$top")" && root="$top" ;; esac
+  if top=$(git -C "$d" rev-parse --show-toplevel 2>/dev/null) && top=$(cd "$top" && pwd -P); then
+    case "$top/" in "$ROOT"/?*) cfg=$(config_of "$top"); config_ok "$cfg" && root="$top" ;; esac
   fi
-  printf '%s\037%s' "$root" "$(printf '%s' "${d#"$root"}/$rest" | sed 's#^/##')"
+  sub=$(printf '%s' "${d#"$root"}/$rest" | sed 's#^/##')
+  printf '%s\037%s' "$root" "$sub"
 }
 
 mode_reset() {
@@ -81,11 +84,13 @@ mode_reset() {
 
 mode_track() {
   read_input
-  local loc root rel
-  loc="$(rel_path "$(input_get '.tool_input.file_path // .tool_input.notebook_path')")"
+  local loc root rel path cfg
+  path=$(input_get '.tool_input.file_path // .tool_input.notebook_path')
+  loc=$(rel_path "$path")
   [ -n "$loc" ] || return 0
   root="${loc%%$'\037'*}"; rel="${loc#*$'\037'}"
-  config_ok "$(config_of "$root")" || exit 0
+  cfg=$(config_of "$root")
+  config_ok "$cfg" || exit 0
   state_paths
   case "$rel" in "$STATE_REL"/*) return 0 ;; esac
   state_init && printf '%s\n' "$loc" >> "$EDITS"
@@ -94,17 +99,18 @@ mode_track() {
 
 mode_shared() {
   read_input
-  local loc rel content hits
-  loc="$(rel_path "$(input_get .tool_input.file_path)")"
+  local loc rel content hits path
+  path=$(input_get .tool_input.file_path)
+  loc=$(rel_path "$path")
   [ -n "$loc" ] || exit 0
-  rel="${loc#*$'\037'}"; CONFIG="$(config_of "${loc%%$'\037'*}")"
+  rel="${loc#*$'\037'}"; CONFIG=$(config_of "${loc%%$'\037'*}")
   config_ok "$CONFIG" || exit 0
   jq -e 'has("shared")' "$CONFIG" >/dev/null 2>&1 || exit 0
-  content="$(printf '%s' "$INPUT" | jq -r '[.tool_input.content, .tool_input.new_string, (.tool_input.edits[]?.new_string)] | map(select(. != null)) | join("\n")' 2>/dev/null || true)"
-  hits="$(jq -r --arg f "$rel" --arg c "$content" "$JQ_LIB"'
+  content=$(printf '%s' "$INPUT" | jq -r '[.tool_input.content, .tool_input.new_string, (.tool_input.edits[]?.new_string)] | map(select(. != null)) | join("\n")' 2>/dev/null || true)
+  hits=$(jq -r --arg f "$rel" --arg c "$content" "$JQ_LIB"'
     .shared as $s
     | (if (($s.paths // []) | length) > 0 and ($f | globs_match($s.paths)) then "경로 \($f)" else empty end),
-      (($s.content // [])[] as $re | select(try ($c | test($re)) catch false) | "내용 /\($re)/")' "$CONFIG" 2>/dev/null | paste -sd ',' - | sed 's/,/, /g')"
+      (($s.content // [])[] as $re | select(try ($c | test($re)) catch false) | "내용 /\($re)/")' "$CONFIG" 2>/dev/null | paste -sd ',' - | sed 's/,/, /g')
   [ -n "$hits" ] || exit 0
   jq -n --arg r "G-03 공유자원 편집 — [$hits]. 다른 팀 · 서비스가 같이 쓰는 자원이다. 영향을 사용자에게 확인받고 진행한다" \
     '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "ask", permissionDecisionReason: $r}}'
@@ -113,24 +119,27 @@ mode_shared() {
 mode_stop() {
   read_input; state_paths
   [ -s "$EDITS" ] || exit 0
-  local active edits roots root where files viol="" codes tests name cmd out rc
-  active="$(input_get .stop_hook_active)"
+  local active edits roots root where files viol="" codes tests name cmd out rc rest code_list tail_out
+  active=$(input_get .stop_hook_active)
   # 기록 한 줄은 "루트 \037 상대 경로" — 루트마다 그 루트의 설정으로 보고 lane 도 거기서 돌린다
-  edits="$(jq -R -s -c --arg root "$ROOT" '
-    [split("\n")[] | select(length > 0) | split("\u001f") | if length > 1 then {r: .[0], f: .[1]} else {r: $root, f: .[0]} end]' "$EDITS")"
-  roots="$(printf '%s' "$edits" | jq -r '[.[].r] | unique[]')"
-  while IFS= read -r root <&3; do
-    CONFIG="$(config_of "$root")"
+  edits=$(jq -R -s -c --arg root "$ROOT" '
+    [split("\n")[] | select(length > 0) | split("\u001f") | if length > 1 then {r: .[0], f: .[1]} else {r: $root, f: .[0]} end]' "$EDITS")
+  roots=$(printf '%s' "$edits" | jq -r '[.[].r] | unique[]')
+  rest="$roots$NL"
+  while [ -n "$rest" ]; do
+    root="${rest%%"$NL"*}"; rest="${rest#*"$NL"}"
+    CONFIG=$(config_of "$root")
     config_ok "$CONFIG" || continue
     where=""; [ "$root" = "$ROOT" ] || where="${root#"$ROOT"/}/"
-    files="$(printf '%s' "$edits" | jq -c --arg r "$root" '[.[] | select(.r == $r) | .f] | unique')"
+    files=$(printf '%s' "$edits" | jq -c --arg r "$root" '[.[] | select(.r == $r) | .f] | unique')
 
     if jq -e 'has("test")' "$CONFIG" >/dev/null 2>&1; then
-      codes="$(jq -r --argjson files "$files" --arg w "$where" "$JQ_LIB"'
-        .test as $t | $files[] | select(globs_match($t.code) and (globs_match($t.tests) | not)) | $w + .' "$CONFIG" 2>/dev/null)"
-      tests="$(jq -r --argjson files "$files" "$JQ_LIB"'.test as $t | $files[] | select(globs_match($t.tests))' "$CONFIG" 2>/dev/null)"
+      codes=$(jq -r --argjson files "$files" --arg w "$where" "$JQ_LIB"'
+        .test as $t | $files[] | select(globs_match($t.code) and (globs_match($t.tests) | not)) | $w + .' "$CONFIG" 2>/dev/null)
+      tests=$(jq -r --argjson files "$files" "$JQ_LIB"'.test as $t | $files[] | select(globs_match($t.tests))' "$CONFIG" 2>/dev/null)
       if [ -n "$codes" ] && [ -z "$tests" ] && ! grep -Eq '^test:[[:space:]]*[^[:space:]]' "$ACK" 2>/dev/null; then
-        viol="${viol}- G-01 코드를 고쳤는데 테스트를 고치지 않았다: $(printf '%s' "$codes" | paste -sd ' ' -)
+        code_list=$(printf '%s' "$codes" | paste -sd ' ' -)
+        viol="${viol}- G-01 코드를 고쳤는데 테스트를 고치지 않았다: $code_list
   조치: 바뀐 동작을 덮는 테스트를 쓰거나 고친다. 동작이 그대로인 변경(리팩터 · 포맷 · 주석)이면 사용자에게 알리고 면제한다
         echo 'test: <사유>' >> \"$ACK\"
 "
@@ -139,19 +148,20 @@ mode_stop() {
 
     # 줄 단위로 읽지 않는다 — 여러 줄 command 가 첫 줄만 돌게 된다
     local lanes n i=0
-    lanes="$(jq -c --argjson files "$files" "$JQ_LIB"'
-      [(.quality // [])[] | . as $l | select(any($files[]; globs_match($l.paths))) | {name, command}]' "$CONFIG" 2>/dev/null)"
-    n="$(printf '%s' "${lanes:-[]}" | jq 'length' 2>/dev/null || echo 0)"
+    lanes=$(jq -c --argjson files "$files" "$JQ_LIB"'
+      [(.quality // [])[] | . as $l | select(any($files[]; globs_match($l.paths))) | {name, command}]' "$CONFIG" 2>/dev/null)
+    n=$(printf '%s' "${lanes:-[]}" | jq 'length' 2>/dev/null || echo 0)
     while [ "$i" -lt "${n:-0}" ]; do
-      name="$(printf '%s' "$lanes" | jq -r ".[$i].name")"; cmd="$(printf '%s' "$lanes" | jq -r ".[$i].command")"; i=$((i+1))
+      name=$(printf '%s' "$lanes" | jq -r ".[$i].name"); cmd=$(printf '%s' "$lanes" | jq -r ".[$i].command"); i=$((i+1))
       # lane 이 입력을 기다리며 멈추지 않게
-      out="$(cd "$root" && bash -c "$cmd" 2>&1 </dev/null)"; rc=$?
+      out=$(cd "$root" && bash -c "$cmd" 2>&1 </dev/null); rc=$?
       [ "$rc" = 0 ] && continue
+      tail_out=$(printf '%s\n' "$out" | tail -n 20 | sed 's/^/    /')
       viol="${viol}- G-02 품질 lane '$name'${where:+ ($where)} 실패 (종료 코드 $rc): $cmd
-$(printf '%s\n' "$out" | tail -n 20 | sed 's/^/    /')
+$tail_out
 "
     done
-  done 3<<< "$roots"
+  done
 
   [ -n "$viol" ] || exit 0
   if [ "$active" = true ]; then
@@ -167,8 +177,8 @@ $viol" '{systemMessage: $m}'
 mode_validate() {
   [ -f "$CONFIG" ] || { echo "❌ C-01 설정 파일이 없다: $CONFIG" >&2; exit 2; }
   jq -e . "$CONFIG" >/dev/null 2>&1 || { echo "❌ C-01 올바른 JSON 이 아니다: $CONFIG" >&2; exit 2; }
-  local findings files errs warns
-  findings="$(jq -r --arg q "'" '
+  local findings files errs warns unmatched summary
+  findings=$(jq -r --arg q "'" '
     def strarr: type == "array" and length > 0 and all(.[]; type == "string" and length > 0);
     def e: "E\u001f" + .;
     if type != "object" then "C-02 최상위는 객체여야 한다" | e else
@@ -201,16 +211,15 @@ mode_validate() {
              else ((.content // [])[] | . as $re | try ("" | test($re) | empty) catch ("C-04 shared.content /\($re)/ 는 올바른 정규식이 아니다" | e)) end)
           end
       else empty end)
-    end' "$CONFIG")"
+    end' "$CONFIG")
 
   if ! printf '%s\n' "$findings" | grep -q '^E'; then
     if git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
-      files="$(git -C "$ROOT" ls-files -co --exclude-standard 2>/dev/null)"
+      files=$(git -C "$ROOT" ls-files -co --exclude-standard 2>/dev/null)
     else
-      files="$(cd "$ROOT" && find . -type f -not -path './.git/*' -not -path '*/node_modules/*' | sed 's#^\./##')"
+      files=$(cd "$ROOT" && find . -type f -not -path './.git/*' -not -path '*/node_modules/*' | sed 's#^\./##')
     fi
-    findings="$findings
-$(printf '%s\n' "$files" | jq -R . | jq -s -r --arg q "'" --slurpfile cfg "$CONFIG" "$JQ_LIB"'
+    unmatched=$(printf '%s\n' "$files" | jq -R . | jq -s -r --arg q "'" --slurpfile cfg "$CONFIG" "$JQ_LIB"'
   . as $files | $cfg[0]
   | [(.test.code // [])[] | ["test.code", .]]
     + [(.test.tests // [])[] | ["test.tests", .]]
@@ -219,17 +228,20 @@ $(printf '%s\n' "$files" | jq -R . | jq -s -r --arg q "'" --slurpfile cfg "$CONF
   | .[] | select(.[1] | startswith("!") | not)
   | .[1] as $g | ($g | glob_re) as $r
   | select(any($files[]; test($r)) | not)
-  | "W\u001fC-05 \(.[0]) 의 \($q)\($g)\($q) 에 걸리는 파일이 없다"')"
+  | "W\u001fC-05 \(.[0]) 의 \($q)\($g)\($q) 에 걸리는 파일이 없다"')
+    findings="$findings
+$unmatched"
   fi
 
-  errs="$(printf '%s\n' "$findings" | grep '^E' | cut -c3-)"
-  warns="$(printf '%s\n' "$findings" | grep '^W' | cut -c3-)"
+  errs=$(printf '%s\n' "$findings" | grep '^E' | cut -c3-)
+  warns=$(printf '%s\n' "$findings" | grep '^W' | cut -c3-)
   [ -n "$warns" ] && { echo "⚠️ 경고"; printf '%s\n' "$warns" | sed 's/^/  - /'; }
   if [ -n "$errs" ]; then
     { echo "❌ code-edit-guardrail 설정 위반 ($CONFIG)"; printf '%s\n' "$errs" | sed 's/^/  - /'; } >&2
     exit 2
   fi
-  echo "✅ code-edit-guardrail 설정 통과 — $(jq -r '[(if has("test") then "test" else empty end), (if has("quality") then "quality \(.quality | length) lane" else empty end), (if has("shared") then "shared" else empty end)] | join(" · ")' "$CONFIG")"
+  summary=$(jq -r '[(if has("test") then "test" else empty end), (if has("quality") then "quality \(.quality | length) lane" else empty end), (if has("shared") then "shared" else empty end)] | join(" · ")' "$CONFIG")
+  echo "✅ code-edit-guardrail 설정 통과 — $summary"
 }
 
 case "$MODE" in
