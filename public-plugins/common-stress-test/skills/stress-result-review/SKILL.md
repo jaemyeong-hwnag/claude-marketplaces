@@ -13,9 +13,8 @@ description: 부하·스트레스 테스트 결과를 정량 판정할 때 사�
 ## 1. 결과를 단계 CSV 로 모은다
 
 ```bash
-P="${CLAUDE_PLUGIN_ROOT}/scripts"
-"$P/stress-step-generate.sh" --header > steps.csv
-"$P/stress-step-generate.sh" --load 100 out/step-100.json >> steps.csv     # k6 · Locust stats.csv · JMeter statistics.json · Gatling 콘솔
+"${CLAUDE_PLUGIN_ROOT}/scripts/stress-step-generate.sh" --header > steps.csv
+"${CLAUDE_PLUGIN_ROOT}/scripts/stress-step-generate.sh" --load 100 out/step-100.json >> steps.csv     # k6 · Locust stats.csv · JMeter statistics.json · Gatling 콘솔
 ```
 
 - `--load` 는 open 모델이면 목표 rps, closed 모델이면 동시 사용자 수다
@@ -24,7 +23,7 @@ P="${CLAUDE_PLUGIN_ROOT}/scripts"
 ## 2. 판정한다
 
 ```bash
-"$P/stress-report-generate.sh" --model open --slo-p99 300 [--target 200] steps.csv
+"${CLAUDE_PLUGIN_ROOT}/scripts/stress-report-generate.sh" --model open --slo-p99 300 [--target 200] steps.csv
 ```
 
 | 항목 | 읽는 법 |
@@ -64,8 +63,8 @@ P="${CLAUDE_PLUGIN_ROOT}/scripts"
 3. 판정한다
 
 ```bash
-"$P/stress-regression-validate.sh" baseline-p99.txt candidate-p99.txt                     # 지연 — 작을수록 좋음
-"$P/stress-regression-validate.sh" --higher-is-better baseline-rps.txt candidate-rps.txt  # 처리량
+"${CLAUDE_PLUGIN_ROOT}/scripts/stress-regression-validate.sh" baseline-p99.txt candidate-p99.txt                     # 지연 — 작을수록 좋음
+"${CLAUDE_PLUGIN_ROOT}/scripts/stress-regression-validate.sh" --higher-is-better baseline-rps.txt candidate-rps.txt  # 처리량
 ```
 
 - exit 2 = 회귀다 (ST-20). p 와 Cliff's delta 를 같이 보고한다 (Arcuri & Briand)

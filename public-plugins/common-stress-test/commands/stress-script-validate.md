@@ -5,7 +5,7 @@ description: 프로젝트의 부하 테스트 스크립트(k6 · Gatling · Locu
 프로젝트 안의 부하 스크립트를 찾아 `ST-02` ~ `ST-06` 을 검사한다. `node_modules/` · `build/` · `target/` · `.venv/` 는 보지 않는다.
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/scripts/stress-script-validate.sh" "${CLAUDE_PROJECT_DIR:-.}"
+"${CLAUDE_PLUGIN_ROOT}/scripts/stress-script-validate.sh" .
 ```
 
 인자가 주어졌으면 그 파일이나 디렉터리만 검사한다: `$ARGUMENTS`

@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.10
+
+### Fixed
+- Anthropic 디렉터리 검증기가 커맨드 · 스킬의 명령 경로를 계산된 경로(COMMAND_PATH_COMPUTED)로 차단하던 것 — `${CLAUDE_PROJECT_DIR:-.}` 를 `.` 으로, `$P/…` 를 `${CLAUDE_PLUGIN_ROOT}/scripts/…` 로 그대로 적었다 (#265)
+
 ## 0.1.9
 
 ### Fixed
