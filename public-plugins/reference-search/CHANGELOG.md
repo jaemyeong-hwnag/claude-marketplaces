@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.2.3
+
+### Fixed
+- 훅 스크립트 `reference-validate.sh` 를 Anthropic 디렉터리 검증기가 읽을 수 있게 정리했다 — 따옴표 안 명령 치환을 변수로. 판정은 같다 (#259)
+
 ## 0.2.2
 
 ### Changed
