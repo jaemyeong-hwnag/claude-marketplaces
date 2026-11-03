@@ -16,9 +16,11 @@ set -uo pipefail
 
 # 훅은 모든 Bash 명령마다 돈다 — git 이 없는 명령은 jq · 임시 디렉터리 전에 끝낸다
 PAYLOAD=""
+BASH_HOOK=0
 if [ "$#" -eq 0 ] && [ ! -t 0 ]; then
   PAYLOAD=$(cat)
   if [[ "$PAYLOAD" =~ \"tool_name\"[[:space:]]*:[[:space:]]*\"Bash\" ]]; then
+    BASH_HOOK=1
     if command -v jq >/dev/null 2>&1; then
       # cwd · 경로에 git 이 흔히 들어가므로 명령만 본다
       PAYLOAD_CMD=$(printf '%s' "$PAYLOAD" | jq -r '.tool_input.command // ""' 2>/dev/null)
@@ -51,6 +53,22 @@ command -v git >/dev/null 2>&1 || die "git 이 필요합니다"
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/git-secret.XXXXXX") || die "임시 디렉터리를 만들 수 없습니다"
 cleanup() { rm -rf "$TMP"; }
 trap cleanup EXIT
+
+# 임시 파일을 못 만들면 검사를 건너뛰지 않는다 — Bash 훅은 막는다
+tmp_fail() {
+  if [ "$BASH_HOOK" = 1 ]; then
+    echo "❌ 임시 파일을 만들 수 없어 git 명령을 검사하지 못해 막는다 ($LABEL) — $1" >&2
+    exit 2
+  fi
+  die "임시 파일을 만들 수 없습니다: $1"
+}
+spool() { { : > "$1"; } 2>/dev/null || tmp_fail "$1"; }
+# 규칙은 미리 받아 두고, 못 받았으면 검사를 시작할 때 막는다 — commit · push 가 아닌 git 명령은 그대로 통과시킨다
+RULES_SPOOL_FAILED=""
+spool_rules() { { : > "$1"; } 2>/dev/null && return 0; RULES_SPOOL_FAILED="$1"; return 1; }
+rules_ready() { [ -z "$RULES_SPOOL_FAILED" ] || tmp_fail "$RULES_SPOOL_FAILED"; }
+LEX_SEQ=0
+spool_rules "$TMP/patterns" && jq -r '.patterns[] | [.id, (.flags // ""), .regex] | join("\u001f")' "$RULES_JSON" > "$TMP/patterns"
 
 ERRORS=()
 WARNINGS=()
@@ -92,7 +110,6 @@ scan_dir() {
   fi
   local placeholder id flags re hit file rest line m shown
   placeholder=$(jq -r '.placeholder // ""' "$RULES_JSON")
-  jq -r '.patterns[] | [.id, (.flags // ""), .regex] | join("\u001f")' "$RULES_JSON" > "$TMP/patterns"
   while IFS=$'\037' read -r id flags re; do
     # grep -rnIE 의 줄 → 파일:줄번호:내용. 오탐 탈출구는 gitleaks 와 같은 gitleaks:allow
     grep -rnIE${flags:+i} -- "$re" "$dir" 2>/dev/null | grep -v 'gitleaks:allow' | while IFS= read -r hit; do
@@ -108,10 +125,12 @@ scan_dir() {
 
 # ---- 민감 파일 · 예외 ---------------------------------------------------------
 DENY=(); ALLOW=()
-jq -r '.sensitive_files.deny[]' "$RULES_JSON" > "$TMP/deny"
-jq -r '.sensitive_files.allow[]' "$RULES_JSON" > "$TMP/allow"
-while IFS= read -r g; do DENY+=("$g"); done < "$TMP/deny"
-while IFS= read -r g; do ALLOW+=("$g"); done < "$TMP/allow"
+if spool_rules "$TMP/deny" && spool_rules "$TMP/allow"; then
+  jq -r '.sensitive_files.deny[]' "$RULES_JSON" > "$TMP/deny"
+  jq -r '.sensitive_files.allow[]' "$RULES_JSON" > "$TMP/allow"
+  while IFS= read -r g; do DENY+=("$g"); done < "$TMP/deny"
+  while IFS= read -r g; do ALLOW+=("$g"); done < "$TMP/allow"
+fi
 
 # 글롭이 / 를 가지면 경로 전체, 아니면 파일 이름과 맞춘다
 glob_match() { # $1=상대 경로 $2=글롭
@@ -186,6 +205,7 @@ collect_findings() {
 # $1=저장소 $2=경로 목록 파일 $3=설명(기본: 커밋에 들어간다) — 민감 파일이면 GS-02
 collect_sensitive() {
   local p
+  spool "$TMP/sensitive-candidates"
   sort -u "$2" > "$TMP/sensitive-candidates"
   while IFS= read -r p; do
     [ -n "$p" ] || continue
@@ -334,11 +354,11 @@ target_dir() {
 toplevel_of() { # $1=기준 디렉터리 $2=명령 치환 안의 명령 → 저장소 루트, 그 형태가 아니면 ""
   local dir="$1" line n=0 d lexed
   local -a toks
-  lexed=$(mktemp "$TMP/lex.XXXXXX")
+  LEX_SEQ=$((LEX_SEQ + 1)); lexed="$TMP/lex.$LEX_SEQ"; spool "$lexed"
   printf '%s\n' "$2" | awk "$LEX" > "$lexed"
   while IFS= read -r line; do
     case "$line" in $'\035'*) continue ;; esac
-    n=$((n + 1)); printf '%s\n' "$line" > "$TMP/tokens"; IFS=$'\037' read -r -a toks < "$TMP/tokens"
+    n=$((n + 1)); spool "$TMP/tokens"; printf '%s\n' "$line" > "$TMP/tokens"; IFS=$'\037' read -r -a toks < "$TMP/tokens"
   done < "$lexed"
   [ "$n" = 1 ] || return 0
   if [ "${#toks[@]}" = 5 ] && [ "${toks[1]}" = -C ]; then dir=$(target_dir "$dir" "${toks[2]}"); toks=("${toks[0]}" "${toks[@]:3}"); fi
@@ -365,14 +385,14 @@ find_targets() { # $1=명령 $2=시작 디렉터리 → TARGETS 에 "하위 명�
   local dir="$2" line i s wrap lexed
   local -a toks stack
   stack=()
-  lexed=$(mktemp "$TMP/lex.XXXXXX")
+  LEX_SEQ=$((LEX_SEQ + 1)); lexed="$TMP/lex.$LEX_SEQ"; spool "$lexed"
   printf '%s\n' "$1" | awk "$LEX" > "$lexed"
   while IFS= read -r line; do
     case "$line" in
       $'\035(') stack+=("$dir"); continue ;;
       $'\035)') if [ "${#stack[@]}" -gt 0 ]; then i=$((${#stack[@]} - 1)); dir="${stack[$i]}"; unset "stack[$i]"; fi; continue ;;
     esac
-    printf '%s\n' "$line" > "$TMP/tokens"; IFS=$'\037' read -r -a toks < "$TMP/tokens"
+    spool "$TMP/tokens"; printf '%s\n' "$line" > "$TMP/tokens"; IFS=$'\037' read -r -a toks < "$TMP/tokens"
     wrap=0
     while [ "${#toks[@]}" -gt 0 ]; do
       case "${toks[0]}" in
@@ -426,11 +446,13 @@ commit_pathspecs() { # $1=commit 인자 → 한 줄에 하나
 parse_git_add() { # $@=명령과 bash -c · eval 로 푼 문자열
   local seg tok seen=0 add_args
   ADD_SPECS=(); ADD_FORCE=0; ADD_ALL=0
+  spool "$TMP/add-segments"
   printf '%s\n' "$@" | tr ';&|' '\n\n\n' > "$TMP/add-segments"
   while IFS= read -r seg; do
     has_git_sub "$seg" add || continue
     seen=1
     add_args=$(git_sub_args "$seg" add)
+    spool "$TMP/add-words"
     shell_words "$add_args" > "$TMP/add-words"
     while IFS= read -r tok; do
       case "$tok" in
@@ -464,6 +486,7 @@ hook_commit() { # $1=저장소 $2=명령 $3=번호(대상마다 따로 모은다
   # git commit <경로> · --only · -i 는 그 경로의 작업 트리 내용을 커밋한다
   local specs=() add_specs=()
   if [ "$worktree" = 0 ] && [ "$has_head" = 1 ]; then
+    spool "$TMP/commit-specs"
     commit_pathspecs "$commit_args" > "$TMP/commit-specs"
     while IFS= read -r tok; do [ -n "$tok" ] && specs+=("$tok"); done < "$TMP/commit-specs"
   fi
@@ -489,6 +512,7 @@ hook_commit() { # $1=저장소 $2=명령 $3=번호(대상마다 따로 모은다
     # git add -f 는 ignore 된 파일도 넣는다
     local exclude=(--exclude-standard)
     [ "$ADD_FORCE" = 1 ] && exclude=()
+    spool "$TMP/add-untracked"
     g -C "$CMD_DIR" ls-files --full-name -o ${exclude+"${exclude[@]}"} -- "${add_specs[@]}" 2>/dev/null > "$TMP/add-untracked"
     while IFS= read -r tok; do
       [ -n "$tok" ] || continue
@@ -498,6 +522,7 @@ hook_commit() { # $1=저장소 $2=명령 $3=번호(대상마다 따로 모은다
 
   if [ "$worktree" = 1 ]; then
     g -C "$repo" diff --name-only --diff-filter=ACMR 2>/dev/null >> "$paths"
+    spool "$TMP/worktree-untracked"
     g -C "$repo" ls-files -o --exclude-standard 2>/dev/null > "$TMP/worktree-untracked"
     while IFS= read -r tok; do
       [ -n "$tok" ] || continue
@@ -506,6 +531,7 @@ hook_commit() { # $1=저장소 $2=명령 $3=번호(대상마다 따로 모은다
     # git add -f 는 ignore 된 파일도 넣는다 — 이름을 적은 파일을 따로 본다
     if [ "$ADD_FORCE" = 1 ]; then
       for tok in ${ADD_SPECS+"${ADD_SPECS[@]}"}; do
+        spool "$TMP/add-forced"
         g -C "$CMD_DIR" ls-files --full-name -co -- "$tok" 2>/dev/null > "$TMP/add-forced"
         while IFS= read -r p; do
           [ -n "$p" ] || continue
@@ -550,6 +576,7 @@ hook_bash() { # $1=payload
   # 렉서가 git 명령으로 보지 못한 형태는 cwd 를 본다
   if [ "${#TARGETS[@]}" = 0 ]; then for t in $what; do TARGETS+=("$t"$'\037'"$cwd"); done; fi
   [ "${#TARGETS[@]}" -gt 0 ] || exit 0
+  rules_ready
   [ -n "$what" ] || for t in "${TARGETS[@]}"; do case "$what " in *" ${t%%$'\037'*} "*) ;; *) what="$what ${t%%$'\037'*}" ;; esac; done
   for t in "${TARGETS[@]}"; do
     [ -n "${t#*$'\037'}" ] && continue
@@ -624,6 +651,7 @@ hook_file() { # $1=payload
   if is_tracked "$repo" "$rel"; then why="이미 git 이 추적하는 파일이다"
   elif is_ignored "$repo" "$rel"; then exposed=0; fi
   [ "$exposed" = 1 ] || exit 0
+  rules_ready
 
   # GS-04 민감 파일
   if is_sensitive "$rel"; then
@@ -640,6 +668,7 @@ hook_file() { # $1=payload
   scan_dir "$before" "$repo" | cut -d$'\037' -f2,3 > "$TMP/scan-before"
   scan_dir "$after" "$repo" | cut -d$'\037' -f2,3 > "$TMP/scan-after"
   local r s
+  spool "$TMP/scan-new"
   awk 'FILENAME == ARGV[1] { seen[$0]++; next } seen[$0]-- > 0 { next } { print }' "$TMP/scan-before" "$TMP/scan-after" > "$TMP/scan-new"
   while IFS=$'\037' read -r r s; do
     [ -n "$r" ] || continue
@@ -695,6 +724,7 @@ check_tree() { # $1=디렉터리
   if repo=$(git -C "$root" rev-parse --show-toplevel 2>/dev/null); then
     repo=$(cd "$repo" && pwd -P)
     [ "$root" = "$repo" ] || prefix="${root#"$repo"/}/"
+    spool "$TMP/tree-files"
     g -C "$root" ls-files --full-name -co --exclude-standard -- . 2>/dev/null > "$TMP/tree-files"
     while IFS= read -r p; do
       [ -n "$p" ] || continue
@@ -711,6 +741,7 @@ check_tree() { # $1=디렉터리
       else ERRORS+=("[GS-04] $p — 민감 파일이 ignore 되지 않았다"); fi
     done < "$TMP/tree-paths"
   else
+    spool "$TMP/tree-files"
     find "$root" -type f -not -path '*/.git/*' -not -path '*/node_modules/*' 2>/dev/null > "$TMP/tree-files"
     while IFS= read -r p; do
       p="${p#"$root"/}"; copy_file "$root" "$p" "$scan"
@@ -760,8 +791,8 @@ if [ "$#" -eq 0 ]; then
 fi
 
 case "$1" in
-  --all) check_tree "${2:-.}"; report "작업 트리 ${2:-.}" ;;
-  --history) check_history "${2:-.}"; report "커밋 이력 ${2:-.}" ;;
+  --all) rules_ready; check_tree "${2:-.}"; report "작업 트리 ${2:-.}" ;;
+  --history) rules_ready; check_history "${2:-.}"; report "커밋 이력 ${2:-.}" ;;
   -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-  *) check_paths "$@"; report "$*" ;;
+  *) rules_ready; check_paths "$@"; report "$*" ;;
 esac
