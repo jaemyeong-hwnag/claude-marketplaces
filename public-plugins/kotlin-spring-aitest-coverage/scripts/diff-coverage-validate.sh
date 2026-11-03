@@ -154,7 +154,7 @@ BEGIN {
 while IFS='|' read -r mod own f; do
   ctrl=""
   [ "$own" = "own" ] && ctrl=$(kt_controllers "$f")
-  pkg=$(kt_package "$f")
+  pkg=$(kt_package "$f" || true)
   echo "$mod|$pkg|$ctrl|$f"
 done < "$tmp/owners" > "$entries_file"
 
@@ -218,11 +218,11 @@ fi
 # 모듈 하나의 판정에 영향을 주는 소스 디렉터리 — 자기 src/ + 설정의 라이브러리 src/main/
 source_dirs_of() {
   local m="$1" p l cs md
-  md=$(mod_dir "$m")
+  md=$(mod_dir "$m" || true)
   echo "${md}src/"
   for p in $LIBRARIES; do
     l="${p%%=*}"; cs=",${p#*=},"
-    case "$cs" in *",$m,"*) md=$(mod_dir "$l"); echo "${md}src/main/" ;; esac
+    case "$cs" in *",$m,"*) md=$(mod_dir "$l" || true); echo "${md}src/main/" ;; esac
   done
 }
 
@@ -271,12 +271,12 @@ else
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     set -- "$@" -PskipDockerEnsure=true
   fi
-  MODULE_CSV=$(paste -sd, "$modules_file")
+  MODULE_CSV=$(paste -sd, "$modules_file" || true)
   echo "$NAME: running aiTest (JaCoCo ON) for: $MODULE_CSV"
   while IFS= read -r mod; do
     # 리포트는 환경 블록의 finalizedBy 가 만든다 — --tests 는 바로 앞 태스크에 붙으므로 aiTest 가 마지막이어야 한다
-    COMPILE_TASK=$(mod_task "$mod" compileAiTestKotlin)
-    AITEST_TASK=$(mod_task "$mod" aiTest)
+    COMPILE_TASK=$(mod_task "$mod" compileAiTestKotlin || true)
+    AITEST_TASK=$(mod_task "$mod" aiTest || true)
     set -- "$@" "$COMPILE_TASK" "$AITEST_TASK"
     # main 변경(자기 모듈 · 라이브러리)이 있으면 전체, aiTest 만 바뀌었으면 그 파일의 최상위 클래스만
     if grep -q "^$mod|" "$entries_file"; then
@@ -290,7 +290,7 @@ else
     TEST_LIST=($TESTS)
     IFS="$OLD_IFS"; set +f
     for t in ${TEST_LIST+"${TEST_LIST[@]}"}; do
-      TEST_MODULE=$(module_of_test "$t")
+      TEST_MODULE=$(module_of_test "$t" || true)
       [ "$TEST_MODULE" = "$mod" ] || continue
       pkg=$(kt_package "$t")
       for cls in $(sed -nE 's/^(((public|internal|open|abstract|data|sealed)[[:space:]]+)*)class[[:space:]]+([A-Za-z0-9_]+).*/\4/p' "$t"); do

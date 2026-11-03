@@ -1227,6 +1227,14 @@ if on; then
   AITEST_JAVAP="$TMP/no-javap" CLAUDE_PROJECT_DIR="$R" run "$D" --report-only HEAD; expect_code 2; expect_out "변경 메서드를 판정할 수 없습니다 (C-09)"
 fi
 
+tc TC-D32 "라이브러리 소속 .kt 를 읽을 수 없어도 check-only 판정을 이어 간다"
+if on; then
+  R="$(repo d32)"; mkdir -p "$R/.claude"; echo '{"libraryModules":{"core":["app"]}}' > "$R/.claude/kotlin-spring-aitest-coverage.json"
+  HIDDEN="$R/core/src/main/kotlin/com/ex/core/Hidden.kt"; printf 'package com.ex.core\nclass Hidden\n' > "$HIDDEN"; chmod 000 "$HIDDEN"
+  CLAUDE_PROJECT_DIR="$R" run "$D" --check-only HEAD; expect_code 0; expect_out "check-only OK"
+  chmod 644 "$HIDDEN"
+fi
+
 flush_tc; echo "== aitest-coverage-validate.sh (훅)"
 
 tc TC-H01 "git 저장소가 아니면 조용히 통과한다"
