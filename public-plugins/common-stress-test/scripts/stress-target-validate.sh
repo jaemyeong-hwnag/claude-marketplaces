@@ -9,7 +9,12 @@
 # 종료 코드: 0 통과 / 2 위반 / 1 실행 오류
 set -uo pipefail
 
-RULES="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/references/stress-test-rules.md"
+PLUGIN_DIR="${CLAUDE_PLUGIN_ROOT:-}"
+if [ -z "$PLUGIN_DIR" ]; then
+  SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
+  PLUGIN_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
+fi
+RULES="$PLUGIN_DIR/references/stress-test-rules.md"
 die() { echo "stress-target-validate: $*" >&2; exit 1; }
 command -v jq >/dev/null 2>&1 || die "jq 가 필요하다"
 
@@ -17,26 +22,29 @@ MODE=cli
 if [ "$#" -ge 1 ]; then
   CMD="$1"
 else
-  INPUT="$(cat)"
+  INPUT=$(cat)
   [ -n "$INPUT" ] || exit 0
   MODE=hook
-  [ "$(printf '%s' "$INPUT" | jq -r '.hook_event_name // "PreToolUse"' 2>/dev/null)" = "PreToolUse" ] || exit 0
-  [ "$(printf '%s' "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null)" = "Bash" ] || exit 0
-  CMD="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // ""' 2>/dev/null)"
-  CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // ""' 2>/dev/null)"
+  EVENT=$(printf '%s' "$INPUT" | jq -r '.hook_event_name // "PreToolUse"' 2>/dev/null)
+  [ "$EVENT" = "PreToolUse" ] || exit 0
+  TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null)
+  [ "$TOOL_NAME" = "Bash" ] || exit 0
+  CMD=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // ""' 2>/dev/null)
+  CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // ""' 2>/dev/null)
 fi
 [ -n "$CMD" ] || exit 0
-BASE="${CWD:-${CLAUDE_PROJECT_DIR:-$(pwd)}}"
+BASE="${CWD:-${CLAUDE_PROJECT_DIR:-}}"
+[ -n "$BASE" ] || BASE=$(pwd)
 
-# heredoc 본문은 명령이 아니라 데이터라 \002 를 붙여 낸다 (부하 도구에 먹이는 인라인 스크립트면 아래에서 대상으로 본다). 셸에 먹이는 heredoc(sh <<EOF)은 명령으로 남긴다
+# heredoc 본문은 명령이 아니라 데이터라 \002 를 붙여 낸다 (부하 도구에 먹이는 인라인 스크립트면 아래에서 대상으로 본다). 셸에 먹이는 heredoc(sh 에 주는 것)은 명령으로 남긴다
 strip_heredoc() {
   awk -v q="'" '
     d != "" { t = $0; if (dash) sub(/^\t+/, "", t); if (t == d) d = ""; else if (keep) print; else print "\002" $0; next }
-    { print; s = $0; gsub(/<<</, "\001", s)
-      if (match(s, "<<-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*")) {
-        d = substr(s, RSTART, RLENGTH); dash = (d ~ /^<<-/)
-        sub(/^<<-?[ \t]*/, "", d); gsub("[\"" q "]", "", d)
-        keep = (s ~ /(^|[;&|(][ \t]*)(sudo[ \t]+)?(ba|z|da|k)?sh([ \t]+-[A-Za-z]+)*[ \t]*<</)
+    { print; s = $0; gsub(/[<][<][<]/, "\001", s)
+      if (match(s, "[<][<]-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*")) {
+        d = substr(s, RSTART, RLENGTH); dash = (d ~ /^[<][<]-/)
+        sub(/^[<][<]-?[ \t]*/, "", d); gsub("[\"" q "]", "", d)
+        keep = (s ~ /(^|[;&|(][ \t]*)(sudo[ \t]+)?(ba|z|da|k)?sh([ \t]+-[A-Za-z]+)*[ \t]*[<][<]/)
       } }'
 }
 
@@ -141,7 +149,7 @@ positional_targets() {
 }
 
 # 부하 구간만 모은다 — 파이프로 이어진 명령은 한 덩어리(vegeta 는 앞 단계가 대상을 준다), && · ; 로 나뉜 다른 명령은 뺀다
-CMD="$(printf '%s\n' "$CMD" | strip_heredoc)"
+CMD=$(printf '%s\n' "$CMD" | strip_heredoc)
 LOAD_TXT=""; LOCUST_TXT=""; ASSIGN_TXT=""; BODY_TXT=""; BARE_TXT=""; raw_hit=0
 while IFS= read -r raw; do
   case "$raw" in
@@ -158,16 +166,17 @@ ${raw#?}"; continue ;;
       hit=1
       [ "$TOOL" = locust ] && LOCUST_TXT="$LOCUST_TXT
 $stage"
-      case "$TOOL" in hey|oha|ab|wrk|wrk2|autocannon|bombardier|siege|h2load|ghz|plow|fortio) BARE_TXT="$BARE_TXT
-$(positional_targets "$ARGS")" ;; esac
+      case "$TOOL" in hey|oha|ab|wrk|wrk2|autocannon|bombardier|siege|h2load|ghz|plow|fortio) POSITIONAL=$(positional_targets "$ARGS"); BARE_TXT="$BARE_TXT
+$POSITIONAL" ;; esac
     done < <(printf '%s\n' "$line" | tr '|' '\n')
     if [ "$hit" = 1 ]; then
       raw_hit=1
       LOAD_TXT="$LOAD_TXT
 $line"
     else
+      ASSIGNED=$(assignments_of "$line")
       ASSIGN_TXT="$ASSIGN_TXT
-$(assignments_of "$line")"
+$ASSIGNED"
     fi
   done < <(printf '%s\n' "$raw" | sed -E 's/(\|\||&&|[;&]|\$\(|`)/\n/g')
 done < <(printf '%s\n' "$CMD")
@@ -190,8 +199,8 @@ drop_outputs() {
       }
       print out }'
 }
-LOAD_TXT="$(printf '%s\n' "$LOAD_TXT" | drop_outputs)"
-LOCUST_TXT="$(printf '%s\n' "$LOCUST_TXT" | drop_outputs)"
+LOAD_TXT=$(printf '%s\n' "$LOAD_TXT" | drop_outputs)
+LOCUST_TXT=$(printf '%s\n' "$LOCUST_TXT" | drop_outputs)
 
 # 대상 호스트를 모은다 — 부하 구간의 URL · --host · locust -H · 참조한 스크립트 파일 안의 URL · JMX 도메인
 hosts_from_text() {
@@ -207,15 +216,22 @@ bare_host() { sed -E 's/^["'"'"']//; s/["'"'"']$//; s#^[a-zA-Z][a-zA-Z0-9+.-]*:/
 strip_comments() { sed -E 's/[[:space:]]+(\/\/|#).*$//'; }
 # k6 의 __ENV.BASE_URL || 'host' 기본값 — 스킴 없이 쓰면 URL 검사에 안 걸린다
 env_defaults() { strip_comments | grep -vE '^[[:space:]]*(//|#)' | grep -oE '__ENV\.[A-Za-z0-9_]*(URL|HOST|url|host)[A-Za-z0-9_]*[[:space:]]*(\|\||\?\?)[[:space:]]*['"'"'"`][^'"'"'"`]+' | sed -E 's/^[^|?]*(\|\||\?\?)[[:space:]]*.//' | bare_host; }
-HOSTS="$(printf '%s\n' "$LOAD_TXT" | hosts_from_text)
-$(printf '%s\n' "$BODY_TXT" | strip_comments | hosts_from_text)
-$(printf '%s\n' "$BODY_TXT" | env_defaults)"
+H_LOAD=$(printf '%s\n' "$LOAD_TXT" | hosts_from_text)
+H_BODY=$(printf '%s\n' "$BODY_TXT" | strip_comments | hosts_from_text)
+H_BODY_ENV=$(printf '%s\n' "$BODY_TXT" | env_defaults)
+HOSTS="$H_LOAD
+$H_BODY
+$H_BODY_ENV"
 # -H 는 locust 에서만 호스트다 (hey · wrk · ab · oha · autocannon 은 헤더)
+H_FLAG=$(printf '%s\n' "$LOAD_TXT" | grep -oE '\-\-(host|server)[= ][^ ]+' | sed -E 's/^--(host|server)[= ]//' | bare_host)
+H_BARE=$(printf '%s\n' "$BARE_TXT" | bare_host)
+H_LOCUST=$(printf '%s\n' "$LOCUST_TXT" | grep -oE '(^| )-H [^ ]+' | sed -E 's/^ ?-H //' | bare_host)
+H_ASSIGN=$(printf '%s\n' "$LOAD_TXT" | grep -oE '[A-Za-z0-9_]*(URL|HOST|url|host)[A-Za-z0-9_]*=[^ ]+' | sed -E 's/^[^=]+=//' | bare_host)
 HOSTS="$HOSTS
-$(printf '%s\n' "$LOAD_TXT" | grep -oE '\-\-(host|server)[= ][^ ]+' | sed -E 's/^--(host|server)[= ]//' | bare_host)
-$(printf '%s\n' "$BARE_TXT" | bare_host)
-$(printf '%s\n' "$LOCUST_TXT" | grep -oE '(^| )-H [^ ]+' | sed -E 's/^ ?-H //' | bare_host)
-$(printf '%s\n' "$LOAD_TXT" | grep -oE '[A-Za-z0-9_]*(URL|HOST|url|host)[A-Za-z0-9_]*=[^ ]+' | sed -E 's/^[^=]+=//' | bare_host)"
+$H_FLAG
+$H_BARE
+$H_LOCUST
+$H_ASSIGN"
 
 FILES=""
 for tok in $(printf '%s' "$LOAD_TXT" | tr -s ' \t"'"'"'=<>' '\n\n\n\n\n\n\n'); do
@@ -226,20 +242,28 @@ $p"; break; }; done ;;
 done
 [ -n "${LOCUST_TXT// /}" ] && { printf '%s' "$LOCUST_TXT" | grep -qE '(-f|--locustfile)[ =]' || { [ -f "$BASE/locustfile.py" ] && FILES="$FILES
 $BASE/locustfile.py"; }; }
-while IFS= read -r f; do
+OLD_IFS="$IFS"; set -f; IFS='
+'
+FILE_LIST=($FILES)
+IFS="$OLD_IFS"; set +f
+for f in ${FILE_LIST+"${FILE_LIST[@]}"}; do
   [ -n "$f" ] || continue
+  H_FILE=$(strip_comments < "$f" | hosts_from_text)
+  H_FILE_ENV=$(env_defaults < "$f")
   HOSTS="$HOSTS
-$(strip_comments < "$f" | hosts_from_text)
-$(env_defaults < "$f")"
-  case "$f" in *.jmx) HOSTS="$HOSTS
-$(grep -oE 'HTTPSampler\.domain">[^<]+' "$f" | sed 's/.*">//' | grep -vE '\$\{' || true)" ;; esac
-done <<< "$FILES"
+$H_FILE
+$H_FILE_ENV"
+  case "$f" in *.jmx)
+    H_JMX=$(grep -oE 'HTTPSampler\.domain">[^<]+' "$f" | sed 's/.*">//' | grep -vE '\$\{' || true)
+    HOSTS="$HOSTS
+$H_JMX" ;; esac
+done
 
 # 표준 표기(점 넷 · 0~255 · 앞 0 없음) IPv4 가 루프백 · 사설 · 0.0.0.0 인가
 private_ipv4() {
-  local a b c d
+  local a b c d r
   printf '%s' "$1" | grep -qE '^(0|[1-9][0-9]{0,2})(\.(0|[1-9][0-9]{0,2})){3}$' || return 1
-  IFS=. read -r a b c d <<< "$1"
+  a="${1%%.*}"; r="${1#*.}"; b="${r%%.*}"; r="${r#*.}"; c="${r%%.*}"; d="${r#*.}"
   [ "$a" -le 255 ] && [ "$b" -le 255 ] && [ "$c" -le 255 ] && [ "$d" -le 255 ] || return 1
   [ "$a" = 127 ] || [ "$a" = 10 ] || [ "$1" = 0.0.0.0 ] || { [ "$a" = 192 ] && [ "$b" = 168 ]; } \
     || { [ "$a" = 172 ] && [ "$b" -ge 16 ] && [ "$b" -le 31 ]; }
@@ -247,7 +271,7 @@ private_ipv4() {
 
 allowed() {
   local h p
-  h="$(printf '%s' "$1" | tr 'A-Z' 'a-z' | sed -E 's/^\[//; s/\]$//; s/\.$//')"
+  h=$(printf '%s' "$1" | tr 'A-Z' 'a-z' | sed -E 's/^\[//; s/\]$//; s/\.$//')
   case "$h" in
     localhost|*.localhost|host.docker.internal|*.local|*.test|*.internal) return 0 ;;
     # IPv6 — ::1 · fc00::/7 · fe80::/10 만 사설이다
@@ -261,7 +285,7 @@ allowed() {
       fi ;;
   esac
   for p in $(printf '%s' "${STRESS_TEST_ALLOWED_HOSTS:-}" | tr ',' ' '); do
-    p="$(printf '%s' "$p" | tr 'A-Z' 'a-z')"
+    p=$(printf '%s' "$p" | tr 'A-Z' 'a-z')
     case "$p" in
       \*.*) case "$h" in *"${p#\*}") return 0 ;; esac ;;
       *) [ "$h" = "$p" ] && return 0 ;;
