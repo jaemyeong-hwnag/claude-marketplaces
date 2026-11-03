@@ -50,6 +50,7 @@ None
 
 - **Does not judge "whether AI wrote it".** Points only to fixable patterns and their lines. Human-written text with the same pattern is flagged too.
 - Only four obvious traces are blocked: chat residue, placeholders, chatbot citation tokens, and relative links to paths that do not exist.
+  - It runs on `PostToolUse`, so the file is already saved. A block does not undo the write; it sends the line back to Claude to fix.
 - Warnings are candidates. The skill makes the call.
 - Evidence warnings (`DS-05` ~ `DS-07`) **do not mean delete.** Adding a source or marking `미확인` (unverified) passes. Deleting evidence to be concise lowers accuracy.
 - Files checked: `.md` · `.mdx` · `.markdown` · `.rst` · `.txt` · `.adoc`

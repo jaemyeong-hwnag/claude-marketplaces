@@ -49,6 +49,7 @@ None
 - The unit of judgment is one request. Only files changed by Claude's edit tools count — files changed via Bash (code generators · `sed`) are not seen. It does not depend on git
 - `G-01` only checks "was at least one test file edited". It does not check coverage
 - Behavior-preserving changes are exempted after telling the user — the block message shows the exemption file path. An exemption is valid only for that request
+  - The hook only checks for a `test:<reason>` line in the exemption file. It does not check that the user agreed, so it passes even if Claude writes the line itself
 - The edit log · exemption files live in the project's `.claude/code-edit-guardrail/`. The directory ignores itself, so it is never committed
 - A quality lane runs at Stop only when a file edited in this request matches its `paths`. Use fast check commands, not a full build · test run (the time limit is 600 seconds for the whole Stop hook — lanes run one after another)
 - A file in another git work tree under the project (`.claude/worktrees/<id>` · nested repository) uses that work tree as its root if the work tree has its own config — config, globs and lane working directory are relative to it. Without its own config, the project config applies

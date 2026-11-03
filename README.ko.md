@@ -2,7 +2,7 @@
 
 [English](README.md) · **한국어** · [简体中文](README.zh-CN.md)
 
-모델이 건너뛸 수 있는 지시 대신 훅으로 규칙을 강제하는 Claude Code 플러그인 모음. 코드를 고치고 테스트를 안 고쳤거나 린트가 실패하면 완료를 막고, AI 의 변경을 작성자의 결론을 보지 않는 검증자에게 넘기고, 운영 호스트를 향한 부하 테스트를 막고, 시크릿 커밋을 막고, Java · Kotlin · TypeScript · Node.js · Python · Go 네이밍 컨벤션을 강제한다. 이 규칙을 Claude Code 세션마다 적용하고 싶은 개인과 팀을 위한 것이다.
+모델이 건너뛸 수 있는 지시 대신 훅으로 규칙을 강제하는 Claude Code 플러그인 모음. 코드를 고치고 테스트를 안 고쳤거나 린트가 실패하면 완료를 되돌리고, AI 의 변경을 작성자의 결론을 보지 않는 검증자에게 넘기고, 운영 호스트를 향한 부하 테스트를 막고, 시크릿 커밋을 막고, Java · Kotlin · TypeScript · Node.js · Python · Go 네이밍 컨벤션을 강제한다. 이 규칙을 Claude Code 세션마다 적용하고 싶은 개인과 팀을 위한 것이다. 완료(`Stop`) 게이트는 요청마다 한 번 되돌리는 장치라 사람의 리뷰를 대신하지 않는다.
 
 ```
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
@@ -171,19 +171,19 @@ PSI="$(claude plugin list --json | jq -r '[.[] | select(.id=="plugin-search-inst
 
 ### Claude Code 가 테스트 없이 작업을 끝내지 못하게 하려면?
 
-[`code-edit-guardrail`](public-plugins/code-edit-guardrail) 을 설치하고 "가드레일 설정해줘" 라고 말한다. 한 요청에서 코드를 고쳤는데 테스트 파일을 하나도 안 고쳤거나, 고친 경로의 린트 · 포맷 · 타입 검사 명령이 실패하면 `Stop` 훅이 완료를 막는다.
+[`code-edit-guardrail`](public-plugins/code-edit-guardrail) 을 설치하고 "가드레일 설정해줘" 라고 말한다. 한 요청에서 코드를 고쳤는데 테스트 파일을 하나도 안 고쳤거나, 고친 경로의 린트 · 포맷 · 타입 검사 명령이 실패하면 `Stop` 훅이 완료를 한 번 되돌린다. 동작이 그대로인 변경은 Claude 가 면제 파일에 사유를 적으면 통과한다 — 사용자가 동의했는지는 훅이 확인하지 않는다.
 
 ### Claude Code 의 변경을 Claude 자신이 아닌 쪽이 검증하게 하려면?
 
-[`common-evidence-review`](public-plugins/common-evidence-review) 가 원래 요청 · 바뀐 파일 · 결론을 뺀 질문만 별도 검증 에이전트에 넘기고, 검증자는 변경마다 실행 근거로 판정한다. 한 요청에서 코드 · 설정을 3줄 이상 바꾸고 이 검증 없이 끝내려 하면 종료를 한 번 되돌린다.
+[`common-evidence-review`](public-plugins/common-evidence-review) 가 원래 요청 · 바뀐 파일 · 결론을 뺀 질문만 별도 검증 에이전트에 넘기고, 검증자는 변경마다 실행 근거로 판정한다. 한 요청에서 코드 · 설정을 3줄 이상 바꾸고 이 검증 없이 끝내려 하면 종료를 한 번 되돌린다. 게이트는 검증자를 불렀는지만 보고, 판정을 따랐는지는 보지 않는다.
 
 ### Claude Code 가 API 키나 `.env` 파일을 커밋하지 못하게 하려면?
 
-[`git-secret-validate`](public-plugins/git-secret-validate) 가 시크릿 · 민감 파일이 실린 `git commit` · `git push` 를 막는다. 탐지는 gitleaks, 없으면 내장 패턴이다.
+[`git-secret-validate`](public-plugins/git-secret-validate) 가 시크릿 · 민감 파일이 실린 `git commit` · `git push` 를 막는다. `bash -c` · `sh -c` · `eval` 로 감싼 명령도 본다. 탐지는 gitleaks, 없으면 내장 패턴이다.
 
 ### Claude Code 로 운영 서버를 건드리지 않고 부하 테스트를 할 수 있나?
 
-[`common-stress-test`](public-plugins/common-stress-test) 가 대상 호스트가 허용 목록(루프백 · 사설 IP · `*.local` · `*.test` · `*.internal` · 직접 추가한 호스트) 밖인 k6 · Gatling · Locust · JMeter 명령을 막는다.
+[`common-stress-test`](public-plugins/common-stress-test) 가 대상 호스트가 허용 목록(루프백 · 사설 IP · `*.local` · `*.test` · `*.internal` · 직접 추가한 호스트) 밖인 부하 명령(k6 · Gatling · Locust · JMeter · wrk · hey · bombardier · siege 등)을 막는다. `make` · `npm run` 을 거친 간접 실행과 변수로 만든 명령 · 대상은 보지 못한다.
 
 ### Claude Code 가 언어의 네이밍 컨벤션을 지키게 하려면?
 
@@ -191,7 +191,7 @@ PSI="$(claude plugin list --json | jq -r '[.[] | select(.id=="plugin-search-inst
 
 ### 왜 `CLAUDE.md` 지시가 아니라 훅인가?
 
-훅은 모델 밖에서 Claude Code 가 직접 실행한다. 지시는 건너뛸 수 있지만, `PreToolUse` 훅은 도구 호출을 거부하고 `Stop` 훅은 턴 종료를 거부할 수 있다.
+훅은 모델 밖에서 Claude Code 가 직접 실행한다. 지시는 건너뛸 수 있지만, `PreToolUse` 훅은 도구 호출을 거부하고 `Stop` 훅은 턴 종료를 거부할 수 있다. 다만 이 저장소의 `Stop` 게이트는 같은 요청에서 한 번만 되돌린다 — 모델이 두 번째 종료에서 넘어갈 수 있다.
 
 ## 이 저장소에서 작업할 때
 

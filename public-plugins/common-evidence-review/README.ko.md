@@ -57,6 +57,7 @@ AI 가 한 변경과 주장이 진짜 필요한지 · 맞는지를 작성 맥락
   - 문서(`.md` 등)는 세지 않는다 — `common-document-slop-review` 의 몫이다. `requirements.txt` · `CMakeLists.txt` 같은 설정은 센다.
   - Bash 로 바꾼 파일은 훅이 보지 못한다.
   - 한 요청에서 두 번 막지 않는다. 다만 검증 뒤에 또 고치면 그 편집으로 다시 판정한다. 끄려면 `EVIDENCE_REVIEW_GATE=0`
+  - 게이트는 `evidence-reviewer` 를 불렀는지만 본다. 판정대로 고쳤는지는 확인하지 않는다.
 - `E-20` 은 알림이다. 테스트를 일부러 바꾼 것일 수 있어서 막지 않는다.
 - 스크립트는 bash · jq · grep 을 쓰고, `--diff` 에는 git 을 쓴다. jq 가 없으면 훅은 조용히 통과한다.
 

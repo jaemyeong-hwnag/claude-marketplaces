@@ -49,6 +49,7 @@ claude plugin install code-edit-guardrail@jaemyeong-hwnag-plugins --scope projec
 - 判定单位是一次请求。只看 Claude 编辑工具改过的文件 —— 通过 Bash 改的文件（代码生成器 · `sed`）不看。与 git 无关
 - `G-01` 只看"是否至少改了一个测试文件"。不看覆盖率
 - 行为不变的修改在告知用户后豁免 —— 阻止消息中会给出豁免文件路径。豁免只对该次请求有效
+  - 钩子只检查豁免文件中是否有 `test:<理由>` 行。不检查用户是否同意，因此 Claude 自己写入也会通过
 - 编辑记录 · 豁免文件放在项目的 `.claude/code-edit-guardrail/`。目录自带 ignore，不会被提交
 - 质量 lane 仅在本次请求修改的文件命中其 `paths` 时于 Stop 运行。使用快速检查命令，而不是完整构建 · 测试（时间限制是整个 Stop 钩子 600 秒 —— lane 依次运行）
 - 项目下其他 git 工作树（`.claude/worktrees/<id>` · 嵌套仓库）中的文件，若该工作树有自己的配置，则以该工作树为根 —— 配置、glob 和 lane 执行位置都以它为准。没有自己的配置时使用项目配置

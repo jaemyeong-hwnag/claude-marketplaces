@@ -2,7 +2,7 @@
 
 **English** · [한국어](README.ko.md) · [简体中文](README.zh-CN.md)
 
-Claude Code plugins that enforce rules with hooks instead of instructions the model can skip. They block Claude from finishing when code changed without tests or lint fails, hand AI changes to a verifier that never sees the author's conclusion, block load tests aimed at production hosts, stop secrets from being committed, and enforce naming conventions for Java, Kotlin, TypeScript, Node.js, Python and Go. For people and teams who want these rules applied in every Claude Code session.
+Claude Code plugins that enforce rules with hooks instead of instructions the model can skip. They turn Claude back from finishing when code changed without tests or lint fails, hand AI changes to a verifier that never sees the author's conclusion, block load tests aimed at production hosts, stop secrets from being committed, and enforce naming conventions for Java, Kotlin, TypeScript, Node.js, Python and Go. For people and teams who want these rules applied in every Claude Code session. The completion (`Stop`) gates turn the stop back once per request, so they do not replace human review.
 
 ```
 /plugin marketplace add jaemyeong-hwnag/claude-marketplaces
@@ -171,19 +171,19 @@ Internal plugins used only to develop this repository — [`plugin-naming`](inte
 
 ### How do I stop Claude Code from finishing without writing tests?
 
-Install [`code-edit-guardrail`](public-plugins/code-edit-guardrail) and say "set up the guardrail". Its `Stop` hook blocks completion when code changed in a request but no test file did, or when the lint · format · type-check command for the edited paths fails.
+Install [`code-edit-guardrail`](public-plugins/code-edit-guardrail) and say "set up the guardrail". Its `Stop` hook turns completion back once when code changed in a request but no test file did, or when the lint · format · type-check command for the edited paths fails. A behavior-preserving change passes once Claude writes a reason to the exemption file — the hook does not check that the user agreed.
 
 ### How do I get Claude Code's changes checked by something other than Claude itself?
 
-[`common-evidence-review`](public-plugins/common-evidence-review) sends the original request, the changed files and conclusion-free questions to a separate verifier agent, which judges each change from execution evidence. If a request changed 3 or more lines of code or config and ends without that review, the stop is turned back once.
+[`common-evidence-review`](public-plugins/common-evidence-review) sends the original request, the changed files and conclusion-free questions to a separate verifier agent, which judges each change from execution evidence. If a request changed 3 or more lines of code or config and ends without that review, the stop is turned back once. The gate checks only that the verifier was called, not that its verdict was followed.
 
 ### How do I keep Claude Code from committing API keys or `.env` files?
 
-[`git-secret-validate`](public-plugins/git-secret-validate) blocks `git commit` · `git push` when the change carries secrets or sensitive files, using gitleaks or built-in patterns when gitleaks is absent.
+[`git-secret-validate`](public-plugins/git-secret-validate) blocks `git commit` · `git push` when the change carries secrets or sensitive files, using gitleaks or built-in patterns when gitleaks is absent. Commands wrapped in `bash -c` · `sh -c` · `eval` are checked too.
 
 ### Can Claude Code run load tests without hitting production?
 
-[`common-stress-test`](public-plugins/common-stress-test) blocks k6 · Gatling · Locust · JMeter commands whose target host is outside an allowlist (loopback, private IPs, `*.local` · `*.test` · `*.internal`, and hosts you add).
+[`common-stress-test`](public-plugins/common-stress-test) blocks load commands (k6 · Gatling · Locust · JMeter · wrk · hey · bombardier · siege and more) whose target host is outside an allowlist (loopback, private IPs, `*.local` · `*.test` · `*.internal`, and hosts you add). It cannot see indirect runs through `make` · `npm run` or commands · targets built from variables.
 
 ### How do I make Claude Code follow my language's naming conventions?
 
@@ -191,7 +191,7 @@ Install the plugin for your language — [`java-naming`](public-plugins/java-nam
 
 ### Why hooks instead of `CLAUDE.md` instructions?
 
-Claude Code runs hooks itself, outside the model. An instruction can be skipped; a `PreToolUse` hook can refuse a tool call and a `Stop` hook can refuse to end the turn.
+Claude Code runs hooks itself, outside the model. An instruction can be skipped; a `PreToolUse` hook can refuse a tool call and a `Stop` hook can refuse to end the turn. The `Stop` gates here turn the stop back only once per request, though — the model can pass on its second attempt.
 
 ## Working in this repository
 

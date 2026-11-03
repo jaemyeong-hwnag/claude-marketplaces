@@ -57,6 +57,7 @@ None
   - Docs (`.md` etc.) are not counted — that is `common-document-slop-review`'s job. Config such as `requirements.txt` · `CMakeLists.txt` is counted.
   - Files changed via Bash are invisible to the hook.
   - Does not block twice in one request. But editing again after verification re-judges on that edit. Disable with `EVIDENCE_REVIEW_GATE=0`
+  - The gate checks only that `evidence-reviewer` was called. It does not check that the verdict was acted on.
 - `E-20` is a notice. It does not block, since the test may have been changed on purpose.
 - The script uses bash · jq · grep, and git for `--diff`. Without jq the hook passes silently.
 
