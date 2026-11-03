@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # git 로컬 diff(HEAD 대비 tracked + untracked) 기준 @AiTest 검증.
 #   변경 Controller 의 *AiTest* 존재 → aiTest 실행 → 수정 메서드 JaCoCo 100%.
-# deps: git, awk, jq(설정 파일이 있을 때), bash 3.2+
+# deps: git, awk, javap(JDK), jq(설정 파일이 있을 때), bash 3.2+
 #
 # Usage: diff-coverage-validate.sh [--check-only | --report-only] [--also <git-ref>] [git-ref]
 #   --check-only  : 변경 Controller 의 *AiTest* 존재만 본다 (aiTest · JaCoCo 미실행)
@@ -12,7 +12,7 @@
 # 대상 모듈 = 설정 .modules → 루트 build.gradle 의 aiTestModules → 단일 모듈(".") 순.
 # 라이브러리 모듈 → 소비 모듈 = 설정 .libraryModules. 설정: .claude/java-spring-aitest-coverage.json
 #
-# 종료 코드: 0 통과 · 1 미충족 · 2 실행 오류
+# 종료 코드: 0 통과 · 1 미충족 · 2 실행 오류 · 판정 불가
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -188,6 +188,13 @@ if [ "$CHECK_ONLY" = true ]; then
   exit 0
 fi
 
+# aiTest 를 돌릴 JDK — javap 도 이 JDK 의 것을 쓴다
+java_version="$(cfg '.javaVersion // empty')"
+if [ -n "$java_version" ] && [ -x /usr/libexec/java_home ]; then
+  JAVA_HOME="$(/usr/libexec/java_home -v "$java_version" 2>/dev/null || echo "${JAVA_HOME:-}")"
+  export JAVA_HOME
+fi
+
 # 모듈 하나의 판정에 영향을 주는 소스 디렉터리 — 자기 src/ + 설정의 라이브러리 src/main/
 source_dirs_of() {
   local m="$1" p l cs
@@ -230,11 +237,6 @@ if [ "$REPORT_ONLY" = true ]; then
   fi
 else
   # --- aiTest 실행 ------------------------------------------------------------
-  java_version="$(cfg '.javaVersion // empty')"
-  if [ -n "$java_version" ] && [ -x /usr/libexec/java_home ]; then
-    JAVA_HOME="$(/usr/libexec/java_home -v "$java_version" 2>/dev/null || echo "${JAVA_HOME:-}")"
-    export JAVA_HOME
-  fi
   if [ ! -x ./gradlew ]; then
     echo "$NAME: ./gradlew 가 없습니다" >&2
     exit 2
@@ -269,14 +271,16 @@ else
 fi
 
 # --- 수정 메서드 커버리지 -------------------------------------------------------
-ok=""; skip=""; bad=""
+ok=""; skip=""; bad=""; broken=""
 while IFS='|' read -r mod fqn _simple _kind src; do
   xml="$(mod_dir "$mod")$REPORT_REL"
-  if out="$("$SCRIPT_DIR/method-coverage-get.sh" "$BASE" "$xml" "$src" "$fqn" "$mod" 2>&1)"; then
-    if printf '%s\n' "$out" | grep -q '^OK '; then ok="${ok}${out}"$'\n'; else skip="${skip}${out}"$'\n'; fi
-  else
-    bad="${bad}${out}"$'\n'
-  fi
+  rc=0
+  out="$("$SCRIPT_DIR/method-coverage-get.sh" "$BASE" "$xml" "$src" "$fqn" "$mod" 2>&1)" || rc=$?
+  case "$rc" in
+    0) if printf '%s\n' "$out" | grep -q '^OK '; then ok="${ok}${out}"$'\n'; else skip="${skip}${out}"$'\n'; fi ;;
+    2) broken="${broken}${out}"$'\n' ;;
+    *) bad="${bad}${out}"$'\n' ;;
+  esac
 done < "$entries_file"
 
 [ -z "$ok" ] || { echo "$NAME: changed method coverage OK:"; printf '%s' "$ok" | sed '/^$/d; s/^/  /'; }
@@ -286,8 +290,14 @@ if [ -n "$bad" ]; then
   printf '%s' "$bad" | sed '/^$/d; s/^/  /' >&2
   echo "  → 수정 메서드를 100% 덮도록 @AiTest 보강 후 재실행 (최대 3회)" >&2
   echo "  → 리포트: <module>/build/reports/jacoco/aiTestCoverageReport/html/" >&2
-  exit 1
 fi
+if [ -n "$broken" ]; then
+  echo "$NAME: FAIL — 변경 메서드를 판정할 수 없습니다 (C-09):" >&2
+  printf '%s' "$broken" | sed '/^$/d; s/^/  /' >&2
+  echo "  → JDK(javap)를 맞추고 $0 ${ALSO:+--also $ALSO }$BASE 로 클래스 파일 · 리포트를 다시 만든다" >&2
+  exit 2
+fi
+[ -z "$bad" ] || exit 1
 
 echo "$NAME: PASS ($entry_count class(es), $module_count module(s), changed method coverage 100%)"
 exit 0
