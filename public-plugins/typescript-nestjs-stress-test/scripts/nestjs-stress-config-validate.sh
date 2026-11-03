@@ -49,7 +49,7 @@ script_of() { jq -r --arg k "$1" '(.scripts // {})[$k] // empty' "$PKG" 2>/dev/n
 
 # 기동 명령 안의 npm/yarn/pnpm 스크립트 호출을 풀어 뒤에 붙인다 (한 단계)
 expand_cmd() { # $1=명령
-  local cmd="$1" name
+  local cmd="$1" name script
   for name in $(printf '%s' "$cmd" | tr -d '",[]' | awk '{
       for (i = 1; i <= NF; i++) {
         if (($i == "npm" || $i == "pnpm") && $(i+1) == "start") print "start"
@@ -57,7 +57,8 @@ expand_cmd() { # $1=명령
         else if (($i == "yarn" || $i == "pnpm") && $(i+1) ~ /^start/) print $(i+1)
       }
     }'); do
-    cmd="$cmd ⟶ $(script_of "$name")"
+    script=$(script_of "$name")
+    cmd="$cmd ⟶ $script"
   done
   printf '%s' "$cmd"
 }
@@ -72,32 +73,37 @@ check_project() { # $1=루트
   PKG="$ROOT/package.json"
   uses_framework "$PKG" || return 0
   local deps
-  deps="$(jq -r '((.dependencies // {}) + (.devDependencies // {})) | keys[]' "$PKG" 2>/dev/null)"
+  deps=$(jq -r '((.dependencies // {}) + (.devDependencies // {})) | keys[]' "$PKG" 2>/dev/null)
 
-  local cfgs=() f line loc cmd
-  while IFS= read -r f; do cfgs+=("$f"); done < <(run_config_files "$ROOT")
+  local cfgs=() f line loc cmd found relf lno script nll_val main_rel dbg_rel dbg_ln pkg_rel
+  found=$(run_config_files "$ROOT")
+  to_lines "$found"
+  for f in ${SPLIT+"${SPLIT[@]}"}; do cfgs+=("$f"); done
 
   # 운영 기동 명령 — 배포 설정이 있으면 그것, 없으면 start:prod (없으면 start)
   local starts="$TMP/starts"; : > "$starts"
   for f in ${cfgs+"${cfgs[@]}"}; do
+    relf=$(rel "$f")
     case "$f" in
       */Procfile) grep -nE '^[a-z]+:' "$f" ;;
       *) grep -nE '^[[:space:]]*(CMD|ENTRYPOINT|command:|-[[:space:]]*command:)' "$f" ;;
     esac | while IFS= read -r line; do
-      printf '%s:%s\x1f%s\n' "$(rel "$f")" "${line%%:*}" "${line#*:}"
+      printf '%s:%s\x1f%s\n' "$relf" "${line%%:*}" "${line#*:}"
     done >> "$starts"
   done
   if [ ! -s "$starts" ]; then
     local key=start:prod
-    [ -n "$(script_of start:prod)" ] || key=start
-    [ -n "$(script_of "$key")" ] && printf 'package.json:scripts.%s\x1f%s\n' "$key" "$(script_of "$key")" >> "$starts"
+    script=$(script_of start:prod)
+    [ -n "$script" ] || key=start
+    script=$(script_of "$key")
+    [ -n "$script" ] && printf 'package.json:scripts.%s\x1f%s\n' "$key" "$script" >> "$starts"
   fi
 
   : > "$TMP/nll"  # NEST_LOG_LEVEL 값<US>위치
   while IFS=$'\x1f' read -r loc cmd; do
     # exec 형식 ["nest","start"] 을 단어 사이가 빈칸인 셸 형식으로 편다
-    cmd="$(printf '%s' "$cmd" | sed -E 's/\[[[:space:]]*"/ /; s/"[[:space:]]*\][[:space:]]*$/ /; s/"[[:space:]]*,[[:space:]]*"/ /g')"
-    cmd="$(expand_cmd "$cmd")"
+    cmd=$(printf '%s' "$cmd" | sed -E 's/\[[[:space:]]*"/ /; s/"[[:space:]]*\][[:space:]]*$/ /; s/"[[:space:]]*,[[:space:]]*"/ /g')
+    cmd=$(expand_cmd "$cmd")
     # NST-01 — nest start (--watch · --debug 포함)
     if printf '%s' "$cmd" | grep -qE '(^|[^[:alnum:]_/-])nest[[:space:]]+start'; then
       err "NST-01 $loc: 운영 기동이 'nest start' — 빌드 · 감시 프로세스를 거친 개발 실행이다. 'nest build' 후 'node dist/main' 으로 띄운다"
@@ -109,13 +115,17 @@ check_project() { # $1=루트
     printf '%s' "$cmd" | sed -nE 's/.*NEST_LOG_LEVEL=["'"'"']?([^"'"'"'[:space:]]+).*/\1/p' | while IFS= read -r v; do printf '%s\x1f%s\n' "$v" "$loc"; done >> "$TMP/nll"
   done < "$starts"
   for f in ${cfgs+"${cfgs[@]}"}; do
+    relf=$(rel "$f")
     grep -nE 'NEST_LOG_LEVEL["'"'"']?[[:space:]]*[:=]' "$f" | grep -vE '^[0-9]+:[[:space:]]*(CMD|ENTRYPOINT|command:|-[[:space:]]*command:)' | while IFS= read -r line; do
-      printf '%s\x1f%s:%s\n' "$(printf '%s' "$line" | sed -nE 's/.*NEST_LOG_LEVEL["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"']?([^"'"'"'[:space:]]+).*/\1/p')" "$(rel "$f")" "${line%%:*}"
+      nll_val=$(printf '%s' "$line" | sed -nE 's/.*NEST_LOG_LEVEL["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"']?([^"'"'"'[:space:]]+).*/\1/p')
+      printf '%s\x1f%s:%s\n' "$nll_val" "$relf" "${line%%:*}"
     done >> "$TMP/nll"
   done
 
   local srcs=()
-  while IFS= read -r f; do srcs+=("$f"); done < <(source_files "$ROOT")
+  found=$(source_files "$ROOT")
+  to_lines "$found"
+  for f in ${SPLIT+"${SPLIT[@]}"}; do srcs+=("$f"); done
   [ ${#srcs[@]} -gt 0 ] || return 0
 
   # NST-03 — Nest Logger 레벨. 명시한 logger 옵션 · useLogger 가 NEST_LOG_LEVEL 보다 앞선다
@@ -123,7 +133,8 @@ check_project() { # $1=루트
   for f in "${srcs[@]}"; do grep -qE 'NestFactory\.create' "$f" && mains+=("$f"); done
   for f in ${mains+"${mains[@]}"}; do
     grep_code "(logger[[:space:]]*:|useLogger[[:space:]]*\(|setLogLevels[[:space:]]*\(|logLevels[[:space:]]*:).*['\"](debug|verbose)['\"]" "$f" | while IFS= read -r line; do
-      printf '%s\n' "NST-03 $(rel "${line%%:*}"):$(printf '%s' "$line" | cut -d: -f2): Nest 로그 레벨에 debug · verbose 가 있다 — 운영 레벨(['error','warn','log'] 등)로 잰다"
+      relf=$(rel "${line%%:*}"); lno=$(printf '%s' "$line" | cut -d: -f2)
+      printf '%s\n' "NST-03 $relf:$lno: Nest 로그 레벨에 debug · verbose 가 있다 — 운영 레벨(['error','warn','log'] 등)로 잰다"
     done
   done > "$TMP/w03"
   while IFS= read -r line; do warn "$line"; done < "$TMP/w03"
@@ -136,9 +147,10 @@ check_project() { # $1=루트
       done < "$TMP/nll"
     else
       local dbg
-      dbg="$(grep_code '\.(debug|verbose)[[:space:]]*\(' "${srcs[@]}" | head -1)"
+      dbg=$(grep_code '\.(debug|verbose)[[:space:]]*\(' "${srcs[@]}" | head -1)
       if [ -n "$dbg" ]; then
-        warn "NST-03 $(rel "${mains[0]}"): NestFactory.create 에 logger 옵션이 없다 — 기본 레벨이 6개 전부라 $(rel "${dbg%%:*}"):$(printf '%s' "$dbg" | cut -d: -f2) 의 debug · verbose 로그가 요청마다 찍힌다"
+        main_rel=$(rel "${mains[0]}"); dbg_rel=$(rel "${dbg%%:*}"); dbg_ln=$(printf '%s' "$dbg" | cut -d: -f2)
+        warn "NST-03 $main_rel: NestFactory.create 에 logger 옵션이 없다 — 기본 레벨이 6개 전부라 $dbg_rel:$dbg_ln 의 debug · verbose 로그가 요청마다 찍힌다"
       fi
     fi
   fi
@@ -146,34 +158,38 @@ check_project() { # $1=루트
   # NST-04 · NST-05 — Fastify 어댑터
   for f in "${srcs[@]}"; do
     grep -qE 'new[[:space:]]+FastifyAdapter' "$f" || continue
+    relf=$(rel "$f")
     local ln flat
-    ln="$(grep -nE 'new[[:space:]]+FastifyAdapter' "$f" | head -1 | cut -d: -f1)"
-    flat="$(tr '\n' ' ' < "$f")"
+    ln=$(grep -nE 'new[[:space:]]+FastifyAdapter' "$f" | head -1 | cut -d: -f1)
+    flat=$(tr '\n' ' ' < "$f")
     if printf '%s' "$flat" | grep -qE 'new[[:space:]]+FastifyAdapter[[:space:]]*\([[:space:]]*\{[^)]*logger[[:space:]]*:[[:space:]]*(true|\{)' \
        && ! printf '%s' "$flat" | grep -qE 'disableRequestLogging[[:space:]]*:[[:space:]]*true'; then
-      warn "NST-04 $(rel "$f"):$ln: FastifyAdapter 에 logger 를 켰다 — Fastify 가 요청마다 시작 · 완료 로그를 쓴다. 끄거나 disableRequestLogging: true"
+      warn "NST-04 $relf:$ln: FastifyAdapter 에 logger 를 켰다 — Fastify 가 요청마다 시작 · 완료 로그를 쓴다. 끄거나 disableRequestLogging: true"
     fi
     grep_code '\.listen[[:space:]]*\(' "$f" | while IFS= read -r line; do
       local args="${line#*listen}"
       printf '%s' "$args" | grep -qE ',|host' && continue
-      printf '%s\n' "NST-05 $(rel "$f"):$(printf '%s' "$line" | cut -d: -f2): Fastify 어댑터의 listen 에 호스트가 없다 — 기본이 127.0.0.1 이라 컨테이너 밖 부하기가 붙지 못한다. listen(port, '0.0.0.0')"
+      lno=$(printf '%s' "$line" | cut -d: -f2)
+      printf '%s\n' "NST-05 $relf:$lno: Fastify 어댑터의 listen 에 호스트가 없다 — 기본이 127.0.0.1 이라 컨테이너 밖 부하기가 붙지 못한다. listen(port, '0.0.0.0')"
     done
   done > "$TMP/w45" 2>/dev/null
   while IFS= read -r line; do warn "$line"; done < "$TMP/w45"
 
   # NST-06 — 요청 지연에 Summary
   grep_code 'makeSummaryProvider[[:space:]]*\(|new[[:space:]]+([A-Za-z_$][A-Za-z0-9_$]*\.)?Summary[[:space:]]*(<[^>]*>)?\(' "${srcs[@]}" | while IFS= read -r line; do
-    printf '%s\n' "NST-06 $(rel "${line%%:*}"):$(printf '%s' "$line" | cut -d: -f2): Summary — 분위수를 프로세스가 계산해 인스턴스 사이에 합칠 수 없다. makeHistogramProvider · Histogram 을 쓴다"
+    relf=$(rel "${line%%:*}"); lno=$(printf '%s' "$line" | cut -d: -f2)
+    printf '%s\n' "NST-06 $relf:$lno: Summary — 분위수를 프로세스가 계산해 인스턴스 사이에 합칠 수 없다. makeHistogramProvider · Histogram 을 쓴다"
   done > "$TMP/w06"
   while IFS= read -r line; do warn "$line"; done < "$TMP/w06"
 
   # NST-07 · NST-08 — 지연 히스토그램 · in-flight 게이지
   if ! printf '%s\n' "$deps" | grep -qE '^@opentelemetry/(sdk-node|sdk-metrics)$'; then
+    pkg_rel=$(rel "$PKG")
     if ! grep -qE 'makeHistogramProvider[[:space:]]*\(|new[[:space:]]+([A-Za-z_$][A-Za-z0-9_$]*\.)?Histogram[[:space:]]*(<[^>]*>)?\(' "${srcs[@]}"; then
-      warn "NST-07 $(rel "$PKG"): 서버 측 지연 히스토그램이 없다 — 부하기 수치만으로는 서버 · 네트워크 · 부하기 중 어디서 늦는지 가를 수 없다"
+      warn "NST-07 $pkg_rel: 서버 측 지연 히스토그램이 없다 — 부하기 수치만으로는 서버 · 네트워크 · 부하기 중 어디서 늦는지 가를 수 없다"
     fi
     if ! grep -qE 'makeGaugeProvider[[:space:]]*\(|new[[:space:]]+([A-Za-z_$][A-Za-z0-9_$]*\.)?Gauge[[:space:]]*(<[^>]*>)?\(' "${srcs[@]}"; then
-      warn "NST-08 $(rel "$PKG"): in-flight 요청 게이지가 없다 — 단계마다 Little's Law(L = λW)를 맞춰 볼 수 없다"
+      warn "NST-08 $pkg_rel: in-flight 요청 게이지가 없다 — 단계마다 Little's Law(L = λW)를 맞춰 볼 수 없다"
     fi
   fi
 
@@ -191,7 +207,8 @@ check_project() { # $1=루트
       }
     }' "${srcs[@]}" | sort > "$TMP/w09"
   while IFS= read -r line; do
-    warn "NST-09 $(rel "${line%:*}"):${line##*:}: Scope.REQUEST — 요청마다 인스턴스를 만들고, 이것에 기대는 컨트롤러 · 프로바이더도 요청 스코프가 된다. 기본(싱글턴)과 비교해 잰다"
+    relf=$(rel "${line%:*}")
+    warn "NST-09 $relf:${line##*:}: Scope.REQUEST — 요청마다 인스턴스를 만들고, 이것에 기대는 컨트롤러 · 프로바이더도 요청 스코프가 된다. 기본(싱글턴)과 비교해 잰다"
   done < "$TMP/w09"
 }
 
@@ -208,15 +225,15 @@ report_cli() {
 
 # ---- 훅 모드 ------------------------------------------------------------------
 # --- 부하 도구 명령 판별 (훅) — common-stress-test 의 stress-target-validate.sh 와 같은 규칙 ---------------
-# heredoc 본문은 명령이 아니라 데이터다. 셸에 먹이는 heredoc(sh <<EOF)만 명령으로 남긴다
+# heredoc 본문은 명령이 아니라 데이터다. 셸에 먹이는 heredoc(sh 에 주는 것)만 명령으로 남긴다
 strip_heredoc() {
   awk -v q="'" '
     d != "" { t = $0; if (dash) sub(/^\t+/, "", t); if (t == d) d = ""; else if (keep) print; next }
-    { print; s = $0; gsub(/<<</, "\001", s)
-      if (match(s, "<<-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*")) {
-        d = substr(s, RSTART, RLENGTH); dash = (d ~ /^<<-/)
-        sub(/^<<-?[ \t]*/, "", d); gsub("[\"" q "]", "", d)
-        keep = (s ~ /(^|[;&|(][ \t]*)(sudo[ \t]+)?(ba|z|da|k)?sh([ \t]+-[A-Za-z]+)*[ \t]*<</)
+    { print; s = $0; gsub(/[<][<][<]/, "\001", s)
+      if (match(s, "[<][<]-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*")) {
+        d = substr(s, RSTART, RLENGTH); dash = (d ~ /^[<][<]-/)
+        sub(/^[<][<]-?[ \t]*/, "", d); gsub("[\"" q "]", "", d)
+        keep = (s ~ /(^|[;&|(][ \t]*)(sudo[ \t]+)?(ba|z|da|k)?sh([ \t]+-[A-Za-z]+)*[ \t]*[<][<]/)
       } }'
 }
 
@@ -294,24 +311,36 @@ is_load_segment() {
   return 1
 }
 
+# 여러 줄 문자열을 줄 배열 SPLIT 으로 나눈다 (빈 줄은 버린다)
+to_lines() { # $1=문자열
+  local old_ifs="$IFS"
+  set -f; IFS='
+'
+  SPLIT=($1)
+  IFS="$old_ifs"; set +f
+}
+
 # 명령을 && · || · ; · & · | · $( · ` 로 나눈 구간 중 하나라도 부하 도구 실행이면 참
 is_load_command() { # $1=명령
-  local seg
-  while IFS= read -r seg; do
+  local seg segs
+  segs=$(printf '%s\n' "$1" | strip_heredoc | sed -E 's/(\|\||&&|[;&|]|\$\(|`)/\n/g')
+  to_lines "$segs"
+  for seg in ${SPLIT+"${SPLIT[@]}"}; do
     [ -n "${seg// /}" ] || continue
     is_load_segment "$seg" && return 0
-  done < <(printf '%s\n' "$1" | strip_heredoc | sed -E 's/(\|\||&&|[;&|]|\$\(|`)/\n/g')
+  done
   return 1
 }
 
 # 명령이 도는 디렉터리 — 입력의 cwd(없으면 프로젝트)에 앞머리 cd 를 적용한다
 target_dir() { # $1=입력 JSON $2=명령
   local base d
-  base="$(printf '%s' "$1" | jq -r '.cwd // empty' 2>/dev/null)"
-  [ -n "$base" ] || base="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-  d="$(printf '%s\n' "$2" | sed -nE '1s/^[[:space:]]*cd[[:space:]]+([^;&|[:space:]]+).*/\1/p' | tr -d "\"'")"
+  base=$(printf '%s' "$1" | jq -r '.cwd // empty' 2>/dev/null)
+  [ -n "$base" ] || base="${CLAUDE_PROJECT_DIR:-}"
+  [ -n "$base" ] || base=$(pwd)
+  d=$(printf '%s\n' "$2" | sed -nE '1s/^[[:space:]]*cd[[:space:]]+([^;&|[:space:]]+).*/\1/p' | tr -d "\"'")
   case "$d" in '') d="$base" ;; /*) ;; *) d="$base/$d" ;; esac
-  [ -d "$d" ] && d="$(cd "$d" && pwd)"
+  [ -d "$d" ] && d=$(cd "$d" && pwd)
   printf '%s' "$d"
 }
 
@@ -321,19 +350,21 @@ app_root() { # $1=디렉터리
   while [ -n "$d" ]; do
     uses_framework "$d/package.json" && { printf '%s' "$d"; return 0; }
     [ "$d" = / ] && break
-    d="$(dirname "$d")"
+    d=$(dirname "$d")
   done
   printf '%s' "$1"
 }
 
 hook_mode() { # $1=입력 JSON
-  local event tool cmd
-  event="$(printf '%s' "$1" | jq -r '.hook_event_name // empty' 2>/dev/null)"
-  tool="$(printf '%s' "$1" | jq -r '.tool_name // empty' 2>/dev/null)"
-  cmd="$(printf '%s' "$1" | jq -r '.tool_input.command // empty' 2>/dev/null)"
+  local event tool cmd dir
+  event=$(printf '%s' "$1" | jq -r '.hook_event_name // empty' 2>/dev/null)
+  tool=$(printf '%s' "$1" | jq -r '.tool_name // empty' 2>/dev/null)
+  cmd=$(printf '%s' "$1" | jq -r '.tool_input.command // empty' 2>/dev/null)
   [ "$event" = PreToolUse ] && [ "$tool" = Bash ] && [ -n "$cmd" ] || return 0
   is_load_command "$cmd" || return 0
-  check_project "$(app_root "$(target_dir "$1" "$cmd")")"
+  dir=$(target_dir "$1" "$cmd")
+  dir=$(app_root "$dir")
+  check_project "$dir"
   [ $((${#ERRORS[@]} + ${#WARNINGS[@]})) -gt 0 ] || return 0
   local body x
   body="[$LABEL] 부하 측정 전에 대상 NestJS 앱의 실행 설정을 확인하세요 — 이대로 잰 수치는 운영을 대표하지 않을 수 있습니다."
@@ -347,11 +378,11 @@ hook_mode() { # $1=입력 JSON
   return 0
 }
 
-TMP="$(mktemp -d "${TMPDIR:-/tmp}/nestjs-stress.XXXXXX")" || die "임시 디렉터리를 만들 수 없습니다"
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/nestjs-stress.XXXXXX") || die "임시 디렉터리를 만들 수 없습니다"
 trap 'rm -rf "$TMP"' EXIT
 
 if [ $# -eq 0 ] && [ ! -t 0 ]; then
-  INPUT="$(cat)"
+  INPUT=$(cat)
   [ -n "$INPUT" ] && hook_mode "$INPUT"
   exit 0
 fi
@@ -361,6 +392,7 @@ case "${1:-}" in
 esac
 DIR="${1:-.}"
 [ -d "$DIR" ] || die "디렉터리가 아닙니다: $DIR"
-check_project "$(cd "$DIR" && pwd)"
+DIR=$(cd "$DIR" && pwd)
+check_project "$DIR"
 report_cli
 exit $?

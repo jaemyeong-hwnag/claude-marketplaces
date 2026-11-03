@@ -64,17 +64,20 @@ check_project() { # $1=루트
   local pkg="$ROOT/package.json"
   uses_framework "$pkg" || return 0
 
-  local cfgs=() line f
-  while IFS= read -r f; do cfgs+=("$f"); done < <(run_config_files "$ROOT")
+  local cfgs=() line f found at relf ln
+  found=$(run_config_files "$ROOT")
+  to_lines "$found"
+  for f in ${SPLIT+"${SPLIT[@]}"}; do cfgs+=("$f"); done
 
   # 운영 기동 명령: package.json 의 start 계열 스크립트 + Dockerfile CMD/ENTRYPOINT + compose command + Procfile
   local starts="$TMP/starts"; : > "$starts"
   jq -r '(.scripts // {}) | to_entries[] | select(.key | test("^(start|start:prod|prod|serve)$")) | "package.json:scripts.\(.key):\(.value)"' "$pkg" >> "$starts"
   for f in ${cfgs+"${cfgs[@]}"}; do
+    relf=$(rel "$f")
     case "$f" in
-      */Procfile) grep -nE '^[a-z]+:' "$f" | sed "s|^|$(rel "$f"):|" >> "$starts" ;;
+      */Procfile) grep -nE '^[a-z]+:' "$f" | sed "s|^|$relf:|" >> "$starts" ;;
       */ecosystem.config.*) ;;
-      *) grep -nE '^[[:space:]]*(CMD|ENTRYPOINT|command:|-[[:space:]]*command:)' "$f" | sed "s|^|$(rel "$f"):|" >> "$starts" ;;
+      *) grep -nE '^[[:space:]]*(CMD|ENTRYPOINT|command:|-[[:space:]]*command:)' "$f" | sed "s|^|$relf:|" >> "$starts" ;;
     esac
   done
 
@@ -82,17 +85,19 @@ check_project() { # $1=루트
   local envs="$TMP/envs"; : > "$envs"
   grep -oE 'NODE_ENV=[A-Za-z_-]+' "$starts" | sed 's/NODE_ENV=//' >> "$envs"
   for f in ${cfgs+"${cfgs[@]}"}; do
+    relf=$(rel "$f")
     grep -nE 'NODE_ENV' "$f" | grep -vE '^[0-9]+:[[:space:]]*(#|//|CMD|ENTRYPOINT|command:|-[[:space:]]*command:)' | while IFS= read -r line; do
       local v
-      v="$(printf '%s' "$line" | sed -nE 's/.*NODE_ENV["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"']?([A-Za-z_-]+).*/\1/p; s/.*NODE_ENV[[:space:]]+([A-Za-z_-]+).*/\1/p' | head -1)"
-      [ -n "$v" ] && printf '%s\t%s:%s\n' "$v" "$(rel "$f")" "${line%%:*}"
+      v=$(printf '%s' "$line" | sed -nE 's/.*NODE_ENV["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"']?([A-Za-z_-]+).*/\1/p; s/.*NODE_ENV[[:space:]]+([A-Za-z_-]+).*/\1/p' | head -1)
+      [ -n "$v" ] && printf '%s\t%s:%s\n' "$v" "$relf" "${line%%:*}"
     done >> "$TMP/envlocs"
   done
   [ -f "$TMP/envlocs" ] && cut -f1 "$TMP/envlocs" >> "$envs"
   while IFS= read -r line; do
     case "$line" in *NODE_ENV=*) ;; *) continue ;; esac
-    v="$(printf '%s' "$line" | sed -nE 's/.*NODE_ENV=([A-Za-z_-]+).*/\1/p')"
-    [ "$v" = production ] || err "NEX-01 $(loc "$line"): 운영 기동에서 NODE_ENV=$v — production 이 아니면 Express 가 뷰 캐시를 끄고 오류 응답에 스택을 싣는다"
+    v=$(printf '%s' "$line" | sed -nE 's/.*NODE_ENV=([A-Za-z_-]+).*/\1/p')
+    at=$(loc "$line")
+    [ "$v" = production ] || err "NEX-01 $at: 운영 기동에서 NODE_ENV=$v — production 이 아니면 Express 가 뷰 캐시를 끄고 오류 응답에 스택을 싣는다"
   done < "$starts"
   if [ -f "$TMP/envlocs" ]; then
     while IFS=$'\t' read -r v loc; do
@@ -104,13 +109,15 @@ check_project() { # $1=루트
 
   # NEX-03 — 자동 리로드
   while IFS= read -r line; do
+    at=$(loc "$line")
     printf '%s' "$line" | grep -qE '(^|[^[:alnum:]_-])(nodemon|ts-node-dev|node-dev|supervisor)([^[:alnum:]_-]|$)|--watch([=[:space:]"]|$)|--watch-path|tsx[[:space:]]+watch' \
-      && err "NEX-03 $(loc "$line"): 운영 기동에 자동 리로드(nodemon · --watch · tsx watch) — 파일 변경 시 재시작해 진행 중 요청이 끊긴다"
+      && err "NEX-03 $at: 운영 기동에 자동 리로드(nodemon · --watch · tsx watch) — 파일 변경 시 재시작해 진행 중 요청이 끊긴다"
   done < "$starts"
   for f in ${cfgs+"${cfgs[@]}"}; do
     case "$f" in */ecosystem.config.*)
       grep_code "watch[\"']?[[:space:]]*:[[:space:]]*true" "$f" | while IFS= read -r line; do
-        printf '%s\n' "NEX-03 $(rel "${line%%:*}"):$(printf '%s' "$line" | cut -d: -f2): PM2 watch: true — 파일 변경 시 재시작한다"
+        relf=$(rel "${line%%:*}"); ln=$(printf '%s' "$line" | cut -d: -f2)
+        printf '%s\n' "NEX-03 $relf:$ln: PM2 watch: true — 파일 변경 시 재시작한다"
       done >> "$TMP/e03"
     esac
   done
@@ -118,42 +125,47 @@ check_project() { # $1=루트
 
   # NEX-04 · NEX-05 — 프로파일러 · 인스펙터
   while IFS= read -r line; do
+    at=$(loc "$line")
     printf '%s' "$line" | grep -qE -- '--(prof|cpu-prof|heap-prof|trace-sync-io|trace-gc|trace-deopt|trace-opt)([^[:alnum:]-]|$)|(^|[[:space:]:"])(0x|clinic)[[:space:]"]' \
-      && err "NEX-04 $(loc "$line"): 운영 기동에 프로파일러 · 추적 플래그 — 측정 대상이 운영과 다른 실행 모드다"
+      && err "NEX-04 $at: 운영 기동에 프로파일러 · 추적 플래그 — 측정 대상이 운영과 다른 실행 모드다"
     printf '%s' "$line" | grep -qE -- '--inspect(-brk|-wait)?([=[:space:]]|$)' \
-      && warn "NEX-05 $(loc "$line"): 운영 기동에 --inspect — 디버거가 붙으면 측정이 무효다. 0.0.0.0 바인딩은 원격 코드 실행 위험"
+      && warn "NEX-05 $at: 운영 기동에 --inspect — 디버거가 붙으면 측정이 무효다. 0.0.0.0 바인딩은 원격 코드 실행 위험"
   done < "$starts"
 
   # NEX-06 — DEBUG 로 Express · router 내부 로그
   local dbg="$TMP/dbg"; : > "$dbg"
   grep -nE 'DEBUG' "$starts" | sed 's/^[0-9]*://' >> "$dbg"
-  for f in ${cfgs+"${cfgs[@]}"}; do grep -nE '(^|[^_[:alnum:]])DEBUG["'"'"']?[[:space:]]*[:=]' "$f" | sed "s|^|$(rel "$f"):|" >> "$dbg"; done
+  for f in ${cfgs+"${cfgs[@]}"}; do relf=$(rel "$f"); grep -nE '(^|[^_[:alnum:]])DEBUG["'"'"']?[[:space:]]*[:=]' "$f" | sed "s|^|$relf:|" >> "$dbg"; done
   while IFS= read -r line; do
-    debug_hits_express "$line" && err "NEX-06 $(loc "$line"): DEBUG 가 express:* · router · * 를 켠다 — 요청마다 stderr 에 쓴다 (파일 · TTY 로 가면 동기 쓰기)"
+    at=$(loc "$line")
+    debug_hits_express "$line" && err "NEX-06 $at: DEBUG 가 express:* · router · * 를 켠다 — 요청마다 stderr 에 쓴다 (파일 · TTY 로 가면 동기 쓰기)"
   done < "$dbg"
 
   # 소스
   local srcs=()
-  while IFS= read -r f; do srcs+=("$f"); done < <(source_files "$ROOT")
+  found=$(source_files "$ROOT")
+  to_lines "$found"
+  for f in ${SPLIT+"${SPLIT[@]}"}; do srcs+=("$f"); done
   [ ${#srcs[@]} -gt 0 ] || return 0
 
   # NEX-07 — 뷰 캐시를 끔
   grep_code "\.(disable\([[:space:]]*['\"]view cache['\"]|set\([[:space:]]*['\"]view cache['\"][[:space:]]*,[[:space:]]*false)" "${srcs[@]}" > "$TMP/e07"
-  while IFS= read -r line; do err "NEX-07 $(rel "${line%%:*}"):$(printf '%s' "$line" | cut -d: -f2): view cache 를 끈다 — 요청마다 템플릿을 다시 읽고 컴파일한다"; done < "$TMP/e07"
+  while IFS= read -r line; do relf=$(rel "${line%%:*}"); ln=$(printf '%s' "$line" | cut -d: -f2); err "NEX-07 $relf:$ln: view cache 를 끈다 — 요청마다 템플릿을 다시 읽고 컴파일한다"; done < "$TMP/e07"
 
   # NEX-08 — 요청 지연에 Summary
   local promsrc=()
   for f in "${srcs[@]}"; do grep -qE "prom-client" "$f" && promsrc+=("$f"); done
   if [ ${#promsrc[@]} -gt 0 ]; then
     grep_code 'new[[:space:]]+([A-Za-z_$][A-Za-z0-9_$]*\.)?Summary[[:space:]]*(<[^>]*>)?\(' "${promsrc[@]}" > "$TMP/w08"
-    while IFS= read -r line; do warn "NEX-08 $(rel "${line%%:*}"):$(printf '%s' "$line" | cut -d: -f2): prom-client Summary — 분위수를 앱이 계산해 인스턴스 · 워커 사이에 합칠 수 없다. Histogram 을 쓴다"; done < "$TMP/w08"
+    while IFS= read -r line; do relf=$(rel "${line%%:*}"); ln=$(printf '%s' "$line" | cut -d: -f2); warn "NEX-08 $relf:$ln: prom-client Summary — 분위수를 앱이 계산해 인스턴스 · 워커 사이에 합칠 수 없다. Histogram 을 쓴다"; done < "$TMP/w08"
   fi
 
   # NEX-09 — 라우트 파일 안의 동기 API
   for f in "${srcs[@]}"; do
     grep -qE '\b(app|router|route)\.(get|post|put|patch|delete|all|use)[[:space:]]*\(' "$f" || continue
     grep_code '\b[A-Za-z]+Sync[[:space:]]*\(' "$f" | while IFS= read -r line; do
-      printf '%s\n' "NEX-09 $(rel "${line%%:*}"):$(printf '%s' "$line" | cut -d: -f2): 라우트 파일에서 $(printf '%s' "$line" | grep -oE '[A-Za-z]+Sync' | head -1)() — 요청 경로에서 부르면 이벤트 루프를 막는다 (기동 시 1회면 무관)"
+      relf=$(rel "${line%%:*}"); ln=$(printf '%s' "$line" | cut -d: -f2); sync_call=$(printf '%s' "$line" | grep -oE '[A-Za-z]+Sync' | head -1)
+      printf '%s\n' "NEX-09 $relf:$ln: 라우트 파일에서 $sync_call() — 요청 경로에서 부르면 이벤트 루프를 막는다 (기동 시 1회면 무관)"
     done
   done > "$TMP/w09"
   while IFS= read -r line; do warn "$line"; done < "$TMP/w09"
@@ -172,15 +184,15 @@ report_cli() {
 
 # ---- 훅 모드 ------------------------------------------------------------------
 # --- 부하 도구 명령 판별 (훅) — common-stress-test 의 stress-target-validate.sh 와 같은 규칙 ---------------
-# heredoc 본문은 명령이 아니라 데이터다. 셸에 먹이는 heredoc(sh <<EOF)만 명령으로 남긴다
+# heredoc 본문은 명령이 아니라 데이터다. 셸에 먹이는 heredoc(sh 에 주는 것)만 명령으로 남긴다
 strip_heredoc() {
   awk -v q="'" '
     d != "" { t = $0; if (dash) sub(/^\t+/, "", t); if (t == d) d = ""; else if (keep) print; next }
-    { print; s = $0; gsub(/<<</, "\001", s)
-      if (match(s, "<<-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*")) {
-        d = substr(s, RSTART, RLENGTH); dash = (d ~ /^<<-/)
-        sub(/^<<-?[ \t]*/, "", d); gsub("[\"" q "]", "", d)
-        keep = (s ~ /(^|[;&|(][ \t]*)(sudo[ \t]+)?(ba|z|da|k)?sh([ \t]+-[A-Za-z]+)*[ \t]*<</)
+    { print; s = $0; gsub(/[<][<][<]/, "\001", s)
+      if (match(s, "[<][<]-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*")) {
+        d = substr(s, RSTART, RLENGTH); dash = (d ~ /^[<][<]-/)
+        sub(/^[<][<]-?[ \t]*/, "", d); gsub("[\"" q "]", "", d)
+        keep = (s ~ /(^|[;&|(][ \t]*)(sudo[ \t]+)?(ba|z|da|k)?sh([ \t]+-[A-Za-z]+)*[ \t]*[<][<]/)
       } }'
 }
 
@@ -258,24 +270,36 @@ is_load_segment() {
   return 1
 }
 
+# 여러 줄 문자열을 줄 배열 SPLIT 으로 나눈다 (빈 줄은 버린다)
+to_lines() { # $1=문자열
+  local old_ifs="$IFS"
+  set -f; IFS='
+'
+  SPLIT=($1)
+  IFS="$old_ifs"; set +f
+}
+
 # 명령을 && · || · ; · & · | · $( · ` 로 나눈 구간 중 하나라도 부하 도구 실행이면 참
 is_load_command() { # $1=명령
-  local seg
-  while IFS= read -r seg; do
+  local seg segs
+  segs=$(printf '%s\n' "$1" | strip_heredoc | sed -E 's/(\|\||&&|[;&|]|\$\(|`)/\n/g')
+  to_lines "$segs"
+  for seg in ${SPLIT+"${SPLIT[@]}"}; do
     [ -n "${seg// /}" ] || continue
     is_load_segment "$seg" && return 0
-  done < <(printf '%s\n' "$1" | strip_heredoc | sed -E 's/(\|\||&&|[;&|]|\$\(|`)/\n/g')
+  done
   return 1
 }
 
 # 명령이 도는 디렉터리 — 입력의 cwd(없으면 프로젝트)에 앞머리 cd 를 적용한다
 target_dir() { # $1=입력 JSON $2=명령
   local base d
-  base="$(printf '%s' "$1" | jq -r '.cwd // empty' 2>/dev/null)"
-  [ -n "$base" ] || base="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-  d="$(printf '%s\n' "$2" | sed -nE '1s/^[[:space:]]*cd[[:space:]]+([^;&|[:space:]]+).*/\1/p' | tr -d "\"'")"
+  base=$(printf '%s' "$1" | jq -r '.cwd // empty' 2>/dev/null)
+  [ -n "$base" ] || base="${CLAUDE_PROJECT_DIR:-}"
+  [ -n "$base" ] || base=$(pwd)
+  d=$(printf '%s\n' "$2" | sed -nE '1s/^[[:space:]]*cd[[:space:]]+([^;&|[:space:]]+).*/\1/p' | tr -d "\"'")
   case "$d" in '') d="$base" ;; /*) ;; *) d="$base/$d" ;; esac
-  [ -d "$d" ] && d="$(cd "$d" && pwd)"
+  [ -d "$d" ] && d=$(cd "$d" && pwd)
   printf '%s' "$d"
 }
 
@@ -285,19 +309,21 @@ app_root() { # $1=디렉터리
   while [ -n "$d" ]; do
     uses_framework "$d/package.json" && { printf '%s' "$d"; return 0; }
     [ "$d" = / ] && break
-    d="$(dirname "$d")"
+    d=$(dirname "$d")
   done
   printf '%s' "$1"
 }
 
 hook_mode() { # $1=입력 JSON
-  local event tool cmd
-  event="$(printf '%s' "$1" | jq -r '.hook_event_name // empty' 2>/dev/null)"
-  tool="$(printf '%s' "$1" | jq -r '.tool_name // empty' 2>/dev/null)"
-  cmd="$(printf '%s' "$1" | jq -r '.tool_input.command // empty' 2>/dev/null)"
+  local event tool cmd dir
+  event=$(printf '%s' "$1" | jq -r '.hook_event_name // empty' 2>/dev/null)
+  tool=$(printf '%s' "$1" | jq -r '.tool_name // empty' 2>/dev/null)
+  cmd=$(printf '%s' "$1" | jq -r '.tool_input.command // empty' 2>/dev/null)
   [ "$event" = PreToolUse ] && [ "$tool" = Bash ] && [ -n "$cmd" ] || return 0
   is_load_command "$cmd" || return 0
-  check_project "$(app_root "$(target_dir "$1" "$cmd")")"
+  dir=$(target_dir "$1" "$cmd")
+  dir=$(app_root "$dir")
+  check_project "$dir"
   [ $((${#ERRORS[@]} + ${#WARNINGS[@]})) -gt 0 ] || return 0
   local body x
   body="[$LABEL] 부하 측정 전에 대상 Express 앱의 실행 설정을 확인하세요 — 이대로 잰 수치는 운영을 대표하지 않을 수 있습니다."
@@ -311,11 +337,11 @@ hook_mode() { # $1=입력 JSON
   return 0
 }
 
-TMP="$(mktemp -d "${TMPDIR:-/tmp}/express-stress.XXXXXX")" || die "임시 디렉터리를 만들 수 없습니다"
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/express-stress.XXXXXX") || die "임시 디렉터리를 만들 수 없습니다"
 trap 'rm -rf "$TMP"' EXIT
 
 if [ $# -eq 0 ] && [ ! -t 0 ]; then
-  INPUT="$(cat)"
+  INPUT=$(cat)
   if [ -n "$INPUT" ]; then
     hook_mode "$INPUT"
     exit 0
@@ -328,6 +354,7 @@ case "${1:-}" in
 esac
 DIR="${1:-.}"
 [ -d "$DIR" ] || die "디렉터리가 아닙니다: $DIR"
-check_project "$(cd "$DIR" && pwd)"
+DIR=$(cd "$DIR" && pwd)
+check_project "$DIR"
 report_cli
 exit $?

@@ -36,23 +36,29 @@ drop_dev() {
 # 주석 줄을 뺀 "파일:줄:내용" — Go 는 // 줄, 그 밖은 # 줄을 뺀다
 grep_go() { # $1=ERE
   [ -s "$TMPD/go" ] || return 0
+  local rel
   while IFS= read -r f; do
-    grep -nE -- "$1" "$f" 2>/dev/null | grep -vE '^[0-9]+:[[:space:]]*//' | sed "s|^|$(relpath "$f"):|"
+    rel=$(relpath "$f")
+    grep -nE -- "$1" "$f" 2>/dev/null | grep -vE '^[0-9]+:[[:space:]]*//' | sed "s|^|$rel:|"
   done < "$TMPD/go"
 }
 grep_list() { # $1=목록 파일 $2=ERE
   [ -s "$1" ] || return 0
+  local rel
   while IFS= read -r f; do
-    grep -nE -- "$2" "$f" 2>/dev/null | grep -vE '^[0-9]+:[[:space:]]*#' | sed "s|^|$(relpath "$f"):|"
+    rel=$(relpath "$f")
+    grep -nE -- "$2" "$f" 2>/dev/null | grep -vE '^[0-9]+:[[:space:]]*#' | sed "s|^|$rel:|"
   done < "$1"
 }
-has_go() { [ -n "$(grep_go "$1" | head -1)" ]; }
+has_go() { local first; first=$(grep_go "$1" | head -1); [ -n "$first" ]; }
 
 # 배포 파일에서 환경 변수 값을 뽑는다 — "파일:줄:값". KEY=v · KEY: v · ENV KEY v · k8s name/value 쌍
 env_values() { # $1=키
   [ -s "$TMPD/deploy" ] || return 0
+  local rel
   while IFS= read -r f; do
-    awk -v k="$1" -v f="$(relpath "$f")" -v q="'" '
+    rel=$(relpath "$f")
+    awk -v k="$1" -v f="$rel" -v q="'" '
       function clean(v) { sub(/^[ \t]+/, "", v); sub(/[ \t#].*$/, "", v); gsub(/["\047]/, "", v); return v }
       { line=$0; sub(/\r$/, "", line) }
       line ~ /^[ \t]*#/ { next }
@@ -85,97 +91,100 @@ check_project() {
   find_files "$ROOT" -name 'Makefile' -o -name '*.mk' -o -name '*.sh' | drop_dev > "$TMPD/script"
   [ -s "$TMPD/go" ] || return 0
 
-  local hit l v uses_gin=0 release=0
+  local hit l v at found uses_gin=0 release=0
   has_go '"github\.com/gin-gonic/gin"' && uses_gin=1
 
   # GIN-01 · GIN-02 — 모드
-  while IFS= read -r hit; do [ -n "$hit" ] && add "❌" GIN-01 "$(loc "$hit")" "Gin 을 debug 모드로 띄운다 — LoadHTML* 템플릿을 요청마다 다시 파싱한다. gin.SetMode(gin.ReleaseMode) 또는 GIN_MODE=release"
-  done <<EOF
-$(grep_go 'SetMode\([[:space:]]*(gin\.DebugMode|"debug")[[:space:]]*\)')
-EOF
-  while IFS= read -r hit; do
+  found=$(grep_go 'SetMode\([[:space:]]*(gin\.DebugMode|"debug")[[:space:]]*\)')
+  to_lines "$found"
+  for hit in ${SPLIT+"${SPLIT[@]}"}; do [ -n "$hit" ] || continue; at=$(loc "$hit"); add "❌" GIN-01 "$at" "Gin 을 debug 모드로 띄운다 — LoadHTML* 템플릿을 요청마다 다시 파싱한다. gin.SetMode(gin.ReleaseMode) 또는 GIN_MODE=release"
+  done
+  found=$(env_values GIN_MODE)
+  to_lines "$found"
+  for hit in ${SPLIT+"${SPLIT[@]}"}; do
     [ -n "$hit" ] || continue
     v="${hit##*:}"
     case "$v" in
-      debug) add "❌" GIN-01 "$(loc "$hit")" "GIN_MODE=debug — 운영 모드가 아니다. GIN_MODE=release" ;;
+      debug) at=$(loc "$hit"); add "❌" GIN-01 "$at" "GIN_MODE=debug — 운영 모드가 아니다. GIN_MODE=release" ;;
       release) release=1 ;;
     esac
-  done <<EOF
-$(env_values GIN_MODE)
-EOF
+  done
   has_go 'SetMode\([[:space:]]*(gin\.ReleaseMode|"release")[[:space:]]*\)' && release=1
   if [ "$uses_gin" = 1 ] && [ "$release" = 0 ] && ! printf '%s' "$OUT" | grep -q 'GIN-01'; then
     add "⚠️" GIN-02 "." "release 모드 지정이 코드(gin.SetMode(gin.ReleaseMode))에도 배포 파일(GIN_MODE=release)에도 없다 — GIN_MODE 가 비면 debug 다"
   fi
 
   # GIN-03 — 요청마다 접근 로그
-  while IFS= read -r hit; do [ -n "$hit" ] && add "⚠️" GIN-03 "$(loc "$hit")" "요청마다 접근 로그를 stdout 에 쓴다 (gin.Default 는 Logger 를 붙인다). 운영과 같은 로그 설정으로 재는지 확인한다"
-  done <<EOF
-$(grep_go 'gin\.(Default|Logger|LoggerWithConfig|LoggerWithFormatter|LoggerWithWriter)\(')
-EOF
+  found=$(grep_go 'gin\.(Default|Logger|LoggerWithConfig|LoggerWithFormatter|LoggerWithWriter)\(')
+  to_lines "$found"
+  for hit in ${SPLIT+"${SPLIT[@]}"}; do [ -n "$hit" ] || continue; at=$(loc "$hit"); add "⚠️" GIN-03 "$at" "요청마다 접근 로그를 stdout 에 쓴다 (gin.Default 는 Logger 를 붙인다). 운영과 같은 로그 설정으로 재는지 확인한다"
+  done
 
   # GIN-04 — pprof 공개
   if has_go '_[[:space:]]+"net/http/pprof"'; then
-    while IFS= read -r hit; do
+    found=$(grep_go 'ListenAndServe\([^,]*,[[:space:]]*nil[[:space:]]*\)')
+    to_lines "$found"
+    for hit in ${SPLIT+"${SPLIT[@]}"}; do
       [ -n "$hit" ] || continue
       if printf '%s' "$hit" | grep -qE 'ListenAndServe\([[:space:]]*"(127\.0\.0\.1|localhost|\[::1\]):'; then continue; fi
       if printf '%s' "$hit" | grep -qE 'ListenAndServe\([[:space:]]*"'; then
-        add "❌" GIN-04 "$(loc "$hit")" "net/http/pprof 가 붙은 DefaultServeMux 를 루프백이 아닌 주소로 연다 — 127.0.0.1 에 바인드하거나 별도 mux 를 쓴다"
+        at=$(loc "$hit"); add "❌" GIN-04 "$at" "net/http/pprof 가 붙은 DefaultServeMux 를 루프백이 아닌 주소로 연다 — 127.0.0.1 에 바인드하거나 별도 mux 를 쓴다"
       else
-        add "⚠️" GIN-04 "$(loc "$hit")" "net/http/pprof 가 붙은 DefaultServeMux 를 연다 — 주소가 루프백인지 확인한다"
+        at=$(loc "$hit"); add "⚠️" GIN-04 "$at" "net/http/pprof 가 붙은 DefaultServeMux 를 연다 — 주소가 루프백인지 확인한다"
       fi
-    done <<EOF
-$(grep_go 'ListenAndServe\([^,]*,[[:space:]]*nil[[:space:]]*\)')
-EOF
+    done
   fi
   if has_go '"github\.com/gin-contrib/pprof"'; then
-    while IFS= read -r hit; do [ -n "$hit" ] && add "⚠️" GIN-04 "$(loc "$hit")" "gin-contrib/pprof 를 엔진에 등록한다 — 앱 포트로 공개되면 누구나 프로파일을 받는다. 루프백 전용 엔진에만 등록한다"
-    done <<EOF
-$(grep_go 'pprof\.(Register|RouteRegister)\(')
-EOF
+    found=$(grep_go 'pprof\.(Register|RouteRegister)\(')
+    to_lines "$found"
+    for hit in ${SPLIT+"${SPLIT[@]}"}; do [ -n "$hit" ] || continue; at=$(loc "$hit"); add "⚠️" GIN-04 "$at" "gin-contrib/pprof 를 엔진에 등록한다 — 앱 포트로 공개되면 누구나 프로파일을 받는다. 루프백 전용 엔진에만 등록한다"
+    done
   fi
 
   # GIN-05 — -race 빌드
   local race='go[[:space:]]+(build|run|install)[^#]*[[:space:]]-race([[:space:]]|$)|GOFLAGS[=:][^#]*-race'
-  while IFS= read -r hit; do [ -n "$hit" ] && add "❌" GIN-05 "$(loc "$hit")" "-race 빌드로 부하를 잰다 — 실행 시간 2~20배 · 메모리 5~10배 (Go race detector 문서). -race 를 뺀 바이너리로 잰다"
-  done <<EOF
-$(grep_list "$TMPD/image" "$race")
-EOF
-  while IFS= read -r hit; do [ -n "$hit" ] && add "⚠️" GIN-05 "$(loc "$hit")" "-race 빌드 — 부하 측정에 쓰는 바이너리라면 -race 를 뺀다"
-  done <<EOF
-$(grep_list "$TMPD/script" "$race")
-EOF
+  found=$(grep_list "$TMPD/image" "$race")
+  to_lines "$found"
+  for hit in ${SPLIT+"${SPLIT[@]}"}; do [ -n "$hit" ] || continue; at=$(loc "$hit"); add "❌" GIN-05 "$at" "-race 빌드로 부하를 잰다 — 실행 시간 2~20배 · 메모리 5~10배 (Go race detector 문서). -race 를 뺀 바이너리로 잰다"
+  done
+  found=$(grep_list "$TMPD/script" "$race")
+  to_lines "$found"
+  for hit in ${SPLIT+"${SPLIT[@]}"}; do [ -n "$hit" ] || continue; at=$(loc "$hit"); add "⚠️" GIN-05 "$at" "-race 빌드 — 부하 측정에 쓰는 바이너리라면 -race 를 뺀다"
+  done
 
   # GIN-06 — GOMAXPROCS 수동 고정
-  while IFS= read -r hit; do [ -n "$hit" ] && add "⚠️" GIN-06 "$(loc "$hit")" "GOMAXPROCS=${hit##*:} 고정 — Go 1.25+ 의 컨테이너 CPU 제한 반영과 주기적 갱신이 꺼진다. CPU 제한보다 크면 CFS 스로틀이 생긴다"
-  done <<EOF
-$(env_values GOMAXPROCS)
-EOF
-  while IFS= read -r hit; do [ -n "$hit" ] && add "⚠️" GIN-06 "$(loc "$hit")" "runtime.GOMAXPROCS(n) 고정 — 컨테이너 CPU 제한 반영과 주기적 갱신이 꺼진다"
-  done <<EOF
-$(grep_go 'runtime\.GOMAXPROCS\([[:space:]]*[^0)[:space:]]')
-EOF
+  found=$(env_values GOMAXPROCS)
+  to_lines "$found"
+  for hit in ${SPLIT+"${SPLIT[@]}"}; do [ -n "$hit" ] || continue; at=$(loc "$hit"); add "⚠️" GIN-06 "$at" "GOMAXPROCS=${hit##*:} 고정 — Go 1.25+ 의 컨테이너 CPU 제한 반영과 주기적 갱신이 꺼진다. CPU 제한보다 크면 CFS 스로틀이 생긴다"
+  done
+  found=$(grep_go 'runtime\.GOMAXPROCS\([[:space:]]*[^0)[:space:]]')
+  to_lines "$found"
+  for hit in ${SPLIT+"${SPLIT[@]}"}; do [ -n "$hit" ] || continue; at=$(loc "$hit"); add "⚠️" GIN-06 "$at" "runtime.GOMAXPROCS(n) 고정 — 컨테이너 CPU 제한 반영과 주기적 갱신이 꺼진다"
+  done
 
   # GIN-07 — go.mod 의 go 가 1.25 미만이면 컨테이너 CPU 제한을 보지 않는다
-  if [ -f "$ROOT/go.mod" ] && [ -n "$(grep_list "$TMPD/image" '^[[:space:]]*FROM[[:space:]]' | head -1)" ]; then
-    l="$(grep -nE '^go[[:space:]]+1\.[0-9]+' "$ROOT/go.mod" | head -1)"
-    v="$(printf '%s' "$l" | sed -E 's/^[0-9]+:go[[:space:]]+1\.([0-9]+).*/\1/')"
+  found=$(grep_list "$TMPD/image" '^[[:space:]]*FROM[[:space:]]' | head -1)
+  if [ -f "$ROOT/go.mod" ] && [ -n "$found" ]; then
+    l=$(grep -nE '^go[[:space:]]+1\.[0-9]+' "$ROOT/go.mod" | head -1)
+    v=$(printf '%s' "$l" | sed -E 's/^[0-9]+:go[[:space:]]+1\.([0-9]+).*/\1/')
+    found=$(env_values GOMAXPROCS | head -1)
     if [ -n "$l" ] && [ "$v" -lt 25 ] 2>/dev/null \
-      && ! grep -q 'go.uber.org/automaxprocs' "$ROOT/go.mod" && [ -z "$(env_values GOMAXPROCS | head -1)" ]; then
+      && ! grep -q 'go.uber.org/automaxprocs' "$ROOT/go.mod" && [ -z "$found" ]; then
       add "⚠️" GIN-07 "go.mod:${l%%:*}" "go 1.$v — Go 1.25 툴체인으로 빌드해도 containermaxprocs=0 이 기본이라 GOMAXPROCS 가 호스트 CPU 수다. go 1.25 이상으로 올리거나 CPU 제한에 맞춘다"
     fi
   fi
 
   # GIN-08 — HTTP 서버 타임아웃
-  local engines f
+  local engines f rel
   while IFS= read -r f; do
     [ -n "$f" ] || continue
-    engines="$(grep -oE '[A-Za-z_][A-Za-z0-9_]*[[:space:]]*:?=[[:space:]]*gin\.(New|Default)\(' "$f" | sed -E 's/[[:space:]]*:?=.*//' | sort -u)"
+    rel=$(relpath "$f")
+    engines=$(grep -oE '[A-Za-z_][A-Za-z0-9_]*[[:space:]]*:?=[[:space:]]*gin\.(New|Default)\(' "$f" | sed -E 's/[[:space:]]*:?=.*//' | sort -u)
     for v in $engines; do
-      while IFS= read -r hit; do [ -n "$hit" ] && add "⚠️" GIN-08 "$(relpath "$f"):${hit%%:*}" "$v.Run() 은 타임아웃 없는 http.Server 로 연다 — http.Server{ReadHeaderTimeout, ReadTimeout, WriteTimeout, IdleTimeout} 로 띄운다"
-      done <<EOF
-$(grep -nE "(^|[^A-Za-z0-9_.])$v\.Run\(" "$f" | grep -vE '^[0-9]+:[[:space:]]*//')
-EOF
+      found=$(grep -nE "(^|[^A-Za-z0-9_.])$v\.Run\(" "$f" | grep -vE '^[0-9]+:[[:space:]]*//')
+      to_lines "$found"
+      for hit in ${SPLIT+"${SPLIT[@]}"}; do [ -n "$hit" ] && add "⚠️" GIN-08 "$rel:${hit%%:*}" "$v.Run() 은 타임아웃 없는 http.Server 로 연다 — http.Server{ReadHeaderTimeout, ReadTimeout, WriteTimeout, IdleTimeout} 로 띄운다"
+      done
     done
     awk '
       /^[ \t]*\/\// { next }
@@ -184,59 +193,60 @@ EOF
             if (depth<=0) { if (txt !~ /ReadHeaderTimeout|ReadTimeout/) print start; inb=0 } }' "$f" | while IFS= read -r l; do
       printf '%s\n' "$l"
     done > "$TMPD/srv"
-    while IFS= read -r l; do [ -n "$l" ] && add "⚠️" GIN-08 "$(relpath "$f"):$l" "http.Server 에 ReadHeaderTimeout · ReadTimeout 이 없다 — 0 이면 타임아웃이 없다"
+    while IFS= read -r l; do [ -n "$l" ] && add "⚠️" GIN-08 "$rel:$l" "http.Server 에 ReadHeaderTimeout · ReadTimeout 이 없다 — 0 이면 타임아웃이 없다"
     done < "$TMPD/srv"
   done < "$TMPD/go"
-  while IFS= read -r hit; do [ -n "$hit" ] && add "⚠️" GIN-08 "$(loc "$hit")" "http.ListenAndServe 는 타임아웃 없는 서버다 — 앱 트래픽이면 http.Server 에 타임아웃을 둔다"
-  done <<EOF
-$(grep_go 'http\.ListenAndServe(TLS)?\(' | grep -vE 'ListenAndServe(TLS)?\([[:space:]]*"(127\.0\.0\.1|localhost|\[::1\]):')
-EOF
+  found=$(grep_go 'http\.ListenAndServe(TLS)?\(' | grep -vE 'ListenAndServe(TLS)?\([[:space:]]*"(127\.0\.0\.1|localhost|\[::1\]):')
+  to_lines "$found"
+  for hit in ${SPLIT+"${SPLIT[@]}"}; do [ -n "$hit" ] || continue; at=$(loc "$hit"); add "⚠️" GIN-08 "$at" "http.ListenAndServe 는 타임아웃 없는 서버다 — 앱 트래픽이면 http.Server 에 타임아웃을 둔다"
+  done
 
   # GIN-09 — DB 커넥션 풀
-  hit="$(grep_go '(sql|sqlx)\.(Open|Connect|MustOpen|MustConnect)\(|gorm\.Open\(' | head -1)"
+  hit=$(grep_go '(sql|sqlx)\.(Open|Connect|MustOpen|MustConnect)\(|gorm\.Open\(' | head -1)
   if [ -n "$hit" ]; then
     if ! has_go 'SetMaxOpenConns\('; then
-      add "⚠️" GIN-09 "$(loc "$hit")" "SetMaxOpenConns 가 없다 — 기본 0 은 무제한이라 대기열이 DB 로 넘어간다. 목표 λ × DB 보유 시간으로 정한다"
+      at=$(loc "$hit"); add "⚠️" GIN-09 "$at" "SetMaxOpenConns 가 없다 — 기본 0 은 무제한이라 대기열이 DB 로 넘어간다. 목표 λ × DB 보유 시간으로 정한다"
     elif ! has_go 'SetMaxIdleConns\('; then
-      add "⚠️" GIN-09 "$(loc "$hit")" "SetMaxIdleConns 가 없다 — 기본 유휴 2개라 부하 중 커넥션을 계속 새로 연다"
+      at=$(loc "$hit"); add "⚠️" GIN-09 "$at" "SetMaxIdleConns 가 없다 — 기본 유휴 2개라 부하 중 커넥션을 계속 새로 연다"
     fi
   fi
 
   # GIN-10 — 지연을 히스토그램으로
-  while IFS= read -r hit; do [ -n "$hit" ] && add "⚠️" GIN-10 "$(loc "$hit")" "Summary Objectives 는 인스턴스 안에서 계산한 분위수라 합칠 수 없다 — 지연은 Histogram 으로 잰다"
-  done <<EOF
-$(grep_go '^[[:space:]]*Objectives:')
-EOF
+  found=$(grep_go '^[[:space:]]*Objectives:')
+  to_lines "$found"
+  for hit in ${SPLIT+"${SPLIT[@]}"}; do [ -n "$hit" ] || continue; at=$(loc "$hit"); add "⚠️" GIN-10 "$at" "Summary Objectives 는 인스턴스 안에서 계산한 분위수라 합칠 수 없다 — 지연은 Histogram 으로 잰다"
+  done
   if [ "$uses_gin" = 1 ] && ! has_go 'NewHistogram|HistogramOpts|HistogramVecOpts|Float64Histogram|Int64Histogram'; then
     add "⚠️" GIN-10 "." "서버 지연 히스토그램이 없다 — prometheus.NewHistogramVec 을 미들웨어로 붙인다"
   fi
 
   # GIN-11 — 라벨 카디널리티
-  while IFS= read -r hit; do [ -n "$hit" ] && add "⚠️" GIN-11 "$(loc "$hit")" "메트릭 라벨에 원시 경로를 쓴다 — 경로 파라미터마다 시계열이 생긴다. c.FullPath() 를 쓴다"
-  done <<EOF
-$(grep_go '(WithLabelValues\(|prometheus\.Labels\{).*(URL\.Path|RequestURI|URL\.String\(\))')
-EOF
+  found=$(grep_go '(WithLabelValues\(|prometheus\.Labels\{).*(URL\.Path|RequestURI|URL\.String\(\))')
+  to_lines "$found"
+  for hit in ${SPLIT+"${SPLIT[@]}"}; do [ -n "$hit" ] || continue; at=$(loc "$hit"); add "⚠️" GIN-11 "$at" "메트릭 라벨에 원시 경로를 쓴다 — 경로 파라미터마다 시계열이 생긴다. c.FullPath() 를 쓴다"
+  done
 
   # GIN-12 — GC 끄기
   local gcoff=""
-  hit="$(env_values GOGC | awk -F: '$3=="off"' | head -1)"; [ -n "$hit" ] && gcoff="$(loc "$hit")"
-  hit="$(grep_go 'SetGCPercent\([[:space:]]*-1[[:space:]]*\)' | head -1)"; [ -n "$hit" ] && [ -z "$gcoff" ] && gcoff="$(loc "$hit")"
-  if [ -n "$gcoff" ] && [ -z "$(env_values GOMEMLIMIT | head -1)" ] && ! has_go 'SetMemoryLimit\('; then
+  hit=$(env_values GOGC | awk -F: '$3=="off"' | head -1); [ -n "$hit" ] && gcoff=$(loc "$hit")
+  hit=$(grep_go 'SetGCPercent\([[:space:]]*-1[[:space:]]*\)' | head -1); [ -n "$hit" ] && [ -z "$gcoff" ] && gcoff=$(loc "$hit")
+  found=$(env_values GOMEMLIMIT | head -1)
+  if [ -n "$gcoff" ] && [ -z "$found" ] && ! has_go 'SetMemoryLimit\('; then
     add "⚠️" GIN-12 "$gcoff" "GC 를 끄고 메모리 한도가 없다 — 힙이 무한히 자란다. GOMEMLIMIT 를 같이 둔다"
   fi
   return 0
 }
 
 # --- 부하 도구 명령 판별 (훅) — common-stress-test 의 stress-target-validate.sh 와 같은 규칙 ---------------
-# heredoc 본문은 명령이 아니라 데이터다. 셸에 먹이는 heredoc(sh <<EOF)만 명령으로 남긴다
+# heredoc 본문은 명령이 아니라 데이터다. 셸에 먹이는 heredoc(sh 에 주는 것)만 명령으로 남긴다
 strip_heredoc() {
   awk -v q="'" '
     d != "" { t = $0; if (dash) sub(/^\t+/, "", t); if (t == d) d = ""; else if (keep) print; next }
-    { print; s = $0; gsub(/<<</, "\001", s)
-      if (match(s, "<<-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*")) {
-        d = substr(s, RSTART, RLENGTH); dash = (d ~ /^<<-/)
-        sub(/^<<-?[ \t]*/, "", d); gsub("[\"" q "]", "", d)
-        keep = (s ~ /(^|[;&|(][ \t]*)(sudo[ \t]+)?(ba|z|da|k)?sh([ \t]+-[A-Za-z]+)*[ \t]*<</)
+    { print; s = $0; gsub(/[<][<][<]/, "\001", s)
+      if (match(s, "[<][<]-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*")) {
+        d = substr(s, RSTART, RLENGTH); dash = (d ~ /^[<][<]-/)
+        sub(/^[<][<]-?[ \t]*/, "", d); gsub("[\"" q "]", "", d)
+        keep = (s ~ /(^|[;&|(][ \t]*)(sudo[ \t]+)?(ba|z|da|k)?sh([ \t]+-[A-Za-z]+)*[ \t]*[<][<]/)
       } }'
 }
 
@@ -314,31 +324,44 @@ is_load_segment() {
   return 1
 }
 
+# 여러 줄 문자열을 줄 배열 SPLIT 으로 나눈다 (빈 줄은 버린다)
+to_lines() { # $1=문자열
+  local old_ifs="$IFS"
+  set -f; IFS='
+'
+  SPLIT=($1)
+  IFS="$old_ifs"; set +f
+}
+
 # 명령을 && · || · ; · & · | · $( · ` 로 나눈 구간 중 하나라도 부하 도구 실행이면 참
 is_load_command() { # $1=명령
-  local seg
-  while IFS= read -r seg; do
+  local seg segs
+  segs=$(printf '%s\n' "$1" | strip_heredoc | sed -E 's/(\|\||&&|[;&|]|\$\(|`)/\n/g')
+  to_lines "$segs"
+  for seg in ${SPLIT+"${SPLIT[@]}"}; do
     [ -n "${seg// /}" ] || continue
     is_load_segment "$seg" && return 0
-  done < <(printf '%s\n' "$1" | strip_heredoc | sed -E 's/(\|\||&&|[;&|]|\$\(|`)/\n/g')
+  done
   return 1
 }
 
-TMPD="$(mktemp -d "${TMPDIR:-/tmp}/gin-stress.XXXXXX")"
+TMPD=$(mktemp -d "${TMPDIR:-/tmp}/gin-stress.XXXXXX")
 trap 'rm -rf "$TMPD"' EXIT
 
 if [ $# -eq 0 ] && [ ! -t 0 ]; then
-  INPUT="$(cat)"
+  INPUT=$(cat)
   [ -n "$INPUT" ] || exit 0
   command -v jq >/dev/null 2>&1 || exit 0
-  event="$(printf '%s' "$INPUT" | jq -r '.hook_event_name // empty' 2>/dev/null)"
-  tool="$(printf '%s' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)"
+  event=$(printf '%s' "$INPUT" | jq -r '.hook_event_name // empty' 2>/dev/null)
+  tool=$(printf '%s' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
   [ "$event" = "PreToolUse" ] && [ "$tool" = "Bash" ] || exit 0
-  cmd="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)"
+  cmd=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
   [ -n "$cmd" ] && is_load_command "$cmd" || exit 0
-  proj="${CLAUDE_PROJECT_DIR:-$(printf '%s' "$INPUT" | jq -r '.cwd // empty')}"
+  proj="${CLAUDE_PROJECT_DIR:-}"
+  [ -n "$proj" ] || proj=$(printf '%s' "$INPUT" | jq -r '.cwd // empty')
   [ -n "$proj" ] && [ -d "$proj" ] || exit 0
-  check_project "$(cd "$proj" && pwd)"
+  proj=$(cd "$proj" && pwd)
+  check_project "$proj"
   [ -n "$OUT" ] || exit 0
   msg="부하 측정 전 Go · Gin 설정 점검(go-gin-stress-test) — 아래 설정은 측정을 무효로 만들거나 계측을 빠뜨린다. 고치고 측정할지 사용자에게 알린다. 근거: ${RULES}"$'\n'"${OUT}"
   jq -n --arg m "$msg" '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $m}}'
@@ -347,7 +370,8 @@ fi
 
 dir="${1:-.}"
 [ -d "$dir" ] || { echo "디렉터리가 아니다: $dir" >&2; exit 1; }
-check_project "$(cd "$dir" && pwd)"
+dir=$(cd "$dir" && pwd)
+check_project "$dir"
 [ -n "$OUT" ] && printf '%s' "$OUT"
 [ "$ERRORS" -gt 0 ] && { echo "위반 ${ERRORS}건 — 근거: ${RULES}"; exit 2; }
 exit 0
