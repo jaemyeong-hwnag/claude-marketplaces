@@ -153,6 +153,20 @@ fingerprint() {
   } | shasum | cut -d' ' -f1
 }
 
+# 문서 목록 중 $1(기준 커밋) 대비 공백 · 빈 줄 말고도 바뀐 파일의 지문. 없으면 none
+doc_fingerprint() {
+  local f was now out=""
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    was="$(git show "$1:./$f" 2>/dev/null | tr -d '[:space:]' | shasum | cut -d' ' -f1)"
+    now="$( { [ -f "$f" ] && cat "$f"; } | tr -d '[:space:]' | shasum | cut -d' ' -f1)"
+    [ "$was" = "$now" ] || out="${out}${f} ${now}
+"
+  done
+  [ -z "$out" ] && { echo none; return; }
+  printf '%s' "$out" | sort | shasum | cut -d' ' -f1
+}
+
 # --- 훅 공통 -----------------------------------------------------------------
 
 hook_init() {
@@ -249,7 +263,7 @@ unit_snapshot() {
   changed="$(changed_files)"
   domain_slugs | while IFS= read -r slug; do
     printf '%s %s %s\n' "$slug" "$(printf '%s\n' "$changed" | domain_code_files "$slug" | fingerprint)" \
-      "$(printf '%s\n' "$changed" | domain_doc_files "$slug" | fingerprint)"
+      "$(printf '%s\n' "$changed" | domain_doc_files "$slug" | doc_fingerprint HEAD)"
   done > "$st.turn" 2>/dev/null
 }
 
@@ -265,11 +279,13 @@ EOF
 
 # 작업 트리 $1 에서 S-01 을 어긴 도메인 — "slug: 파일 …" 한 줄씩. 경로는 프로젝트 기준
 unit_violations() {
-  local st where changed slug code docs now prev prevdoc
+  local st where changed slug code docs now prev prevdoc base
   cd "$PROJ_REAL${1:+/$1}" 2>/dev/null || return 0
   [ -d "$ROOT" ] || return 0
   git rev-parse --git-dir >/dev/null 2>&1 || return 0
   st="$(unit_state "$1")"; where="${1:+$1/}"
+  base="$(sed -n 1p "$st.base" 2>/dev/null)"
+  git cat-file -e "${base:-none}^{commit}" 2>/dev/null || base=HEAD
   changed="$(turn_changed_files "$st.base")"
   [ -z "$changed" ] && return 0
 
@@ -281,11 +297,10 @@ unit_violations() {
     now="$(printf '%s\n' "$code" | fingerprint)"
     prev="$(awk -v s="$slug" '$1 == s { print $2 }' "$st.turn" 2>/dev/null)"
     [ -n "$prev" ] && [ "$prev" = "$now" ] && continue
-    # 문서도 지문으로 본다 — 요청 전부터 있던 문서 변경으로는 통과시키지 않는다
-    docs="$(printf '%s\n' "$changed" | domain_doc_files "$slug")"
+    # 문서도 지문으로 본다 — 요청 전부터 있던 문서 변경 · 공백만 바꾼 문서로는 통과시키지 않는다
+    docs="$(printf '%s\n' "$changed" | domain_doc_files "$slug" | doc_fingerprint "$base")"
     prevdoc="$(awk -v s="$slug" '$1 == s { print $3 }' "$st.turn" 2>/dev/null)"
-    if [ -n "$prevdoc" ]; then [ "$(printf '%s\n' "$docs" | fingerprint)" != "$prevdoc" ] && continue
-    else [ -n "$docs" ] && continue; fi
+    [ "$docs" != "${prevdoc:-none}" ] && continue
     printf '%s\n' "$acks" | grep -Eq "^n/a([[:space:]]+${slug})?[[:space:]]*$" && continue
     printf '%s: %s%s\n' "$slug" "$(printf '%s\n' "$code" | head -5 | sed "s#^#$where#" | tr '\n' ' ')" \
       "$([ "$(printf '%s\n' "$code" | wc -l)" -gt 5 ] && printf '…')"

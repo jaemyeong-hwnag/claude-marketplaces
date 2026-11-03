@@ -331,6 +331,19 @@ make_repo; hook snapshot "$S"
 [ "$TC_ON" = 1 ] && { [ -f "$REPO/.claude/domain-document-sync/tc.turn" ] || fail_tc "상태 파일이 프로젝트 안에 없다"
   [ -z "$(git status --porcelain)" ] || fail_tc "git status 가 더러워졌다: $(git status --porcelain)"; }
 
+tc TC-C40 "문서에 줄 끝 공백 · 빈 줄만 더하면 막는다"
+make_repo; hook snapshot "$S"; echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java
+printf '# 주문 — 엔티티 \n\n[결제 흐름](../billing/_meta.md#흐름)\n\n\n' > docs/domain/order/entities.md; hook stop "$S"; expect_code 2; expect_out "order:"
+
+tc TC-C41 "요청 전부터 있던 문서 변경에 이번 요청에서 공백만 더하면 막는다"
+make_repo; echo '- a 추가' >> docs/domain/order/entities.md; hook snapshot "$S"
+echo 'class Order { int b; }' > src/main/java/com/shop/order/Order.java
+printf '# 주문 — 엔티티\n\n[결제 흐름](../billing/_meta.md#흐름)\n- a 추가 \n\n' > docs/domain/order/entities.md; hook stop "$S"; expect_code 2; expect_out "order:"
+
+tc TC-C42 "문서 내용을 바꾸면서 공백도 바꾸면 통과한다"
+make_repo; hook snapshot "$S"; echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java
+printf '# 주문 — 엔티티 \n\n[결제 흐름](../billing/_meta.md#흐름)\n\n- a 추가\n' > docs/domain/order/entities.md; hook stop "$S"; expect_code 0
+
 tc TC-C18 "문서 루트가 없는 저장소에서는 아무것도 하지 않는다"
 make_repo; rm -rf docs; hook snapshot "$S"; echo 'class Order { int a; }' > src/main/java/com/shop/order/Order.java
 hook stop "$S"; expect_code 0; expect_no_out
