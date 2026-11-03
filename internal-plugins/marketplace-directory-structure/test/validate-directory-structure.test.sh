@@ -37,8 +37,8 @@ expect_out() { [ "$TC_ON" = 1 ] || return 0; printf '%s' "$OUT" | grep -qF -- "$
 expect_no_out() { [ "$TC_ON" = 1 ] || return 0; [ -z "$OUT" ] || fail_tc "출력이 있으면 안 됩니다: $OUT"; }
 expect_not() { [ "$TC_ON" = 1 ] || return 0; printf '%s' "$OUT" | grep -qF -- "$1" && fail_tc "출력에 '$1' 가 있으면 안 됩니다"; return 0; }
 
-make_plugin() { # $1=이름 → 경로. *-plugins/ 아래에 두는 실제 배치를 따른다
-  local d="$TMP/internal-plugins/$1"
+make_plugin() { # $1=이름 [$2=public|internal, 기본 internal] → 경로. *-plugins/ 아래에 두는 실제 배치를 따른다
+  local d="$TMP/${2:-internal}-plugins/$1"
   rm -rf "$d"; mkdir -p "$d/.claude-plugin"
   printf '{ "name": "%s", "version": "0.1.0" }' "$1" > "$d/.claude-plugin/plugin.json"
   : > "$d/README.md"; : > "$d/README.ko.md"; : > "$d/README.zh-CN.md"; : > "$d/CHANGELOG.md"
@@ -70,15 +70,21 @@ tc TC-D03 "plugin.json 이 없으면 막는다"
 P="$(make_plugin order-sync)"; rm -f "$P/.claude-plugin/plugin.json"
 run "$P"; expect_code 2; expect_out "plugin.json 이 없습니다"
 
-tc TC-D04 "README.md 가 없으면 막는다"
-P="$(make_plugin order-sync)"; rm -f "$P/README.md"
+tc TC-D04 "public 은 README.md 가 없으면 막는다"
+P="$(make_plugin order-sync public)"; rm -f "$P/README.md"
 run "$P"; expect_code 2; expect_out "README.md 가 없습니다"
 
-tc TC-D04a "README 번역 하나라도 없으면 막는다 (#229)"
-P="$(make_plugin order-sync)"; rm -f "$P/README.zh-CN.md"
+tc TC-D04a "public 은 README 번역 하나라도 없으면 막는다 (#229)"
+P="$(make_plugin order-sync public)"; rm -f "$P/README.zh-CN.md"
 run "$P"; expect_code 2; expect_out "order-sync: README.zh-CN.md 가 없습니다 (P-01)"
-P="$(make_plugin order-sync)"; rm -f "$P/README.ko.md"
+P="$(make_plugin order-sync public)"; rm -f "$P/README.ko.md"
 run "$P"; expect_code 2; expect_out "order-sync: README.ko.md 가 없습니다 (P-01)"
+
+tc TC-D04b "internal 은 README.ko.md 하나면 통과하고, 그것이 없으면 막는다 (#252)"
+P="$(make_plugin order-sync)"; rm -f "$P/README.md" "$P/README.zh-CN.md"
+run "$P"; expect_code 0
+rm -f "$P/README.ko.md"; : > "$P/README.md"; : > "$P/README.zh-CN.md"
+run "$P"; expect_code 2; expect_out "order-sync: README.ko.md 가 없습니다 (P-01)"; expect_not "README.zh-CN.md 가 없습니다"
 
 tc TC-D05 "CHANGELOG.md 가 없으면 막는다"
 P="$(make_plugin order-sync)"; rm -f "$P/CHANGELOG.md"

@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.9.0
+
+### Changed
+- `release-plugins.sh` 가 `internal-plugins/` 를 태그 · 릴리즈 대상에서 뺀다. 버전 · CHANGELOG 는 그대로 올린다. 기존 internal 태그 · 릴리즈는 지우지 않는다 (#252)
+- `plugin-release-create` · `plugin-create` · `plugin-name-update` 스킬과 규칙 원본 10 단계를 public 만 릴리즈하고 internal README 는 한 언어로 두는 것에 맞췄다 (#252)
+
+### Removed
+- 배포하지 않는 internal 플러그인이라 README 를 한국어 `README.ko.md` 하나로 줄였다 — `README.md` · `README.zh-CN.md` 와 언어 전환 줄을 지웠다 (#252)
+
 ## 0.8.0
 
 ### Added

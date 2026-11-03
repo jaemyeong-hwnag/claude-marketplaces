@@ -19,6 +19,7 @@ RULES="$PLUGIN_ROOT/references/directory-structure-rules.md"
 
 # 규칙 원본은 references/directory-structure-rules.md 다. 여기는 그 기계 검증이다.
 README_FILES="README.md README.ko.md README.zh-CN.md"
+INTERNAL_README_FILES="README.ko.md"   # 배포하지 않는 internal 은 한 언어만
 PLUGIN_ROOT_FILES="$README_FILES CHANGELOG.md LICENSE .gitignore"
 PLUGIN_DIRS=".claude-plugin skills hooks scripts commands references agents test evals"
 MARKETPLACE_FILES="marketplace.json tags.json categories.json plugins.json keywords.json"
@@ -110,13 +111,14 @@ list_files() {
 
 # 플러그인 디렉터리 하나를 통째로 검사한다. $1=디렉터리
 validate_plugin_dir() {
-  local dir="${1%/}" name manifest declared hooks_rel f rel s
+  local dir="${1%/}" name manifest declared hooks_rel f rel s readmes="$README_FILES"
   name="$(basename "$dir")"
   if [ ! -d "$dir" ]; then err "$dir: 디렉터리가 없습니다"; return; fi
+  [ "$(basename "$(dirname "$dir")")" = internal-plugins ] && readmes="$INTERNAL_README_FILES"
 
   manifest="$dir/.claude-plugin/plugin.json"
   [ -r "$manifest" ]        || err "$name: .claude-plugin/plugin.json 이 없습니다 (P-01)"
-  for f in $README_FILES; do
+  for f in $readmes; do
     [ -r "$dir/$f" ] || err "$name: $f 가 없습니다 (P-01)"
   done
   [ -r "$dir/CHANGELOG.md" ]|| err "$name: CHANGELOG.md 가 없습니다 (P-01)"

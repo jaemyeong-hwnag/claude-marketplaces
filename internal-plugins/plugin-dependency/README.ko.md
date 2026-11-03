@@ -1,7 +1,5 @@
 # plugin-dependency
 
-[English](README.md) · **한국어** · [简体中文](README.zh-CN.md)
-
 플러그인 사이의 **의존 관계**를 강제한다 — 존재 · 순환 · common 과 번들의 층 · 마켓플레이스 경계 · public→internal 금지 · 버전 범위 겹침.
 
 범위 문자열의 형식은 `plugin-versioning`(`V-11`), 이름은 `plugin-naming`, 위치는 `marketplace-directory-structure` 가 본다. 여기서는 **관계**만 본다.

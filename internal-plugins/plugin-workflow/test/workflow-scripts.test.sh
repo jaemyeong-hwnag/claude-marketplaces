@@ -85,14 +85,14 @@ echo "== G. release =="
 
 # 릴리즈 픽스처: main 에 플러그인 0.1.0 → 작업 브랜치에서 0.2.0 → --no-ff 머지 → origin 에 푸시
 mkrel() { # $1=이름
-  mkrepo "$1"; mkdir -p "$W/.claude-plugin" "$W/internal-plugins/order-sync/.claude-plugin"
+  mkrepo "$1"; mkdir -p "$W/.claude-plugin" "$W/public-plugins/order-sync/.claude-plugin"
   printf '{ "name": "x-marketplace" }' > "$W/.claude-plugin/marketplace.json"
-  printf '{ "name": "order-sync", "version": "0.1.0" }' > "$W/internal-plugins/order-sync/.claude-plugin/plugin.json"
-  printf '# CHANGELOG\n\n## 0.1.0\n\n- 첫\n' > "$W/internal-plugins/order-sync/CHANGELOG.md"
+  printf '{ "name": "order-sync", "version": "0.1.0" }' > "$W/public-plugins/order-sync/.claude-plugin/plugin.json"
+  printf '# CHANGELOG\n\n## 0.1.0\n\n- 첫\n' > "$W/public-plugins/order-sync/CHANGELOG.md"
   gitq "$W" add -A; gitq "$W" commit -qm base; gitq "$W" push -q origin main
   on_branch feature/7-order-sync
-  printf '{ "name": "order-sync", "version": "0.2.0" }' > "$W/internal-plugins/order-sync/.claude-plugin/plugin.json"
-  printf '# CHANGELOG\n\n## 0.2.0\n\n### Added\n- 새 검사\n\n## 0.1.0\n\n- 첫\n' > "$W/internal-plugins/order-sync/CHANGELOG.md"
+  printf '{ "name": "order-sync", "version": "0.2.0" }' > "$W/public-plugins/order-sync/.claude-plugin/plugin.json"
+  printf '# CHANGELOG\n\n## 0.2.0\n\n### Added\n- 새 검사\n\n## 0.1.0\n\n- 첫\n' > "$W/public-plugins/order-sync/CHANGELOG.md"
   gitq "$W" add -A; gitq "$W" commit -qm bump
   gitq "$W" checkout -q main; gitq "$W" merge -q --no-ff -m "Merge pull request #3" feature/7-order-sync; gitq "$W" push -q origin main
   installed "order-sync|0.2.0|local|$W"
@@ -113,8 +113,8 @@ mknotes() {
   local d="$1"; shift; rm -rf "$d"; mkdir -p "$d"
   for n in "$@"; do printf '### Added\n- new check\n' > "$d/$n.en.md"; printf '### Added\n- 新检查\n' > "$d/$n.zh-CN.md"; done
 }
-merge_bump() { # $1=브랜치 $2=플러그인 $3=버전 — 플러그인을 만들거나 버전을 올려 --no-ff 머지 · 푸시
-  local p="$W/internal-plugins/$2"
+merge_bump() { # $1=브랜치 $2=플러그인 $3=버전 [$4=public|internal] — 플러그인을 만들거나 버전을 올려 --no-ff 머지 · 푸시
+  local p="$W/${4:-public}-plugins/$2"
   gitq "$W" checkout -q -b "$1"; mkdir -p "$p/.claude-plugin"
   printf '{ "name": "%s", "version": "%s" }' "$2" "$3" > "$p/.claude-plugin/plugin.json"
   printf '# CHANGELOG\n\n## %s\n\n- 변경\n' "$3" > "$p/CHANGELOG.md"
@@ -131,7 +131,7 @@ mkrel rl2; echo changed >> "$W/a.txt"
 run "$RP" --dry-run "$W"; expect_code 2; expect_out "커밋하지 않은 변경"
 
 tc TC-W114 "release: 플러그인 디렉터리의 미추적 파일은 거부한다"
-mkrel rl11; echo x > "$W/internal-plugins/order-sync/stray.md"
+mkrel rl11; echo x > "$W/public-plugins/order-sync/stray.md"
 run "$RP" --dry-run "$W"; expect_code 2; expect_out "플러그인 디렉터리가 깨끗하지 않다"
 
 tc TC-W115 "release: 플러그인 밖 미추적 파일(.idea/ 같은)은 막지 않는다"
@@ -170,8 +170,8 @@ mkrel rl14; rm -f "$STUB_NOTES_COPY"; mknotes "$TMP/n14" order-sync; run "$RP" -
 
 tc TC-W118 "release: 날짜가 붙은 제목도 경계로 읽는다"
 mkrel rl15; gitq "$W" checkout -q -b feature/9-dated
-printf '# CHANGELOG\n\n## 0.3.0 - 2026-09-21\n\n- 셋째\n\n## 0.2.0 - 2026-09-18\n\n- 둘째\n\n## 0.1.0\n\n- 첫\n' > "$W/internal-plugins/order-sync/CHANGELOG.md"
-printf '{ "name": "order-sync", "version": "0.3.0" }' > "$W/internal-plugins/order-sync/.claude-plugin/plugin.json"
+printf '# CHANGELOG\n\n## 0.3.0 - 2026-09-21\n\n- 셋째\n\n## 0.2.0 - 2026-09-18\n\n- 둘째\n\n## 0.1.0\n\n- 첫\n' > "$W/public-plugins/order-sync/CHANGELOG.md"
+printf '{ "name": "order-sync", "version": "0.3.0" }' > "$W/public-plugins/order-sync/.claude-plugin/plugin.json"
 gitq "$W" commit -qam dated; gitq "$W" checkout -q main; gitq "$W" merge -q --no-ff -m m feature/9-dated; gitq "$W" push -q origin main
 gitq "$W" tag order-sync--v0.2.0 main~1; rm -f "$STUB_NOTES_COPY"; installed "order-sync|0.3.0|local|$W"; mknotes "$TMP/n15" order-sync
 run "$RP" --notes-dir "$TMP/n15" "$W"; expect_code 0
@@ -214,7 +214,7 @@ run "$RP" --dry-run "$W"; expect_code 0; expect_out "릴리즈할 플러그인�
 
 tc TC-W111 "release: CHANGELOG 에 그 버전 절이 없으면 거부한다"
 mkrel rl9; gitq "$W" checkout -q -b feature/8-x
-printf '{ "name": "order-sync", "version": "0.3.0" }' > "$W/internal-plugins/order-sync/.claude-plugin/plugin.json"
+printf '{ "name": "order-sync", "version": "0.3.0" }' > "$W/public-plugins/order-sync/.claude-plugin/plugin.json"
 gitq "$W" commit -qam "bump without changelog"; gitq "$W" checkout -q main; gitq "$W" merge -q --no-ff -m m feature/8-x; gitq "$W" push -q origin main
 installed "order-sync|0.3.0|local|$W"
 run "$RP" --dry-run "$W"; expect_code 2; expect_out "'## 0.3.0' 절이 없거나"
@@ -247,6 +247,12 @@ run "$RP" --dry-run "$W"; expect_code 0; expect_out "order-sync--v0.2.0"
 tc TC-W137 "release: --json 을 못 받으면 설치본 버전을 확인할 수 없어 거부한다"
 mkrel rl21; printf 'not json' > "$TMP/bad.json"; printf '  ❯ order-sync@x-marketplace\n    Version: 0.2.0\n' > "$TMP/list-ok.txt"
 STUB_LIST_JSON="$TMP/bad.json" STUB_LIST="$TMP/list-ok.txt" run "$RP" --dry-run "$W"; expect_code 2; expect_out "설치본 버전을 확인할 수 없다"
+
+tc TC-W152 "release: internal 플러그인은 버전을 올려도 태그 · 릴리즈하지 않는다 — public 은 한다"
+mkrel rl22; merge_bump feature/12-rule rule-sync 0.3.0 internal
+installed "order-sync|0.2.0|local|$W"; : > "$CALLS"; rm -f "$STUB_NOTES_COPY"; mknotes "$TMP/n22" order-sync
+run "$RP" --notes-dir "$TMP/n22" "$W"; expect_code 0; expect_out "✅ order-sync--v0.2.0"; expect_not "rule-sync"
+expect_call "gh release create order-sync--v0.2.0"; expect_nocall "rule-sync"
 
 tc TC-W112 "verify-all: 전부 통과하면 0, 실패가 있으면 1 과 ❌ 줄"
 R="$TMP/va"; rm -rf "$R"; mkdir -p "$R/internal-plugins/ok-sync/scripts" "$R/internal-plugins/ok-sync/test" "$R/.claude/hooks"

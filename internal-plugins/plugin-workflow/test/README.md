@@ -43,6 +43,7 @@ test/workflow-scripts.test.sh TC-W12    # ID 접두사로 필터
 | TC-W149 | release: 중국어 번역이 없으면 아무것도 하지 않고 거부한다 |
 | TC-W150 | release --dry-run --notes-dir: 번역 원문 {name}.ko.md 를 쓰고 없는 번역을 알린다 |
 | TC-W151 | release: 노트는 English · 한국어 · 简体中文 순서이고 한국어는 CHANGELOG 에서, 안쪽 제목은 한 단계 내린다 |
+| TC-W152 | release: internal 플러그인은 버전을 올려도 태그 · 릴리즈하지 않는다 — public 은 한다 |
 | TC-W112 | verify-all: 전부 통과하면 0, 실패가 있으면 1 과 ❌ 줄 |
 
 ### H. eval 러너
@@ -110,3 +111,4 @@ test/workflow-scripts.test.sh TC-W12    # ID 접두사로 필터
 | M29 release 안쪽 제목 내리기 제거 | 2 |
 | M30 release 한국어를 번역 디렉터리에서 읽음 | 5 |
 | M31 release --dry-run 이 원문을 쓰지 않음 | 1 (TC-W150) |
+| M32 release 대상에서 `internal-plugins/` 를 빼지 않음 | 1 (TC-W152) |

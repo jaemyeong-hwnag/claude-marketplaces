@@ -22,8 +22,9 @@ test/validate-directory-structure.test.sh TC-D1    # ID 접두사로 필터
 | TC-D01 | 이 저장소 전체가 통과한다 | 통과 (0) | - |
 | TC-D02 | 필수 세 파일을 갖춘 플러그인은 통과한다 | 통과 (0) | - |
 | TC-D03 | plugin.json 이 없으면 막는다 | 차단 (2) | 메시지: `plugin.json 이 없습니다` |
-| TC-D04 | README.md 가 없으면 막는다 | 차단 (2) | 메시지: `README.md 가 없습니다` |
-| TC-D04a | README 번역 하나라도 없으면 막는다 (#229) | 차단 (2) | 메시지: `README.zh-CN.md 가 없습니다 (P-01)` · `README.ko.md 가 없습니다 (P-01)` |
+| TC-D04 | public 은 README.md 가 없으면 막는다 | 차단 (2) | 메시지: `README.md 가 없습니다` |
+| TC-D04a | public 은 README 번역 하나라도 없으면 막는다 (#229) | 차단 (2) | 메시지: `README.zh-CN.md 가 없습니다 (P-01)` · `README.ko.md 가 없습니다 (P-01)` |
+| TC-D04b | internal 은 README.ko.md 하나면 통과하고, 그것이 없으면 막는다 (#252) | 통과 (0) → 차단 (2) | 메시지: `README.ko.md 가 없습니다 (P-01)`, `README.zh-CN.md` 는 요구하지 않는다 |
 | TC-D05 | CHANGELOG.md 가 없으면 막는다 | 차단 (2) | 메시지: `CHANGELOG.md 가 없습니다` |
 | TC-D06 | plugin.json 이 깨져 있으면 막는다 | 차단 (2) | 메시지: `JSON 파싱 실패` |
 | TC-D07 | plugin.json 의 name 이 디렉터리명과 다르면 막는다 | 차단 (2) | 메시지: `디렉터리명과 같아야 합니다` |
@@ -145,6 +146,7 @@ cp /tmp/vds.bak scripts/validate-directory-structure.sh && test/validate-directo
 | M5 `P-07` hooks/*.json 무력화 | 2 |
 | M6 `P-08` skills 하위 무력화 | 1 |
 | M7 `P-10` 케이스 검사 무력화 | 1 |
+| M8 `P-01` internal 도 세 언어 요구 | 1 (TC-D04b) |
 
 ## TC 추가 규칙
 

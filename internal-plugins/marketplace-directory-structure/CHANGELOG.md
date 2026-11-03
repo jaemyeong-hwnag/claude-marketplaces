@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.7.0
+
+### Changed
+- `P-01` 이 internal 플러그인(`internal-plugins/`)에는 `README.ko.md` 하나만 요구한다. public 은 여전히 세 언어를 요구한다 (#252)
+- 배포하지 않는 internal 플러그인이라 README 를 한국어 `README.ko.md` 하나로 줄였다 — `README.md` · `README.zh-CN.md` 와 언어 전환 줄을 지웠다 (#252)
+
 ## 0.6.0
 
 ### Changed

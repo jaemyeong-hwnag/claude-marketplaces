@@ -72,7 +72,7 @@ Claude Code 세션 안에서:
 
 ## 수록 플러그인
 
-설치: `/plugin install <이름>@jaemyeong-hwnag-plugins`. 플러그인마다 README 가 영어 · 한국어 · 중국어로 있다.
+설치: `/plugin install <이름>@jaemyeong-hwnag-plugins`. public 플러그인마다 README 가 영어 · 한국어 · 중국어로 있다.
 
 | 분야 | 플러그인 | 하는 일 |
 |---|---|---|
@@ -136,7 +136,7 @@ Claude Code 세션 안에서:
 
 - 이슈 · 브랜치 · PR · 커밋 타입은 `feature` / `bugfix` 둘뿐이다. 이슈 폼과 PR 템플릿은 [`.github/`](.github) 에 있다
 - 파일을 바꾼 플러그인은 버전을 올린다 — CHANGELOG 먼저, 그다음 `plugin.json`
-- 머지는 머지 커밋만. 태그 · 릴리즈는 머지하고 main 에서 설치를 확인한 뒤 `plugin-release-create` 스킬로 단다
+- 머지는 머지 커밋만. 태그 · 릴리즈는 머지하고 main 에서 설치를 확인한 뒤 `plugin-release-create` 스킬로 단다. public 만 — internal 은 배포하지 않아 태그 · 릴리즈가 없다
 - 플러그인을 만들 때는 `plugin-create`, 이름을 바꿀 때는 `plugin-name-update`, 지울 때는 `plugin-delete` 스킬을 쓴다
 
 ### 관심사마다 맡는 곳
@@ -148,7 +148,7 @@ Claude Code 세션 안에서:
 | 이름 | `plugin-naming` | [`naming-rules.md`](internal-plugins/plugin-naming/references/naming-rules.md) · [`glossary.json`](internal-plugins/plugin-naming/references/glossary.json) |
 | 파일 위치 | `marketplace-directory-structure` | [`directory-structure-rules.md`](internal-plugins/marketplace-directory-structure/references/directory-structure-rules.md) |
 | 버전 · CHANGELOG | `plugin-versioning` | [`versioning-rules.md`](internal-plugins/plugin-versioning/references/versioning-rules.md) |
-| 파일 내용 형식 (프런트매터 · 세 언어 README) | `plugin-authoring` | [`authoring-rules.md`](internal-plugins/plugin-authoring/references/authoring-rules.md) |
+| 파일 내용 형식 (프런트매터 · README) | `plugin-authoring` | [`authoring-rules.md`](internal-plugins/plugin-authoring/references/authoring-rules.md) |
 | 플러그인 사이의 의존 | `plugin-dependency` | [`dependency-rules.md`](internal-plugins/plugin-dependency/references/dependency-rules.md) |
 | 적어 둔 강제가 실행에서 효력을 내는가 | `plugin-enforcement-effectiveness` | [`enforcement-effectiveness-rules.md`](internal-plugins/plugin-enforcement-effectiveness/references/enforcement-effectiveness-rules.md) |
 | 이슈 → 브랜치 → PR → 머지 | `github-workflow` | [`workflow-rules.md`](public-plugins/github-workflow/references/workflow-rules.md) |
@@ -166,7 +166,7 @@ internal-plugins/plugin-workflow/scripts/eval-all.sh --quick .  # 스킬 발동 
 
 ### README 는 세 언어로
 
-플러그인과 이 저장소의 README 는 `README.md`(영어, 기본) · `README.ko.md` · `README.zh-CN.md` 세 개를 같은 내용으로 둔다. 하나가 없거나, 구성요소 표가 실제와 다르거나, 루트 README 에 public 플러그인이 빠지면 `verify-all.sh` 가 막는다 (`P-01` · `A-20` ~ `A-30`).
+public 플러그인과 이 저장소의 README 는 `README.md`(영어, 기본) · `README.ko.md` · `README.zh-CN.md` 세 개를 같은 내용으로 둔다. internal 플러그인은 `README.ko.md` 하나만 둔다. 하나가 없거나, 구성요소 표가 실제와 다르거나, 루트 README 에 public 플러그인이 빠지면 `verify-all.sh` 가 막는다 (`P-01` · `A-20` ~ `A-30`).
 
 ## 라이선스
 

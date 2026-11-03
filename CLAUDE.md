@@ -25,7 +25,7 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 | 이름 | `plugin-naming` | `plugin-naming/references/naming-rules.md` · `glossary.json` | `name-create` · `glossary-update` | `/naming-review` · `naming-reviewer` |
 | 파일 위치 | `marketplace-directory-structure` | `…/references/directory-structure-rules.md` | `plugin-directory-create` | `/directory-structure-validate` |
 | 버전 · CHANGELOG · 태그 | `plugin-versioning` | `plugin-versioning/references/versioning-rules.md` | `version-update` | `/versioning-validate` |
-| 파일 내용 형식 (프런트매터 · README 세 언어). 실행에서 무시 · 가려지는 것은 `plugin-enforcement-effectiveness` | `plugin-authoring` | `plugin-authoring/references/authoring-rules.md` | `plugin-document-create` | `/authoring-validate` |
+| 파일 내용 형식 (프런트매터 · README — public 세 언어, internal `README.ko.md` 하나). 실행에서 무시 · 가려지는 것은 `plugin-enforcement-effectiveness` | `plugin-authoring` | `plugin-authoring/references/authoring-rules.md` | `plugin-document-create` | `/authoring-validate` |
 | 플러그인 사이의 의존 | `plugin-dependency` | `plugin-dependency/references/dependency-rules.md` | `dependency-update` | `/dependency-validate` |
 | 이슈 → 브랜치 → PR → 머지 (`W-01` ~ `W-10`) | `github-workflow` (public) | `public-plugins/github-workflow/references/workflow-rules.md` | `issue-create` · `pull-request-create` · `pull-request-merge` · `github-template-create` | `/github-workflow-validate` |
 | 버전 · 설치 확인 · 태그 · 릴리즈, 생성 · 이름 변경 · 삭제 절차 | `plugin-workflow` | `plugin-workflow/references/workflow-rules.md` | `plugin-release-create` · `plugin-create` · `plugin-name-update` · `plugin-delete` | `verify-all.sh` |
@@ -48,7 +48,7 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 - 파일을 바꾼 플러그인은 버전을 올린다. **CHANGELOG 먼저**, 그다음 `plugin.json`
 - PR 전에 `verify-all.sh` 를 돌리고, `origin/main` 위로 리베이스한 **뒤에 다시** 돌린다
 - 머지는 머지 커밋(`gh pr merge --merge`)만. main 에 직접 커밋 · 머지 · 푸시하지 않고, 강제 푸시는 `--force-with-lease` 만 쓴다
-- 태그는 main 에서, 머지하고 설치를 확인한 뒤에 단다 (`release-plugins.sh`)
+- 태그는 main 에서, 머지하고 설치를 확인한 뒤에 단다 (`release-plugins.sh`). public 만 — internal 은 배포하지 않아 버전 · CHANGELOG 만 올린다
 - **머지 · 태그 푸시 · 릴리즈 · 이슈 · 라벨은 원격에 남는다. 사용자 확인 없이 처음 하지 않는다**
 - GitHub 브랜치 보호는 공개 저장소(또는 유료 플랜)에서만 켤 수 있다. 꺼져 있으면 위 규칙은 Claude 가 실행하는 명령에서만 막힌다 — 웹 UI 는 막지 못한다
 

@@ -7,6 +7,7 @@
 - `project-completeness` 플러그인 제거 — 자동 판정이 파일 이름 grep 이라 이름만 맞춰도 통과했고, 같은 일을 하는 별도 도구가 있다 (#251)
 
 ### Changed
+- internal 플러그인은 태그 · 릴리즈를 하지 않고 README 를 `README.ko.md` 하나로 둔다 — `release-plugins.sh` 가 `internal-plugins/` 를 빼고, 세 언어 · 상호 링크(`P-01` · `A-29`)는 public 에만 건다. 기존 internal 태그 · 릴리즈는 남긴다. `CLAUDE.md` 관심사 표 · 개발 플로우에 반영 (#252)
 - 루트 README 세 언어의 "완료를 막는다" 를 실제 동작(요청마다 한 번 되돌림 · 면제는 사용자 동의를 확인하지 않음 · 검증자 호출만 확인)에 맞추고, FAQ 에 #239 · #240 에서 바뀐 범위와 보지 못하는 경우를 적었다 (#249)
 - 루트 README 수록 표를 주요 플러그인(`code-edit-guardrail` · `common-evidence-review` · `common-stress-test`) 분야부터 정렬했다. 문구는 그대로 (#237)
 - 루트 README 세 언어의 첫 문단을 무엇을 막는지 · 누구에게 · 설치 두 줄로 바꾸고, 질문형 소제목의 FAQ 절을 더했다 — 검색 · AI 답변이 인용할 문장이 없었다 (#231)

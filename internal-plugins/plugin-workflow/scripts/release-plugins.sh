@@ -3,7 +3,8 @@
 #
 #   release-plugins.sh [--dry-run] [--since <ref>] [--notes-dir <dir>] [루트]
 #
-#   대상     현재 version 의 {name}--v{version} 태그가 없는 플러그인 — 머지를 여러 번 한 뒤 돌려도 빠지지 않는다
+#   대상     현재 version 의 {name}--v{version} 태그가 없는 public 플러그인 — 머지를 여러 번 한 뒤 돌려도 빠지지 않는다.
+#            internal-plugins/ 는 배포하지 않으므로 태그 · 릴리즈를 하지 않는다
 #   --since <ref>     대상을 이 ref 이후 version 이 바뀐 플러그인으로 좁힌다
 #   --dry-run         무엇을 할지만 보여준다. 태그·푸시·릴리즈를 하지 않는다. --notes-dir 를 주면 번역 원문 {name}.ko.md 를 쓴다
 #   --notes-dir <dir> 번역 {name}.en.md · {name}.zh-CN.md 가 있는 곳. 실제 실행에는 필수 (노트는 English · 한국어 · 简体中文)
@@ -50,7 +51,7 @@ fi
 
 MARKET="$(jq -r '.name // ""' .claude-plugin/marketplace.json 2>/dev/null)"
 
-# 2. 대상 — 현재 version 의 태그가 없는 플러그인
+# 2. 대상 — 현재 version 의 태그가 없는 public 플러그인
 TARGETS=()
 while IFS= read -r pj; do
   rel="${pj#./}"; dir="$(dirname "$(dirname "$rel")")"
@@ -62,10 +63,10 @@ while IFS= read -r pj; do
     [ "$new" != "$old" ] || continue
   fi
   TARGETS+=("$name|$new|$dir")
-done < <(find . -mindepth 4 -maxdepth 4 -path './*plugins/*/.claude-plugin/plugin.json' -not -path './.claude/*' | sort)
+done < <(find . -mindepth 4 -maxdepth 4 -path './*plugins/*/.claude-plugin/plugin.json' -not -path './.claude/*' -not -path './internal-plugins/*' | sort)
 
 if [ "${#TARGETS[@]}" -eq 0 ]; then
-  echo "릴리즈할 플러그인이 없다 — 모든 플러그인의 현재 version 에 태그가 있다${SINCE:+ (기준 $SINCE 이후 version 이 바뀐 것 중)}"
+  echo "릴리즈할 플러그인이 없다 — 모든 public 플러그인의 현재 version 에 태그가 있다${SINCE:+ (기준 $SINCE 이후 version 이 바뀐 것 중)}"
   exit 0
 fi
 

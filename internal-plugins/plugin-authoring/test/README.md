@@ -56,7 +56,7 @@ test/validate-authoring.test.sh TC-A2    # ID 접두사로 필터
 
 ### C. README (A-20 ~ A-30)
 
-기존 TC 는 한국어판(`README.ko.md`)을 고쳐 본다. 픽스처는 세 언어 README 를 모두 만든다.
+기존 TC 는 한국어판(`README.ko.md`)을 고쳐 본다. 픽스처는 public 이면 세 언어 README 를, internal 이면 `README.ko.md` 하나를 만든다.
 
 | ID | 케이스 |
 |---|---|
@@ -97,6 +97,8 @@ test/validate-authoring.test.sh TC-A2    # ID 접두사로 필터
 | TC-A93 | 번역판의 스킬 표가 실제와 다르면 막는다 (A-24, #229) |
 | TC-A94 | 언어 전환 줄에 다른 언어 링크가 없으면 막는다 (A-29, #229) |
 | TC-A95 | 세 언어가 서로를 링크하면 통과한다 (A-29, #229) |
+| TC-A96 | internal 은 README.ko.md 하나 · 언어 전환 링크 없이 통과한다 (A-29, #252) |
+| TC-A97 | internal 의 README.ko.md 도 표를 실제와 대조한다 (A-24, #252) |
 
 ### D. 훅 모드
 
@@ -168,6 +170,7 @@ test/validate-authoring.test.sh TC-A2    # ID 접두사로 필터
 | M17 README 언어를 한국어만 보게 되돌림 (#229) | 4 (TC-A90 ~ TC-A93) |
 | M18 `A-29` 링크 검사 제거 (#229) | 1 (TC-A94) |
 | M19 `A-30` 루트 README 검사 제거 (#229) | 1 (TC-A87) |
+| M20 `A-29` 를 internal 에도 검사 (#252) | 28 (TC-A96 등 internal 픽스처 전부) |
 
 ## 알려진 한계
 

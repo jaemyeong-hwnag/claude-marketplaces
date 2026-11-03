@@ -172,8 +172,8 @@ check_readme_lang() { # $1=플러그인 디렉터리 $2=플러그인명 $3=배�
   first="$(unfenced "$readme" | grep -m1 -E '^# ' | sed -E 's/^# +//; s/[[:space:]]+$//')"
   [ "$first" = "$name" ] || err "$label: 첫 제목이 '# ${first:-없음}' 입니다 — '# $name' 이어야 합니다 (A-20)"
 
-  # A-29 언어 전환 — 나머지 두 언어 파일을 링크한다
-  for other in $README_LANGS; do
+  # A-29 언어 전환 — 나머지 두 언어 파일을 링크한다. internal 은 한 언어라 보지 않는다 (구조 P-01)
+  [ "$kind" = internal ] || for other in $README_LANGS; do
     [ "$other" = "$lang" ] && continue
     grep -qF "]($(readme_file "$other"))" "$readme" || err "$label: '$(readme_file "$other")' 링크가 없습니다 — 언어 전환 줄에 나머지 두 언어를 링크합니다 (A-29)"
   done

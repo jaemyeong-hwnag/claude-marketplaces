@@ -48,9 +48,10 @@ make_plugin() { # $1=배치(internal|public, 기본 internal) → 플러그인 �
   write_readme "$d" "$kind"
   printf '%s' "$d"
 }
-write_readme() { # $1=플러그인 $2=배치 — README.md(en) · README.ko.md · README.zh-CN.md
-  local lang file install hi hd hs ha hh hl none sw
-  for lang in en ko zh-CN; do
+write_readme() { # $1=플러그인 $2=배치 — public 은 README.md(en) · README.ko.md · README.zh-CN.md, internal 은 README.ko.md 만
+  local lang file install hi hd hs ha hh hl none sw langs="en ko zh-CN"
+  [ "$2" = public ] || langs="ko"
+  for lang in $langs; do
     case "$lang" in
       en)    file=README.md;       hi=Installation; hd=Dependencies; hs=Skills; ha=Agents; hh=Hooks; hl=Changelog; none=None
              install="Installed by the SessionStart hook."; sw="**English** · [한국어](README.ko.md) · [简体中文](README.zh-CN.md)" ;;
@@ -60,6 +61,7 @@ write_readme() { # $1=플러그인 $2=배치 — README.md(en) · README.ko.md �
              install="由 SessionStart 钩子安装。"; sw="[English](README.md) · [한국어](README.ko.md) · **简体中文**" ;;
     esac
     [ "$2" = public ] && install="/plugin install order-sync@jaemyeong-hwnag-plugins"
+    [ "$2" = public ] || sw="한국어"
     cat > "$1/$file" <<EOF
 # order-sync
 
@@ -236,7 +238,7 @@ P="$(make_plugin)"; printf '출처: http://example.com\n' >> "$P/references/rule
 run "$P"; expect_code 2; expect_out "(A-09)"
 
 tc TC-A27 "README 의 URL 은 대상이 아니다"
-P="$(make_plugin)"; printf '\n홈: https://example.com\n' >> "$P/README.md"
+P="$(make_plugin public)"; printf '\n홈: https://example.com\n' >> "$P/README.md"
 readme_sub "$P" "## 설치" "홈: https://example.com
 
 ## 설치"
@@ -368,27 +370,35 @@ P="$(make_plugin)"; rm "$P/README.md" "$P/README.ko.md" "$P/README.zh-CN.md"
 run "$P"; expect_code 0
 
 tc TC-A90 "영어판 README.md 는 영어 절 제목으로 본다 (A-21, #229)"
-P="$(make_plugin)"; readme_sub "$P" "## Installation" "## 설치" README.md
+P="$(make_plugin public)"; readme_sub "$P" "## Installation" "## 설치" README.md
 run "$P"; expect_code 2; expect_out "order-sync/README.md: '## Installation' 절이 없습니다"
 
 tc TC-A91 "중국어판의 스킬 절이 없으면 막는다 (A-22, #229)"
-P="$(make_plugin)"; readme_drop "$P" "技能" README.zh-CN.md
+P="$(make_plugin public)"; readme_drop "$P" "技能" README.zh-CN.md
 run "$P"; expect_code 2; expect_out "order-sync/README.zh-CN.md: 스킬·커맨드가 있는데 '## 技能' 절이 없습니다"
 
 tc TC-A92 "언어마다 의존성 없음 단어를 본다 — None · 无 (A-27, #229)"
-P="$(make_plugin)"; readme_sub "$P" "None" "-" README.md; readme_sub "$P" "无" "-" README.zh-CN.md
+P="$(make_plugin public)"; readme_sub "$P" "None" "-" README.md; readme_sub "$P" "无" "-" README.zh-CN.md
 run "$P"; expect_code 2; expect_out "'None' 이라고 씁니다"; expect_out "'无' 이라고 씁니다"
 
 tc TC-A93 "번역판의 스킬 표가 실제와 다르면 막는다 (A-24, #229)"
-P="$(make_plugin)"; readme_sub "$P" "| order-create | 주문 | 만든다 |" "| order-ghost | 유령 | 없다 |" README.zh-CN.md
+P="$(make_plugin public)"; readme_sub "$P" "| order-create | 주문 | 만든다 |" "| order-ghost | 유령 | 없다 |" README.zh-CN.md
 run "$P"; expect_code 2; expect_out "README.zh-CN.md: '## 技能' 표에 'order-create' 가 없습니다"; expect_not "README.md: '## Skills'"
 
 tc TC-A94 "언어 전환 줄에 다른 언어 링크가 없으면 막는다 (A-29, #229)"
-P="$(make_plugin)"; readme_sub "$P" " · [简体中文](README.zh-CN.md)" "" README.md
+P="$(make_plugin public)"; readme_sub "$P" " · [简体中文](README.zh-CN.md)" "" README.md
 run "$P"; expect_code 2; expect_out "order-sync/README.md: 'README.zh-CN.md' 링크가 없습니다"; expect_out "(A-29)"
 
 tc TC-A95 "세 언어가 서로를 링크하면 통과한다 (A-29, #229)"
-run "$(make_plugin)"; expect_code 0
+run "$(make_plugin public)"; expect_code 0
+
+tc TC-A96 "internal 은 README.ko.md 하나 · 언어 전환 링크 없이 통과한다 (A-29, #252)"
+P="$(make_plugin)"; run "$P"; expect_code 0
+[ "$TC_ON" = 1 ] && { [ -e "$P/README.md" ] || [ -e "$P/README.zh-CN.md" ] || grep -qF "](README" "$P/README.ko.md"; } && fail_tc "픽스처가 한 언어가 아니다"; true
+
+tc TC-A97 "internal 의 README.ko.md 도 표를 실제와 대조한다 (A-24, #252)"
+P="$(make_plugin)"; readme_sub "$P" "| order-create | 주문 | 만든다 |" "| order-ghost | 유령 | 없다 |"
+run "$P"; expect_code 2; expect_out "order-sync/README.ko.md: '## 포함된 스킬' 표에 'order-create' 가 없습니다"
 
 tc TC-A55 "설치 펜스 안의 '# 주석' 에서 절이 끝나지 않는다 (A-28, #88)"
 P="$(make_plugin public)"; readme_sub "$P" "/plugin install order-sync@jaemyeong-hwnag-plugins" "\`\`\`bash
@@ -482,7 +492,7 @@ R="$TMP/all"; rm -rf "$R"; mkdir -p "$R/internal-plugins"
 cp -R "$(make_plugin)" "$R/internal-plugins/order-sync"
 cp -R "$R/internal-plugins/order-sync" "$R/internal-plugins/item-sync"
 printf '{ "name": "item-sync" }' > "$R/internal-plugins/item-sync/.claude-plugin/plugin.json"
-run --all "$R"; expect_code 2; expect_out "item-sync/README.md: 첫 제목"; expect_not "order-sync/README.md"
+run --all "$R"; expect_code 2; expect_out "item-sync/README.ko.md: 첫 제목"; expect_not "order-sync/README.ko.md"
 
 tc TC-A87 "루트 README 가 public 플러그인을 싣지 않으면 막는다 (A-30, #229)"
 R="$TMP/rootreadme"; rm -rf "$R"; mkdir -p "$R/public-plugins"

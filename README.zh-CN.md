@@ -72,7 +72,7 @@
 
 ## 收录插件
 
-安装：`/plugin install <名称>@jaemyeong-hwnag-plugins`。每个插件都有英文 · 韩文 · 中文 README。
+安装：`/plugin install <名称>@jaemyeong-hwnag-plugins`。每个 public 插件都有英文 · 韩文 · 中文 README。
 
 | 领域 | 插件 | 作用 |
 |---|---|---|
@@ -136,7 +136,7 @@ issue → worktree · 分支 → 工作 → 版本 → 验证 · 测试 → reba
 
 - issue · 分支 · PR · 提交类型只有 `feature` / `bugfix`。issue 表单和 PR 模板在 [`.github/`](.github)
 - 修改了文件的插件要升级版本 — 先 CHANGELOG，再 `plugin.json`
-- 只用合并提交。合并并在 main 上确认安装后，用 `plugin-release-create` 技能打标签 · 发布
+- 只用合并提交。合并并在 main 上确认安装后，用 `plugin-release-create` 技能打标签 · 发布。仅限 public — internal 不分发，没有标签 · 发布
 - 创建插件用 `plugin-create`，重命名用 `plugin-name-update`，删除用 `plugin-delete` 技能
 
 ### 各关注点的负责方
@@ -148,7 +148,7 @@ issue → worktree · 分支 → 工作 → 版本 → 验证 · 测试 → reba
 | 名称 | `plugin-naming` | [`naming-rules.md`](internal-plugins/plugin-naming/references/naming-rules.md) · [`glossary.json`](internal-plugins/plugin-naming/references/glossary.json) |
 | 文件位置 | `marketplace-directory-structure` | [`directory-structure-rules.md`](internal-plugins/marketplace-directory-structure/references/directory-structure-rules.md) |
 | 版本 · CHANGELOG | `plugin-versioning` | [`versioning-rules.md`](internal-plugins/plugin-versioning/references/versioning-rules.md) |
-| 文件内容格式（frontmatter · 三种语言 README） | `plugin-authoring` | [`authoring-rules.md`](internal-plugins/plugin-authoring/references/authoring-rules.md) |
+| 文件内容格式（frontmatter · README） | `plugin-authoring` | [`authoring-rules.md`](internal-plugins/plugin-authoring/references/authoring-rules.md) |
 | 插件之间的依赖 | `plugin-dependency` | [`dependency-rules.md`](internal-plugins/plugin-dependency/references/dependency-rules.md) |
 | 写下的强制在运行时是否生效 | `plugin-enforcement-effectiveness` | [`enforcement-effectiveness-rules.md`](internal-plugins/plugin-enforcement-effectiveness/references/enforcement-effectiveness-rules.md) |
 | issue → 分支 → PR → 合并 | `github-workflow` | [`workflow-rules.md`](public-plugins/github-workflow/references/workflow-rules.md) |
@@ -166,7 +166,7 @@ internal-plugins/plugin-workflow/scripts/eval-all.sh --quick .  # 技能触发 �
 
 ### README 使用三种语言
 
-所有插件和本仓库都以相同内容保留 `README.md`（英文，默认）· `README.ko.md` · `README.zh-CN.md`。缺少其中之一、组件表与实际不符、或根目录 README 漏掉 public 插件时，`verify-all.sh` 会阻止（`P-01` · `A-20` ~ `A-30`）。
+所有 public 插件和本仓库都以相同内容保留 `README.md`（英文，默认）· `README.ko.md` · `README.zh-CN.md`。internal 插件只保留 `README.ko.md`。缺少其中之一、组件表与实际不符、或根目录 README 漏掉 public 插件时，`verify-all.sh` 会阻止（`P-01` · `A-20` ~ `A-30`）。
 
 ## 许可证
 
