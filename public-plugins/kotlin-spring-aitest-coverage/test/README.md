@@ -15,7 +15,7 @@ test/diff-coverage-validate.test.sh TC-K     # ID 접두사로 필터
 
 Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아래 "수동 확인" 을 본다.
 
-## 자동 TC (88건)
+## 자동 TC (89건)
 
 ### A. 메서드 커버리지 (method-coverage-get.sh)
 
@@ -89,6 +89,7 @@ Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아�
 | TC-D29 | 파일 이름과 다른 @RestController 클래스도 C-01 대상이다 |
 | TC-D30 | src/main/java 의 .kt 도 모듈 변경으로 본다 (C-01) |
 | TC-D31 | 판정 도구(javap)가 없으면 실행 오류(2)로 끝난다 (C-09) |
+| TC-D32 | 라이브러리 소속 .kt 를 읽을 수 없어도 check-only 판정을 이어 간다 |
 
 ### D. 훅 (aitest-coverage-validate.sh)
 
