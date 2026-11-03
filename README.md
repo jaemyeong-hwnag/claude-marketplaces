@@ -160,7 +160,8 @@ Each concern has exactly one owner. `Write` · `Edit` · `Bash` hooks block or n
 Run before a PR, and again after rebasing onto `origin/main`.
 
 ```bash
-internal-plugins/plugin-workflow/scripts/verify-all.sh .        # all validators · regression tests · claude plugin validate --strict
+internal-plugins/plugin-workflow/scripts/verify-all.sh .        # repo-wide validators + tests · validate --strict of changed plugins and their dependents
+internal-plugins/plugin-workflow/scripts/verify-all.sh --all  # everything (before release · when in doubt)
 internal-plugins/plugin-workflow/scripts/eval-all.sh --quick .  # skill-trigger · hook-block evals (calls the model, never publishes)
 ```
 

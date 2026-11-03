@@ -46,7 +46,7 @@ Claude Code 플러그인 마켓플레이스 저장소. 마켓플레이스 이름
 - 이슈 · 라벨 · 브랜치 · PR 템플릿 · 커밋 타입을 `feature` / `bugfix` 한 단어로 맞춘다. 브랜치는 `{feature|bugfix}/{이슈}-{slug}` 이고 `origin/main` 에서 딴다 (`github-workflow` 의 `branch-create.sh`). `develop` 은 없다
 - 워크트리는 `.claude/worktrees/{이슈}-{slug}` 에 둔다
 - 파일을 바꾼 플러그인은 버전을 올린다. **CHANGELOG 먼저**, 그다음 `plugin.json`
-- PR 전에 `verify-all.sh` 를 돌리고, `origin/main` 위로 리베이스한 **뒤에 다시** 돌린다
+- PR 전에 `verify-all.sh` 를 돌리고, `origin/main` 위로 리베이스한 **뒤에 다시** 돌린다 (바뀐 플러그인과 역의존만 — 전부는 `--all`)
 - 머지는 머지 커밋(`gh pr merge --merge`)만. main 에 직접 커밋 · 머지 · 푸시하지 않고, 강제 푸시는 `--force-with-lease` 만 쓴다
 - 태그는 main 에서, 머지하고 설치를 확인한 뒤에 단다 (`release-plugins.sh`). public 만 — internal 은 배포하지 않아 버전 · CHANGELOG 만 올린다
 - **머지 · 태그 푸시 · 릴리즈 · 이슈 · 라벨은 원격에 남는다. 사용자 확인 없이 처음 하지 않는다**
@@ -98,10 +98,11 @@ public 플러그인은 이 훅이 설치하지 않는다. internal 이 `dependen
 
 ## 검증
 
-PR 전에는 전부 한 번에 돌린다 — 검증기 · 회귀 테스트 · `claude plugin validate --strict` 를 경로 규칙으로 찾아 한 줄씩 요약한다.
+PR 전에는 한 번에 돌린다 — 검증기 · 회귀 테스트 · `claude plugin validate --strict` 를 경로 규칙으로 찾아 한 줄씩 요약한다. 기본은 `origin/main` 대비 바뀐 플러그인과 그 역의존의 테스트 · validate 와 저장소 전체 검증기이고, 첫 줄에 대상을 알린다.
 
 ```bash
-internal-plugins/plugin-workflow/scripts/verify-all.sh .
+internal-plugins/plugin-workflow/scripts/verify-all.sh .        # 바뀐 것과 역의존만
+internal-plugins/plugin-workflow/scripts/verify-all.sh --all .  # 전부 — 릴리즈 전 · 의심될 때
 ```
 
 규칙이나 스크립트를 고쳤으면 그 플러그인의 `test/*.test.sh` 부터 돌리고, 조항을 추가했으면 TC 도 같이 추가한다 (TC 명세는 각 `test/README.md`).

@@ -160,7 +160,8 @@ issue → worktree · 分支 → 工作 → 版本 → 验证 · 测试 → reba
 PR 前运行，rebase 到 `origin/main` 之后再运行一次。
 
 ```bash
-internal-plugins/plugin-workflow/scripts/verify-all.sh .        # 全部验证器 · 回归测试 · claude plugin validate --strict
+internal-plugins/plugin-workflow/scripts/verify-all.sh .        # 全仓库验证器 + 变更插件及其反向依赖的测试 · validate --strict
+internal-plugins/plugin-workflow/scripts/verify-all.sh --all  # 全部（发布前 · 有疑问时）
 internal-plugins/plugin-workflow/scripts/eval-all.sh --quick .  # 技能触发 · 钩子阻止 eval（调用模型，不发布）
 ```
 

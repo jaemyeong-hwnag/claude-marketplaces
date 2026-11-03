@@ -160,7 +160,8 @@ Claude Code 세션 안에서:
 PR 전에, 그리고 `origin/main` 위로 리베이스한 뒤에 다시 돌린다.
 
 ```bash
-internal-plugins/plugin-workflow/scripts/verify-all.sh .        # 검증기 · 회귀 테스트 · claude plugin validate --strict 전부
+internal-plugins/plugin-workflow/scripts/verify-all.sh .        # 저장소 전체 검증기 + 바뀐 플러그인과 역의존의 테스트 · validate --strict
+internal-plugins/plugin-workflow/scripts/verify-all.sh --all  # 전부 (릴리즈 전 · 의심될 때)
 internal-plugins/plugin-workflow/scripts/eval-all.sh --quick .  # 스킬 발동 · 훅 차단 eval (모델 호출, 게시 안 함)
 ```
 

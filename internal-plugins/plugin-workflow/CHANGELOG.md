@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.10.0
+
+### Added
+- `verify-all.sh --all` — 지금까지처럼 전부 (#260)
+
+### Changed
+- `verify-all.sh` 기본 모드가 `origin/main` 대비 바뀐 파일(커밋 + 작업 트리 + 미추적)로 대상을 고른다 — 바뀐 플러그인과 `dependencies` 로 기대는 플러그인(전이 포함)의 테스트 · `claude plugin validate --strict`. 검증기 · 저장소 정책 훅 · 마켓플레이스 validate 는 늘 돌고, `.claude/hooks/` · `test/` · `.claude-plugin/` · `CLAUDE.md` 가 바뀌면 저장소 테스트도 돈다. `origin/main` 이 없으면 전부. 첫 줄에 대상을 알린다 (#260)
+- `--no-run` 을 아는 검증기는 기본 모드에서 `--all --no-run` — 실행 검사는 `--since` 로 바뀐 플러그인만 (#260)
+
 ## 0.9.0
 
 ### Changed

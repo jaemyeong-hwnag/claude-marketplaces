@@ -29,7 +29,7 @@ internal 플러그인이라 다른 저장소에 배포하지 않는다.
 | 경로 | 역할 |
 |---|---|
 | `references/workflow-rules.md` | 이 마켓플레이스가 더하는 단계 (`github-workflow` 단계와의 순서) |
-| `scripts/verify-all.sh` | 검증기 · 회귀 테스트 · `claude plugin validate` 를 경로 규칙으로 찾아 전부 |
+| `scripts/verify-all.sh` | 저장소 전체 검증기와, `origin/main` 대비 바뀐 플러그인 · 역의존의 회귀 테스트 · `claude plugin validate` 를 경로 규칙으로 찾아 돈다 (`--all` 은 전부) |
 | `scripts/release-plugins.sh` | 현재 버전의 태그가 없는 public 플러그인마다 태그 · 릴리즈 (internal 은 하지 않는다) (`--dry-run` · `--since` · `--notes-dir`). 노트는 영어 · 한국어 · 중국어 간체이고, 번역이 없으면 거부한다 |
 | `scripts/plugin-name-update.sh` | 이름 변경 — 디렉터리 · `plugin.json` · 엔트리 · `renames` · 기대는 플러그인의 `dependencies` · `enabledPlugins` 키를 바꾸고 남은 참조 후보를 낸다 (`--dry-run`) |
 | `scripts/eval-all.sh` | 모든 플러그인의 eval 케이스를 케이스 단위로 — 필요한 권한만 주고, 리포트는 게시하지 않는다 (`--quick`) |
