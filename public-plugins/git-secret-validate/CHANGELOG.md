@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.7
+
+### Fixed
+- `bash -c '…'` · `sh -c` · `zsh -c` · `eval` 로 감싼 `git commit` · `git push` 를 검사 없이 통과시키던 것 — 래퍼 안의 commit · push · add 도 직접 실행과 같게 본다 (#239, `GS-01`)
+
 ## 0.1.6
 
 ### Changed

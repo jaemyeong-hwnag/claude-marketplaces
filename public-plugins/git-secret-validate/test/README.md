@@ -66,6 +66,8 @@ test/validate-git-secret.test.sh TC-S3    # ID 접두사로 필터
 | TC-S59 | cd · git -C 대상에 변수 · 명령 치환이 있으면 commit · push 를 막고, commit · push 가 없거나 뒤의 -C 가 절대 경로면 막지 않는다 |
 | TC-S60 | 서브셸이 끝나면 cd 를 되돌리고, 명령 안 commit 마다 그 저장소를 본다 |
 | TC-S61 | `cd "$(git [-C 경로] rev-parse --show-toplevel)"` 는 그 저장소 루트로 풀어 본다 (스테이징된 키면 막고, 깨끗하면 통과) |
+| TC-S62 | `bash -c` · `sh -c` · `zsh -c` · `eval` 로 감싼 git commit · push · add 도 본다 (중첩 · 따옴표 안 `-C` 포함) |
+| TC-S63 | 따옴표 안에 git commit · push · add 를 적기만 한 명령은 보지 않는다 (과잉 차단 방지) |
 
 ### C. 훅 — Write · Edit
 

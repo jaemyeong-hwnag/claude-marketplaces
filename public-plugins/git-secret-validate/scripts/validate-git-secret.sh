@@ -194,9 +194,11 @@ engine_note() {
 # git 과 하위 명령 사이의 전역 옵션 — git -C dir · git -c k=v · git --no-pager. 값은 따옴표 문자열도 된다. 두 함수가 같이 쓴다
 GIT_OPT_VAL="(\"[^\"]*\"|'[^']*'|[^[:space:]\"'])+"
 GIT_GLOBAL_OPTS="([[:space:]]+-[Cc][[:space:]]+$GIT_OPT_VAL|[[:space:]]+--?[A-Za-z][A-Za-z-]*(=$GIT_OPT_VAL)?)*"
-# 명령에서 git 하위 명령이 있는지 — /usr/bin/git 처럼 경로로 불러도
-has_git_sub() { # $1=명령 $2=하위 명령
-  printf '%s' "$1" | grep -qE "(^|[;&|(\`[:space:]])([^[:space:];&|(\`]*/)?git$GIT_GLOBAL_OPTS[[:space:]]+$2([[:space:]]|\$|[;&|)])"
+# 명령에서 git 하위 명령이 있는지 — /usr/bin/git 처럼 경로로 불러도. $3 이 있으면 따옴표 바로 뒤의 git 도 (bash -c 'git …')
+has_git_sub() { # $1=명령 $2=하위 명령 [$3=따옴표 뒤도 볼지]
+  local q=""
+  [ -n "${3:-}" ] && q="\"'"
+  printf '%s' "$1" | grep -qE "(^|[;&|(\`[:space:]$q])([^[:space:];&|(\`$q]*/)?git$GIT_GLOBAL_OPTS[[:space:]]+$2([[:space:]]|\$|[;&|)$q])"
 }
 # 하위 명령 뒤 인자 — 다음 셸 구분자까지. GIT_GLOBAL_OPTS 가 묶음 넷을 써서 인자는 여섯째 묶음이다
 git_sub_args() { # $1=명령 $2=하위 명령
@@ -373,11 +375,11 @@ find_targets() { # $1=명령 $2=시작 디렉터리 → TARGETS 에 "하위 명�
         if [ "${toks[$i]:-}" = - ]; then dir=""; else dir="$(target_dir "$dir" "${toks[$i]:-$HOME}")"; fi ;;
       popd) dir="" ;;
       git) git_target "$dir" "${toks[@]:1}" ;;
-      eval) s="${toks[*]:1}"; find_targets "${s//$'\036'/$'\n'}" "$dir" ;;
+      eval) s="${toks[*]:1}"; WRAPPED+=("${s//$'\036'/$'\n'}"); find_targets "${s//$'\036'/$'\n'}" "$dir" ;;
       bash|sh|zsh|dash|ksh)
         for ((i = 1; i < ${#toks[@]}; i++)); do
           case "${toks[$i]}" in
-            -c|-[a-z]*c) s="${toks[$((i+1))]:-}"; [ -n "$s" ] && find_targets "${s//$'\036'/$'\n'}" "$dir"; break ;;
+            -c|-[a-z]*c) s="${toks[$((i+1))]:-}"; [ -n "$s" ] && { WRAPPED+=("${s//$'\036'/$'\n'}"); find_targets "${s//$'\036'/$'\n'}" "$dir"; }; break ;;
             -*) ;;
             *) break ;;
           esac
@@ -406,7 +408,7 @@ commit_pathspecs() { # $1=commit 인자 → 한 줄에 하나
 }
 
 # 명령 안 모든 git add 의 인자 → ADD_SPECS(경로) · ADD_FORCE(-f) · ADD_ALL(. · -A · -u 처럼 전체를 넣는다)
-parse_git_add() { # $1=명령
+parse_git_add() { # $@=명령과 bash -c · eval 로 푼 문자열
   local seg tok seen=0
   ADD_SPECS=(); ADD_FORCE=0; ADD_ALL=0
   while IFS= read -r seg; do
@@ -426,7 +428,7 @@ parse_git_add() { # $1=명령
         *) ADD_SPECS+=("$tok") ;;
       esac
     done < <(shell_words "$(git_sub_args "$seg" add)")
-  done < <(printf '%s\n' "$1" | tr ';&|' '\n\n\n')
+  done < <(printf '%s\n' "$@" | tr ';&|' '\n\n\n')
   # 경로 없는 git add 는 어디를 넣는지 모른다 — 넓게 본다
   if [ "$seen" = 1 ] && [ "${#ADD_SPECS[@]}" = 0 ]; then ADD_ALL=1; fi
   return 0
@@ -438,7 +440,7 @@ hook_commit() { # $1=저장소 $2=명령 $3=번호(대상마다 따로 모은다
   g -C "$repo" rev-parse -q --verify HEAD >/dev/null 2>&1 || has_head=0
   commit_args="$(git_sub_args "$cmd" commit)"
   # git add 가 같은 명령에 있으면 아직 스테이징 전이다 — 전체를 넣으면 바뀐 파일 전체, 경로를 주면 그 경로만 본다
-  parse_git_add "$cmd"
+  parse_git_add "$cmd" ${WRAPPED+"${WRAPPED[@]}"}
   if [ "$ADD_ALL" = 1 ]; then worktree=1; fi
   if printf ' %s ' "$commit_args" | grep -qE '[[:space:]](-[A-Za-z]*a[A-Za-z]*|--all)[[:space:]]'; then worktree=1; fi
   # git commit <경로> · --only · -i 는 그 경로의 작업 트리 내용을 커밋한다
@@ -515,13 +517,16 @@ hook_bash() { # $1=payload
   [ -n "$cmd" ] || exit 0
   has_git_sub "$cmd" commit && what="commit"
   has_git_sub "$cmd" push && what="$what push"
-  [ -n "$what" ] || exit 0
+  # 따옴표 뒤의 git 은 렉서가 bash -c · eval 안에서 찾은 것만 본다 — echo "git push" 는 보지 않는다
+  [ -n "$what" ] || has_git_sub "$cmd" '(commit|push)' q || exit 0
   cwd="$(printf '%s' "$1" | jq -r '.cwd // ""' 2>/dev/null)"
   [ -n "$cwd" ] || cwd="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-  TARGETS=()
+  TARGETS=(); WRAPPED=()
   find_targets "$cmd" "$cwd"
   # 렉서가 git 명령으로 보지 못한 형태는 cwd 를 본다
   if [ "${#TARGETS[@]}" = 0 ]; then for t in $what; do TARGETS+=("$t"$'\037'"$cwd"); done; fi
+  [ "${#TARGETS[@]}" -gt 0 ] || exit 0
+  [ -n "$what" ] || for t in "${TARGETS[@]}"; do case "$what " in *" ${t%%$'\037'*} "*) ;; *) what="$what ${t%%$'\037'*}" ;; esac; done
   for t in "${TARGETS[@]}"; do
     [ -n "${t#*$'\037'}" ] && continue
     echo "❌ git ${t%%$'\037'*} 의 대상 저장소를 알 수 없어 막는다 ($LABEL) — cd · git -C 의 대상에 변수 · 명령 치환이 있다." >&2
