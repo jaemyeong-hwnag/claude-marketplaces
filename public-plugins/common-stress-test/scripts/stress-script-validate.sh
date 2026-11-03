@@ -8,7 +8,12 @@
 # 의도한 closed 모델이면 파일에 `stress-test: closed-model` 주석을 둔다 — ST-02 를 건너뛴다.
 set -uo pipefail
 
-RULES="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/references/stress-test-rules.md"
+PLUGIN_DIR="${CLAUDE_PLUGIN_ROOT:-}"
+if [ -z "$PLUGIN_DIR" ]; then
+  SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
+  PLUGIN_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
+fi
+RULES="$PLUGIN_DIR/references/stress-test-rules.md"
 die() { echo "stress-script-validate: $*" >&2; exit 1; }
 command -v jq >/dev/null 2>&1 || die "jq 가 필요하다"
 
@@ -26,11 +31,11 @@ kind_of() {
 # 파일 하나 → "ST-xx 메시지" 줄들
 check_file() {
   local f="$1" k has
-  k="$(kind_of "$f")"
+  k=$(kind_of "$f")
   [ -n "$k" ] || return 0
   # 주석을 뺀 본문으로 판정한다
   local body
-  body="$(sed -E 's#^[[:space:]]*(//|\#).*$##' "$f")"
+  body=$(sed -E 's#^[[:space:]]*(//|\#).*$##' "$f")
   local closed_ok=0
   grep -q 'stress-test: closed-model' "$f" && closed_ok=1
   case "$k" in
@@ -60,15 +65,17 @@ check_file() {
 }
 
 if [ "$#" -eq 0 ] && [ ! -t 0 ]; then
-  INPUT="$(cat)"
+  INPUT=$(cat)
   if [ -n "$INPUT" ] && printf '%s' "$INPUT" | jq -e '.hook_event_name' >/dev/null 2>&1; then
-    [ "$(printf '%s' "$INPUT" | jq -r '.hook_event_name')" = "PostToolUse" ] || exit 0
-    F="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // ""')"
+    EVENT=$(printf '%s' "$INPUT" | jq -r '.hook_event_name')
+    [ "$EVENT" = "PostToolUse" ] || exit 0
+    F=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // ""')
     [ -n "$F" ] && [ -f "$F" ] || exit 0
-    OUT="$(check_file "$F")"
+    OUT=$(check_file "$F")
     [ -n "$OUT" ] || exit 0
+    LIST=$(printf '%s\n' "$OUT" | sed 's/^/- /')
     MSG="부하 스크립트 측정 설계 경고 (common-stress-test) — ${F##*/}
-$(printf '%s\n' "$OUT" | sed 's/^/- /')
+$LIST
 규칙: $RULES"
     jq -n --arg c "$MSG" '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $c}}'
     exit 0
@@ -85,17 +92,29 @@ done
 N=0; W=0
 for t in "${TARGETS[@]}"; do
   [ -e "$t" ] || die "없는 경로: $t"
-  while IFS= read -r f; do
-    [ -n "$(kind_of "$f")" ] || continue
+  if [ -d "$t" ]; then
+    EXCLUDE_CLAUDE="${t%/}/.claude/*"
+    FOUND=$(find "$t" -type f \( -name '*.js' -o -name '*.mjs' -o -name '*.ts' -o -name '*.py' -o -name '*.jmx' -o -name '*.scala' -o -name '*.java' -o -name '*.kt' \) \
+      -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path "$EXCLUDE_CLAUDE" -not -path '*/build/*' -not -path '*/target/*' -not -path '*/.venv/*' | sort)
+  else
+    FOUND="$t"
+  fi
+  OLD_IFS="$IFS"; set -f; IFS='
+'
+  FOUND_LIST=($FOUND)
+  IFS="$OLD_IFS"; set +f
+  for f in ${FOUND_LIST+"${FOUND_LIST[@]}"}; do
+    K=$(kind_of "$f")
+    [ -n "$K" ] || continue
     N=$((N+1))
-    OUT="$(check_file "$f")"
+    OUT=$(check_file "$f")
     if [ -n "$OUT" ]; then
-      echo "⚠️  $f ($(kind_of "$f"))"
+      echo "⚠️  $f ($K)"
       printf '%s\n' "$OUT" | sed 's/^/  - /'
-      W=$((W + $(printf '%s\n' "$OUT" | wc -l)))
+      LINES=$(printf '%s\n' "$OUT" | wc -l)
+      W=$((W + LINES))
     fi
-  done < <(if [ -d "$t" ]; then find "$t" -type f \( -name '*.js' -o -name '*.mjs' -o -name '*.ts' -o -name '*.py' -o -name '*.jmx' -o -name '*.scala' -o -name '*.java' -o -name '*.kt' \) \
-             -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path "${t%/}/.claude/*" -not -path '*/build/*' -not -path '*/target/*' -not -path '*/.venv/*' | sort; else echo "$t"; fi)
+  done
 done
 
 echo "부하 스크립트 ${N}개, 경고 ${W}건 — 규칙: $RULES"
