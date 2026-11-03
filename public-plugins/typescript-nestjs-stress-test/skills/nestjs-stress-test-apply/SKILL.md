@@ -61,7 +61,7 @@ description: NestJS 서버에 부하·스트레스 테스트를 걸기 전에 �
 엔드포인트 전체가 아니라 함수 하나(직렬화 · 검증 · 매핑)를 비교할 때 쓴다 (`NST-20`). 레시피 2절.
 
 1. tinybench (`new Bench({ time, warmupTime })`) 나 mitata 로 두 구현을 같은 프로세스에서 번갈아 잰다. 빌드한 JS 로 돌린다
-2. 결과를 쓰지 않는 식은 JIT 가 지운다 — mitata 의 `do_not_optimize()` 로 감싼다. mitata 가 `!` (dead code elimination) 를 내면 그 수치는 버린다
+2. 결과를 쓰지 않는 식은 JIT 가 지운다 — mitata 의 `do_not_optimize()` 로 감싼다. mitata 가 느낌표(!) (dead code elimination) 를 내면 그 수치는 버린다
 3. 한 번 실행으로 판정하지 않는다 — 프로세스를 새로 띄워 10회 이상 반복하고 평균 · 중앙값 분포를 모은다
 4. 분포 비교는 `common-stress-test` 의 `stress-regression-validate.sh` (Mann-Whitney U · Cliff's delta) 에 넘긴다
 5. `rme`(상대 오차)가 크면(수 % 이상) 그 실행은 노이즈가 많은 것이다. 다른 부하가 없는 머신에서 다시 잰다

@@ -5,9 +5,13 @@
 #   (stdin 에 훅 JSON)                           PreToolUse(Bash) 가 부하 도구 실행이면 프로젝트를 검사해 알린다. 막지 않는다
 set -uo pipefail
 
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+if [ -z "$PLUGIN_ROOT" ]; then
+  SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
+  PLUGIN_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+fi
 RULES="$PLUGIN_ROOT/references/django-stress-rules.md"
-TMP="$(mktemp -d "${TMPDIR:-/tmp}/django-stress.XXXXXX")" || exit 1
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/django-stress.XXXXXX") || exit 1
 trap 'rm -rf "$TMP"' EXIT
 
 N='[1-9][0-9]+|[2-9]'   # 2 이상
@@ -24,7 +28,7 @@ add() { # $1=error|warn $2=조항 $3=위치 $4=메시지
 is_dev() {
   local b
   case "${1#"$ROOT"/}" in .github/*|*/.github/*|.gitlab-ci.yml|.gitlab-ci.yaml|*/.gitlab-ci.yml|*/.gitlab-ci.yaml) return 0 ;; esac
-  b="$(printf '%s' "${1##*/}" | tr 'A-Z' 'a-z')"
+  b=$(printf '%s' "${1##*/}" | tr 'A-Z' 'a-z')
   printf '%s' "$b" | grep -qE '(^|[._-])(dev|develop|development|local|test|tests|testing)([._-]|$)'
 }
 
@@ -60,7 +64,7 @@ scan() { # $1=목록 이름들(공백 구분) $2=ERE [$3=-i]
     xargs -0 grep -nHE $opt -- "$re" /dev/null < "$TMP/$l" 2>/dev/null
   done | awk -F: '{ c = $0; sub(/^[^:]*:[^:]*:/, "", c); if (c !~ /^[ \t]*#/) print }'
 }
-has() { [ -n "$(scan "$1" "$2" "${3:-}" | head -1)" ]; }
+has() { local first; first=$(scan "$1" "$2" "${3:-}" | head -1); [ -n "$first" ]; }
 loc() { local p="${1%%:*}" r="${1#*:}"; printf '%s:%s' "${p#"$ROOT"/}" "${r%%:*}"; }
 
 check() {
@@ -69,17 +73,17 @@ check() {
   # Django 프로젝트가 아니면 보지 않는다
   has dep '(^|[^[:alnum:]_-])django([^[:alnum:]_-]|$)' -i || has py '^[[:space:]]*(from|import)[[:space:]]+django([.[:space:]]|$)' || return 0
 
-  local line
+  local line at
   # DJ-01 runserver
   scan cfgprod "(manage\.py|django-admin)$Q?[[:space:],]+$Q?runserver" > "$TMP/f01"
   while IFS= read -r line; do
-    add error DJ-01 "$(loc "$line")" "runserver 는 개발 서버다 (Django 문서: 운영에 쓰지 말 것). 요청마다 스레드를 만들어 동시성 상한이 없고 자동 리로더가 붙는다 → gunicorn · uvicorn"
+    at=$(loc "$line"); add error DJ-01 "$at" "runserver 는 개발 서버다 (Django 문서: 운영에 쓰지 말 것). 요청마다 스레드를 만들어 동시성 상한이 없고 자동 리로더가 붙는다 → gunicorn · uvicorn"
   done < "$TMP/f01"
 
   # DJ-02 DEBUG = True
   scan pyprod '^[[:space:]]*DEBUG[[:space:]]*=[[:space:]]*True([^[:alnum:]_]|$)' > "$TMP/f02"
   while IFS= read -r line; do
-    add error DJ-02 "$(loc "$line")" "DEBUG = True 다. 모든 SQL 을 기록하고(연결당 최근 9000건) 에러 응답이 기술 페이지가 된다 — 운영과 같은 False 로 잰다"
+    at=$(loc "$line"); add error DJ-02 "$at" "DEBUG = True 다. 모든 SQL 을 기록하고(연결당 최근 9000건) 에러 응답이 기술 페이지가 된다 — 운영과 같은 False 로 잰다"
   done < "$TMP/f02"
 
   # DJ-03 자동 리로드
@@ -87,13 +91,13 @@ check() {
     scan gconf '^[[:space:]]*reload[[:space:]]*=[[:space:]]*True'
   } | sort -u > "$TMP/f03"
   while IFS= read -r line; do
-    add error DJ-03 "$(loc "$line")" "자동 리로드는 개발용이다 (Gunicorn reload 설정 설명). 파일 감시가 CPU 를 쓰고 코드가 바뀌면 워커가 재시작된다"
+    at=$(loc "$line"); add error DJ-03 "$at" "자동 리로드는 개발용이다 (Gunicorn reload 설정 설명). 파일 감시가 CPU 를 쓰고 코드가 바뀌면 워커가 재시작된다"
   done < "$TMP/f03"
 
   # DJ-04 django-debug-toolbar
   scan pyprod "${Q}debug_toolbar(\.middleware\.DebugToolbarMiddleware)?$Q" > "$TMP/f04"
   while IFS= read -r line; do
-    add warn DJ-04 "$(loc "$line")" "django-debug-toolbar 가 운영 설정에 있다. 툴바 문서: 운영용으로 다듬지 않았다 — 측정 대상 설정에서 뺀다"
+    at=$(loc "$line"); add warn DJ-04 "$at" "django-debug-toolbar 가 운영 설정에 있다. 툴바 문서: 운영용으로 다듬지 않았다 — 측정 대상 설정에서 뺀다"
   done < "$TMP/f04"
 
   # DJ-05 로그 레벨 DEBUG
@@ -101,7 +105,7 @@ check() {
     scan "cfgprod pyprod" "--log-level$Q?[[:space:],=]+$Q?(debug|trace)([^[:alnum:]]|$)|GUNICORN_CMD_ARGS=.*--log-level[= ]debug" -i
   } | sort -u > "$TMP/f05"
   while IFS= read -r line; do
-    add warn DJ-05 "$(loc "$line")" "로그 레벨이 DEBUG 다. 요청마다 로그 비용이 지연에 섞인다 → INFO 이상 (DEBUG=True 면 django.db.backends 가 SQL 도 남긴다)"
+    at=$(loc "$line"); add warn DJ-05 "$at" "로그 레벨이 DEBUG 다. 요청마다 로그 비용이 지연에 섞인다 → INFO 이상 (DEBUG=True 면 django.db.backends 가 SQL 도 남긴다)"
   done < "$TMP/f05"
 
   # 워커 2 이상 지정
@@ -113,11 +117,11 @@ check() {
   if [ -s "$TMP/workers" ] && has "py dep" 'django[-_]prometheus|prometheus[-_]client'; then
     if ! has "cfg py dep" 'PROMETHEUS_MULTIPROC_DIR|prometheus_multiproc_dir|PROMETHEUS_METRICS_EXPORT_PORT_RANGE'; then
       while IFS= read -r line; do
-        add error DJ-06 "$(loc "$line")" "워커가 여럿인데 PROMETHEUS_MULTIPROC_DIR(또는 PROMETHEUS_METRICS_EXPORT_PORT_RANGE) 가 없다. 스크레이프마다 워커 하나의 값만 나온다"
+        at=$(loc "$line"); add error DJ-06 "$at" "워커가 여럿인데 PROMETHEUS_MULTIPROC_DIR(또는 PROMETHEUS_METRICS_EXPORT_PORT_RANGE) 가 없다. 스크레이프마다 워커 하나의 값만 나온다"
       done < "$TMP/workers"
     elif has "cfg py" 'PROMETHEUS_MULTIPROC_DIR|prometheus_multiproc_dir' && has "cfg py" 'gunicorn' && ! has py 'mark_process_dead'; then
-      line="$(scan "cfg py" 'gunicorn' | head -1)"
-      add warn DJ-07 "$(loc "$line")" "Gunicorn 설정에 child_exit → multiprocess.mark_process_dead(worker.pid) 가 없다. 죽은 워커의 live 게이지가 남는다"
+      line=$(scan "cfg py" 'gunicorn' | head -1)
+      at=$(loc "$line"); add warn DJ-07 "$at" "Gunicorn 설정에 child_exit → multiprocess.mark_process_dead(worker.pid) 가 없다. 죽은 워커의 live 게이지가 남는다"
     fi
   fi
 
@@ -125,8 +129,8 @@ check() {
   if ! has py 'django_prometheus|prometheus_client|opentelemetry'; then
     add warn DJ-08 "." "서버 측 계측이 없다. 지연 히스토그램과 in-flight 게이지가 있어야 Little(ST-13) 로 측정을 검증한다 → django-prometheus + in-flight 미들웨어"
   elif ! has py 'track_inprogress|in_?flight|in_?progress' -i; then
-    line="$(scan py 'django_prometheus|prometheus_client|opentelemetry' | head -1)"
-    add warn DJ-08 "$(loc "$line")" "in-flight 게이지가 없다. django-prometheus 는 in-flight 게이지를 내지 않는다 → Gauge(multiprocess_mode=\"livesum\").track_inprogress() 미들웨어"
+    line=$(scan py 'django_prometheus|prometheus_client|opentelemetry' | head -1)
+    at=$(loc "$line"); add warn DJ-08 "$at" "in-flight 게이지가 없다. django-prometheus 는 in-flight 게이지를 내지 않는다 → Gauge(multiprocess_mode=\"livesum\").track_inprogress() 미들웨어"
   fi
 
   # DJ-09 django-prometheus 미들웨어 순서
@@ -153,38 +157,38 @@ check() {
     }' < "$TMP/py" > "$TMP/f09"
   while IFS= read -r line; do
     case "$line" in
-      *:Before) add warn DJ-09 "$(loc "$line")" "PrometheusBeforeMiddleware 가 MIDDLEWARE 의 처음이 아니다. 앞 미들웨어의 시간이 지연 히스토그램에서 빠진다" ;;
-      *:After) add warn DJ-09 "$(loc "$line")" "PrometheusAfterMiddleware 가 MIDDLEWARE 의 마지막이 아니다. 뷰 라벨 · 상태 집계가 뒤 미들웨어의 결과를 놓친다" ;;
+      *:Before) at=$(loc "$line"); add warn DJ-09 "$at" "PrometheusBeforeMiddleware 가 MIDDLEWARE 의 처음이 아니다. 앞 미들웨어의 시간이 지연 히스토그램에서 빠진다" ;;
+      *:After) at=$(loc "$line"); add warn DJ-09 "$at" "PrometheusAfterMiddleware 가 MIDDLEWARE 의 마지막이 아니다. 뷰 라벨 · 상태 집계가 뒤 미들웨어의 결과를 놓친다" ;;
     esac
   done < "$TMP/f09"
 
   # DJ-11 Gunicorn 워커 수 미지정 (기본 1)
   scan "cfgprod" "(^|[[:space:]\"'\[,(]|/)gunicorn$Q?[[:space:],]+[^#]*(wsgi|asgi|:application|-c[[:space:]]|--config)" | grep -viE 'pip[0-9]*[[:space:]]+install|poetry[[:space:]]+add|uv[[:space:]]+(add|pip)' > "$TMP/f11"
   if [ -s "$TMP/f11" ] && ! has "cfg py" "--workers|gunicorn.*[[:space:]]-w[[:space:]]*$Q?[0-9]|WEB_CONCURRENCY" && ! has gconf '^[[:space:]]*workers[[:space:]]*='; then
-    line="$(head -1 "$TMP/f11")"
-    add warn DJ-11 "$(loc "$line")" "Gunicorn 워커 수를 정하지 않았다 (기본 1 · WEB_CONCURRENCY 없을 때). 워커 하나의 결과를 머신 용량으로 쓰지 않는다 → --workers · --threads 를 정하고 잰다"
+    line=$(head -1 "$TMP/f11")
+    at=$(loc "$line"); add warn DJ-11 "$at" "Gunicorn 워커 수를 정하지 않았다 (기본 1 · WEB_CONCURRENCY 없을 때). 워커 하나의 결과를 머신 용량으로 쓰지 않는다 → --workers · --threads 를 정하고 잰다"
   fi
 
   # DJ-12 ASGI + 영속 연결
   if has "cfg py" '(uvicorn|daphne|hypercorn|granian)[^#]*asgi|UvicornWorker'; then
     scan pyprod "${Q}?CONN_MAX_AGE${Q}?\]?[[:space:]]*[:=][[:space:]]*(None|[1-9])" > "$TMP/f12"
     while IFS= read -r line; do
-      add warn DJ-12 "$(loc "$line")" "ASGI 로 띄우는데 CONN_MAX_AGE 가 0 이 아니다. Django 문서: ASGI 에서는 영속 연결을 끄고 DB 백엔드의 풀을 쓴다"
+      at=$(loc "$line"); add warn DJ-12 "$at" "ASGI 로 띄우는데 CONN_MAX_AGE 가 0 이 아니다. Django 문서: ASGI 에서는 영속 연결을 끄고 DB 백엔드의 풀을 쓴다"
     done < "$TMP/f12"
   fi
   return 0
 }
 
 # --- 부하 도구 명령 판별 (훅) — common-stress-test 의 stress-target-validate.sh 와 같은 규칙 ---------------
-# heredoc 본문은 명령이 아니라 데이터다. 셸에 먹이는 heredoc(sh <<EOF)만 명령으로 남긴다
+# heredoc 본문은 명령이 아니라 데이터다. 셸에 먹이는 heredoc(sh 에 주는 것)만 명령으로 남긴다
 strip_heredoc() {
   awk -v q="'" '
     d != "" { t = $0; if (dash) sub(/^\t+/, "", t); if (t == d) d = ""; else if (keep) print; next }
-    { print; s = $0; gsub(/<<</, "\001", s)
-      if (match(s, "<<-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*")) {
-        d = substr(s, RSTART, RLENGTH); dash = (d ~ /^<<-/)
-        sub(/^<<-?[ \t]*/, "", d); gsub("[\"" q "]", "", d)
-        keep = (s ~ /(^|[;&|(][ \t]*)(sudo[ \t]+)?(ba|z|da|k)?sh([ \t]+-[A-Za-z]+)*[ \t]*<</)
+    { print; s = $0; gsub(/[<][<][<]/, "\001", s)
+      if (match(s, "[<][<]-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*")) {
+        d = substr(s, RSTART, RLENGTH); dash = (d ~ /^[<][<]-/)
+        sub(/^[<][<]-?[ \t]*/, "", d); gsub("[\"" q "]", "", d)
+        keep = (s ~ /(^|[;&|(][ \t]*)(sudo[ \t]+)?(ba|z|da|k)?sh([ \t]+-[A-Za-z]+)*[ \t]*[<][<]/)
       } }'
 }
 
@@ -262,31 +266,45 @@ is_load_segment() {
   return 1
 }
 
+# 여러 줄 문자열을 줄 배열 SPLIT 으로 나눈다 (빈 줄은 버린다)
+to_lines() { # $1=문자열
+  local old_ifs="$IFS"
+  set -f; IFS='
+'
+  SPLIT=($1)
+  IFS="$old_ifs"; set +f
+}
+
 # 명령을 && · || · ; · & · | · $( · ` 로 나눈 구간 중 하나라도 부하 도구 실행이면 참
 is_load_command() { # $1=명령
-  local seg
-  while IFS= read -r seg; do
+  local seg segs
+  segs=$(printf '%s\n' "$1" | strip_heredoc | sed -E 's/(\|\||&&|[;&|]|\$\(|`)/\n/g')
+  to_lines "$segs"
+  for seg in ${SPLIT+"${SPLIT[@]}"}; do
     [ -n "${seg// /}" ] || continue
     is_load_segment "$seg" && return 0
-  done < <(printf '%s\n' "$1" | strip_heredoc | sed -E 's/(\|\||&&|[;&|]|\$\(|`)/\n/g')
+  done
   return 1
 }
 
 hook() {
-  local input event tool cmd dir
-  input="$(cat)"
+  local input event tool cmd dir findings msg
+  input=$(cat)
   [ -n "$input" ] || exit 0
   command -v jq >/dev/null 2>&1 || exit 0
-  event="$(printf '%s' "$input" | jq -r '.hook_event_name // ""' 2>/dev/null)"
-  tool="$(printf '%s' "$input" | jq -r '.tool_name // ""' 2>/dev/null)"
+  event=$(printf '%s' "$input" | jq -r '.hook_event_name // ""' 2>/dev/null)
+  tool=$(printf '%s' "$input" | jq -r '.tool_name // ""' 2>/dev/null)
   [ "$event" = PreToolUse ] && [ "$tool" = Bash ] || exit 0
-  cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // ""' 2>/dev/null)"
+  cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // ""' 2>/dev/null)
   is_load_command "$cmd" || exit 0
-  dir="${CLAUDE_PROJECT_DIR:-$(printf '%s' "$input" | jq -r '.cwd // ""')}"
+  dir="${CLAUDE_PROJECT_DIR:-}"
+  [ -n "$dir" ] || dir=$(printf '%s' "$input" | jq -r '.cwd // ""')
   [ -n "$dir" ] && [ -d "$dir" ] || exit 0
   check "$dir"
   [ -s "$FINDINGS" ] || exit 0
-  jq -n --arg c "$(printf 'Django 부하 측정 전 설정 점검 (python-django-stress-test) — 측정이 무효가 될 수 있다. 고치고 돌리거나 결과에 함께 적는다.\n%s\n규칙: %s' "$(cat "$FINDINGS")" "$RULES")" \
+  findings=$(cat "$FINDINGS")
+  msg=$(printf 'Django 부하 측정 전 설정 점검 (python-django-stress-test) — 측정이 무효가 될 수 있다. 고치고 돌리거나 결과에 함께 적는다.\n%s\n규칙: %s' "$findings" "$RULES")
+  jq -n --arg c "$msg" \
     '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $c}}'
   exit 0
 }
@@ -295,7 +313,7 @@ if [ "$#" -eq 0 ] && [ ! -t 0 ]; then hook; fi
 
 TARGET="${1:-.}"
 [ -d "$TARGET" ] || { echo "django-stress-config-validate: 디렉터리가 아니다: $TARGET" >&2; exit 1; }
-TARGET="$(cd "$TARGET" && pwd)"
+TARGET=$(cd "$TARGET" && pwd)
 check "$TARGET"
 if [ -s "$FINDINGS" ]; then
   cat "$FINDINGS"

@@ -20,7 +20,7 @@ Node 런타임 공통(`NODE_ENV` · 이벤트 루프 · `UV_THREADPOOL_SIZE` · 
 | `NST-03` | Nest 로그 레벨에 `debug` · `verbose` 를 켜고 재지 않는다. `logger` 옵션이 없으면 기본이 6레벨 전부다 | 경고 | Nest 문서 "Logger" — `logger: ['error', 'warn']`, 레벨은 `log` · `fatal` · `error` · `warn` · `debug` · `verbose`. 소스 `console-logger.service.ts` `DEFAULT_LOG_LEVELS` 가 6개 전부. `NEST_LOG_LEVEL` 은 소스에만 있고 `logger` 옵션 · `useLogger` 가 앞선다 |
 | `NST-04` | `new FastifyAdapter({ logger: true })` 로 재지 않는다 (요청 로그를 끄지 않았으면) | 경고 | Fastify 문서 Server — `logger` 기본 `false`, `disableRequestLogging` 기본 `false` 이고 켜져 있으면 요청마다 수신 · 응답 두 줄을 `info` 로 쓴다. Nest `FastifyAdapter` 는 옵션을 그대로 넘긴다 |
 | `NST-05` | Fastify 어댑터면 `listen(port, '0.0.0.0')` 처럼 호스트를 준다 | 경고 | Nest 문서 "Performance (Fastify)" — Fastify 는 기본으로 localhost 에만 듣는다, 다른 호스트는 `'0.0.0.0'`. 측정이 무효가 되기보다 컨테이너 밖 부하기가 붙지 못한다 |
-| `NST-06` | 요청 지연은 `Histogram` 으로 잰다. `makeSummaryProvider` · `new Summary` 로 재지 않는다 | 경고 | Prometheus 문서 "Histograms and summaries" — 분위수는 합칠 수 없다 (`avg(...{quantile="0.95"}) // BAD!`). prom-client README — Summary 는 프로세스가 백분위를 계산한다 |
+| `NST-06` | 요청 지연은 `Histogram` 으로 잰다. `makeSummaryProvider` · `new Summary` 로 재지 않는다 | 경고 | Prometheus 문서 "Histograms and summaries" — 분위수는 합칠 수 없다 (`avg(...{quantile="0.95"})` 를 BAD! 로 든다). prom-client README — Summary 는 프로세스가 백분위를 계산한다 |
 | `NST-07` | 서버 측 지연 히스토그램이 있다 | 경고 | `ST-*` 의 서버 · 부하기 측정 대조. @willsoto/nestjs-prometheus README `makeHistogramProvider` |
 | `NST-08` | in-flight 요청 게이지가 있다 | 경고 | `ST-13` (Little's Law). README `makeGaugeProvider` |
 | `NST-09` | `Scope.REQUEST` 프로바이더는 비용을 재고 쓴다. `durable: true` 면 경고하지 않는다 | 경고 | Nest 문서 "Injection scopes" Performance — 요청마다 인스턴스를 만들어 평균 응답시간 · 벤치마크 결과가 나빠진다, 잘 설계하면 지연 증가 ~5% 이내. REQUEST 스코프는 주입 체인을 따라 올라간다 (의존하는 컨트롤러도 요청 스코프). 실측 2절 |

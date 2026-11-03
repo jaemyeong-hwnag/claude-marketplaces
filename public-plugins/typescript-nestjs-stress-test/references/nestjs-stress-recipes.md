@@ -219,7 +219,7 @@ tinybench 6.2.0 `console.table(bench.table())` — 지연은 ns, `±` 는 상대
 
 `bench.tasks[i].result.latency` 의 `mean` · `p99` 는 ms 단위다.
 
-mitata 1.0.34 — 결과를 쓰지 않는 식은 `!` 와 "benchmark was likely optimized out (dead code elimination)" 를 낸다. `do_not_optimize(값)` 으로 감싸면 경고가 사라진다 (실측 121 ps → 250 ps). tinybench 는 이 경고를 내지 않는다.
+mitata 1.0.34 — 결과를 쓰지 않는 식은 느낌표(!) 와 "benchmark was likely optimized out (dead code elimination)" 를 낸다. `do_not_optimize(값)` 으로 감싸면 경고가 사라진다 (실측 121 ps → 250 ps). tinybench 는 이 경고를 내지 않는다.
 
 ```ts
 import { bench, do_not_optimize } from 'mitata';

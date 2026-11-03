@@ -91,13 +91,16 @@ relpath() { local p="$1"; printf '%s' "${p#"$ROOT"/}"; }
 # --- 검사 ----------------------------------------------------------------------
 check_project() {
   ROOT="$1"
-  local f rel flat val build_text="" has_hist=0 mbean=0 vt="" tmax="" vt_file="" uses_prom=0 uses_actuator=0 uses_tomcat=1
+  local f rel flat val val_upper val_lower content found build_text="" has_hist=0 mbean=0 vt="" tmax="" vt_file="" uses_prom=0 uses_actuator=0 uses_tomcat=1
 
   # 빌드 파일 (SPR-01 · 의존성 판단)
-  while IFS= read -r f; do
+  found=$(find_files "$ROOT" -name 'build.gradle' -o -name 'build.gradle.kts' -o -name 'pom.xml')
+  to_lines "$found"
+  for f in ${SPLIT+"${SPLIT[@]}"}; do
     [ -n "$f" ] || continue
-    rel="$(relpath "$f")"
-    build_text="${build_text}$(cat "$f")"$'\n'
+    rel=$(relpath "$f")
+    content=$(cat "$f")
+    build_text="${build_text}${content}"$'\n'
     case "$f" in
       *pom.xml)
         awk '
@@ -118,9 +121,7 @@ check_project() {
         done < "$TMPD/gradle-devtools"
         ;;
     esac
-  done <<EOF
-$(find_files "$ROOT" -name 'build.gradle' -o -name 'build.gradle.kts' -o -name 'pom.xml')
-EOF
+  done
 
   printf '%s' "$build_text" | grep -q 'micrometer-registry-prometheus' && uses_prom=1
   printf '%s' "$build_text" | grep -q 'spring-boot-starter-actuator' && uses_actuator=1
@@ -128,21 +129,26 @@ EOF
   printf '%s' "$build_text" | grep -q -E 'spring-boot-starter-(jetty|undertow)' && uses_tomcat=0
 
   # 설정 파일 (SPR-02 ~ SPR-08)
-  while IFS= read -r f; do
+  found=$(config_files "$ROOT")
+  to_lines "$found"
+  for f in ${SPLIT+"${SPLIT[@]}"}; do
     [ -n "$f" ] || continue
-    rel="$(relpath "$f")"
-    flat="$(flat_of "$f")"
-    val="$(printf '%s\n' "$flat" | awk -F= '$1=="logging.level.root" {print $2}' | tail -1)"
-    case "$(printf '%s' "$val" | tr '[:lower:]' '[:upper:]')" in
+    rel=$(relpath "$f")
+    flat=$(flat_of "$f")
+    val=$(printf '%s\n' "$flat" | awk -F= '$1=="logging.level.root" {print $2}' | tail -1)
+    val_upper=$(printf '%s' "$val" | tr '[:lower:]' '[:upper:]')
+    case "$val_upper" in
       DEBUG|TRACE|ALL) add "❌" "SPR-02" "$rel" "logging.level.root=$val — 모든 로거가 요청마다 로그를 쓴다. INFO 이상으로 두고 측정한다" ;;
     esac
     for k in debug trace; do
-      val="$(printf '%s\n' "$flat" | awk -F= -v k="$k" '$1==k {print $2}' | tail -1)"
-      [ "$(printf '%s' "$val" | tr '[:upper:]' '[:lower:]')" = "true" ] && add "⚠️" "SPR-03" "$rel" "$k=true — 핵심 로거(내장 컨테이너 · Hibernate · Spring)의 로그 수준을 올린다. 측정 전에 끈다"
+      val=$(printf '%s\n' "$flat" | awk -F= -v k="$k" '$1==k {print $2}' | tail -1)
+      val_lower=$(printf '%s' "$val" | tr '[:upper:]' '[:lower:]')
+      [ "$val_lower" = "true" ] && add "⚠️" "SPR-03" "$rel" "$k=true — 핵심 로거(내장 컨테이너 · Hibernate · Spring)의 로그 수준을 올린다. 측정 전에 끈다"
     done
     for k in spring.jpa.showsql spring.jpa.properties.hibernate.showsql; do
-      val="$(printf '%s\n' "$flat" | awk -F= -v k="$k" '$1==k {print $2}' | tail -1)"
-      [ "$(printf '%s' "$val" | tr '[:upper:]' '[:lower:]')" = "true" ] && { shown="spring.jpa.show-sql"; [ "$k" = spring.jpa.showsql ] || shown="spring.jpa.properties.hibernate.show_sql"; add "⚠️" "SPR-04" "$rel" "$shown=true — SQL 문마다 콘솔에 쓴다. 측정 전에 끈다"; }
+      val=$(printf '%s\n' "$flat" | awk -F= -v k="$k" '$1==k {print $2}' | tail -1)
+      val_lower=$(printf '%s' "$val" | tr '[:upper:]' '[:lower:]')
+      [ "$val_lower" = "true" ] && { shown="spring.jpa.show-sql"; [ "$k" = spring.jpa.showsql ] || shown="spring.jpa.properties.hibernate.show_sql"; add "⚠️" "SPR-04" "$rel" "$shown=true — SQL 문마다 콘솔에 쓴다. 측정 전에 끈다"; }
     done
     printf '%s\n' "$flat" | awk -F= '
       index($1, "management.metrics.distribution.percentileshistogram.")==1 {
@@ -153,14 +159,13 @@ EOF
     while IFS= read -r k; do
       [ -n "$k" ] && add "⚠️" "SPR-06" "$rel" "${k} — 앱이 계산한 분위수는 인스턴스 사이에 합칠 수 없다. percentiles-histogram 으로 버킷을 낸다"
     done < "$TMPD/pct"
-    [ "$(printf '%s\n' "$flat" | awk -F= '$1=="server.tomcat.mbeanregistry.enabled" {print tolower($2)}' | tail -1)" = "true" ] && mbean=1
-    val="$(printf '%s\n' "$flat" | awk -F= '$1=="spring.threads.virtual.enabled" {print tolower($2)}' | tail -1)"
+    val=$(printf '%s\n' "$flat" | awk -F= '$1=="server.tomcat.mbeanregistry.enabled" {print tolower($2)}' | tail -1)
+    [ "$val" = "true" ] && mbean=1
+    val=$(printf '%s\n' "$flat" | awk -F= '$1=="spring.threads.virtual.enabled" {print tolower($2)}' | tail -1)
     [ "$val" = "true" ] && { vt="true"; vt_file="$rel"; }
-    val="$(printf '%s\n' "$flat" | awk -F= 'index($1, "server.tomcat.threads.")==1 {print $1}' | head -1)"
+    val=$(printf '%s\n' "$flat" | awk -F= 'index($1, "server.tomcat.threads.")==1 {print $1}' | head -1)
     [ -n "$val" ] && tmax="$val"
-  done <<EOF
-$(config_files "$ROOT")
-EOF
+  done
 
   if [ "$uses_prom" = 1 ] && [ "$has_hist" = 0 ]; then
     add "⚠️" "SPR-05" "(설정)" "micrometer-registry-prometheus 를 쓰는데 management.metrics.distribution.percentiles-histogram.http.server.requests=true 가 없다 — 지연 히스토그램 버킷이 나오지 않는다"
@@ -173,49 +178,49 @@ EOF
   fi
 
   # Dockerfile (SPR-09)
-  while IFS= read -r f; do
+  found=$(find_files "$ROOT" -name 'Dockerfile' -o -name 'Dockerfile.*' -o -name '*.Dockerfile')
+  to_lines "$found"
+  for f in ${SPLIT+"${SPLIT[@]}"}; do
     [ -n "$f" ] || continue
-    rel="$(relpath "$f")"
+    rel=$(relpath "$f")
     if grep -q -E '^[[:space:]]*(ENTRYPOINT|CMD).*java' "$f" && ! grep -q -E 'MaxRAMPercentage|MaxRAM=|-Xmx|InitialRAMPercentage' "$f"; then
       add "⚠️" "SPR-09" "$rel" "java 를 힙 상한 없이 띄운다 — 컨테이너 메모리의 25% 만 힙으로 쓴다 (-XX:MaxRAMPercentage 또는 -Xmx)"
     fi
-  done <<EOF
-$(find_files "$ROOT" -name 'Dockerfile' -o -name 'Dockerfile.*' -o -name '*.Dockerfile')
-EOF
+  done
 
   # JMH fork 0 (SPR-10)
-  while IFS= read -r f; do
+  found=$(find_files "$ROOT" -name '*.java' -o -name '*.kt')
+  to_lines "$found"
+  for f in ${SPLIT+"${SPLIT[@]}"}; do
     [ -n "$f" ] || continue
-    rel="$(relpath "$f")"
+    rel=$(relpath "$f")
     grep -n -E '@Fork\([[:space:]]*(value[[:space:]]*=[[:space:]]*)?0[[:space:]]*[,)]' "$f" | while IFS= read -r m; do echo "${m%%:*}"; done > "$TMPD/fork"
     while IFS= read -r ln; do
       [ -n "$ln" ] && add "❌" "SPR-10" "$rel:$ln" "@Fork(0) — JMH 는 fork 없는 실행을 디버깅용으로만 쓰라고 경고한다. @Fork 1 이상"
     done < "$TMPD/fork"
-  done <<EOF
-$(find_files "$ROOT" -name '*.java' -o -name '*.kt')
-EOF
-  while IFS= read -r f; do
+  done
+  found=$(find_files "$ROOT" -name 'build.gradle' -o -name 'build.gradle.kts')
+  to_lines "$found"
+  for f in ${SPLIT+"${SPLIT[@]}"}; do
     [ -n "$f" ] || continue
-    rel="$(relpath "$f")"
+    rel=$(relpath "$f")
     awk '/^[[:space:]]*jmh[[:space:]]*\{/ {inj=1} inj && /^[[:space:]]*fork(s)?[[:space:]]*(=|\.set\()?[[:space:]]*0[[:space:]]*\)?[[:space:]]*$/ {print NR} inj && /^\}/ {inj=0}' "$f" > "$TMPD/gfork"
     while IFS= read -r ln; do
       [ -n "$ln" ] && add "❌" "SPR-10" "$rel:$ln" "jmh { fork = 0 } — JMH 는 fork 없는 실행을 디버깅용으로만 쓰라고 경고한다. fork 1 이상"
     done < "$TMPD/gfork"
-  done <<EOF
-$(find_files "$ROOT" -name 'build.gradle' -o -name 'build.gradle.kts')
-EOF
+  done
 }
 
 # --- 부하 도구 명령 판별 (훅) — common-stress-test 의 stress-target-validate.sh 와 같은 규칙 ---------------
-# heredoc 본문은 명령이 아니라 데이터다. 셸에 먹이는 heredoc(sh <<EOF)만 명령으로 남긴다
+# heredoc 본문은 명령이 아니라 데이터다. 셸에 먹이는 heredoc(sh 에 주는 것)만 명령으로 남긴다
 strip_heredoc() {
   awk -v q="'" '
     d != "" { t = $0; if (dash) sub(/^\t+/, "", t); if (t == d) d = ""; else if (keep) print; next }
-    { print; s = $0; gsub(/<<</, "\001", s)
-      if (match(s, "<<-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*")) {
-        d = substr(s, RSTART, RLENGTH); dash = (d ~ /^<<-/)
-        sub(/^<<-?[ \t]*/, "", d); gsub("[\"" q "]", "", d)
-        keep = (s ~ /(^|[;&|(][ \t]*)(sudo[ \t]+)?(ba|z|da|k)?sh([ \t]+-[A-Za-z]+)*[ \t]*<</)
+    { print; s = $0; gsub(/[<][<][<]/, "\001", s)
+      if (match(s, "[<][<]-?[ \t]*[\"" q "]?[A-Za-z_][A-Za-z0-9_]*")) {
+        d = substr(s, RSTART, RLENGTH); dash = (d ~ /^[<][<]-/)
+        sub(/^[<][<]-?[ \t]*/, "", d); gsub("[\"" q "]", "", d)
+        keep = (s ~ /(^|[;&|(][ \t]*)(sudo[ \t]+)?(ba|z|da|k)?sh([ \t]+-[A-Za-z]+)*[ \t]*[<][<]/)
       } }'
 }
 
@@ -293,31 +298,44 @@ is_load_segment() {
   return 1
 }
 
+# 여러 줄 문자열을 줄 배열 SPLIT 으로 나눈다 (빈 줄은 버린다)
+to_lines() { # $1=문자열
+  local old_ifs="$IFS"
+  set -f; IFS='
+'
+  SPLIT=($1)
+  IFS="$old_ifs"; set +f
+}
+
 # 명령을 && · || · ; · & · | · $( · ` 로 나눈 구간 중 하나라도 부하 도구 실행이면 참
 is_load_command() { # $1=명령
-  local seg
-  while IFS= read -r seg; do
+  local seg segs
+  segs=$(printf '%s\n' "$1" | strip_heredoc | sed -E 's/(\|\||&&|[;&|]|\$\(|`)/\n/g')
+  to_lines "$segs"
+  for seg in ${SPLIT+"${SPLIT[@]}"}; do
     [ -n "${seg// /}" ] || continue
     is_load_segment "$seg" && return 0
-  done < <(printf '%s\n' "$1" | strip_heredoc | sed -E 's/(\|\||&&|[;&|]|\$\(|`)/\n/g')
+  done
   return 1
 }
 
-TMPD="$(mktemp -d "${TMPDIR:-/tmp}/spring-stress.XXXXXX")"
+TMPD=$(mktemp -d "${TMPDIR:-/tmp}/spring-stress.XXXXXX")
 trap 'rm -rf "$TMPD"' EXIT
 
 if [ $# -eq 0 ] && [ ! -t 0 ]; then
-  INPUT="$(cat)"
+  INPUT=$(cat)
   [ -n "$INPUT" ] || exit 0
   command -v jq >/dev/null 2>&1 || exit 0
-  event="$(printf '%s' "$INPUT" | jq -r '.hook_event_name // empty' 2>/dev/null)"
-  tool="$(printf '%s' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)"
+  event=$(printf '%s' "$INPUT" | jq -r '.hook_event_name // empty' 2>/dev/null)
+  tool=$(printf '%s' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
   [ "$event" = "PreToolUse" ] && [ "$tool" = "Bash" ] || exit 0
-  cmd="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)"
+  cmd=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
   [ -n "$cmd" ] && is_load_command "$cmd" || exit 0
-  proj="${CLAUDE_PROJECT_DIR:-$(printf '%s' "$INPUT" | jq -r '.cwd // empty')}"
+  proj="${CLAUDE_PROJECT_DIR:-}"
+  [ -n "$proj" ] || proj=$(printf '%s' "$INPUT" | jq -r '.cwd // empty')
   [ -n "$proj" ] && [ -d "$proj" ] || exit 0
-  check_project "$(cd "$proj" && pwd)"
+  proj=$(cd "$proj" && pwd)
+  check_project "$proj"
   [ -n "$OUT" ] || exit 0
   msg="부하 측정 전 Spring 설정 점검(java-spring-stress-test) — 아래 설정은 측정을 무효로 만들거나 계측을 빠뜨린다. 고치고 측정할지 사용자에게 알린다. 근거: ${RULES}"$'\n'"${OUT}"
   jq -n --arg m "$msg" '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $m}}'
@@ -326,7 +344,8 @@ fi
 
 dir="${1:-.}"
 [ -d "$dir" ] || { echo "디렉터리가 아니다: $dir" >&2; exit 1; }
-check_project "$(cd "$dir" && pwd)"
+dir=$(cd "$dir" && pwd)
+check_project "$dir"
 [ -n "$OUT" ] && printf '%s' "$OUT"
 [ "$ERRORS" -gt 0 ] && { echo "위반 ${ERRORS}건 — 근거: ${RULES}"; exit 2; }
 exit 0
