@@ -43,6 +43,7 @@
 | document-slop-validate.sh | PostToolUse (Write\|Edit\|MultiEdit) | 在本次写入的行中**阻止** `DS-01` ~ `DS-04`（exit 2），**提示** `DS-05` ~ `DS-16` |
 | document-slop-validate.sh | PostToolUse (Skill\|Agent\|Task) | `document-slop-review` 或 `document-slop-reviewer` 运行后清除门禁记录。后台启动的 `document-slop-reviewer` 标记为审查中 |
 | document-slop-validate.sh | SubagentStop | 后台 `document-slop-reviewer` 结束时清除门禁记录 |
+| document-slop-validate.sh | UserPromptSubmit | 清除上一个请求中本钩子阻止过的标记 |
 | document-slop-validate.sh | Stop | 修改了文档却未审查时，退回一次结束（`DS-30`） |
 
 ## 注意事项
@@ -57,7 +58,7 @@
 - 有意保留的行，在该行或上一行放 `<!-- document-slop-ignore -->`。
 - 韩语词表（`DS-10`）的依据弱于英语。因此只在 3 个以上不同的词聚集时提示。
 - 完成门禁只在项目内文档一次修改 3 行以上时记录。
-  - 同一请求中不会阻止两次。
+  - 同一请求中不会阻止两次。即使其他插件的 Stop 钩子先阻止了，也会阻止一次。
   - 关闭：`DOCUMENT_SLOP_REVIEW_GATE=0`
 - 脚本使用 bash · awk · jq，`--diff` 和目录列表使用 git。没有 jq 时钩子静默放行。
 
