@@ -20,8 +20,8 @@ description: 프로젝트에 코드 편집 가드레일 설정(.claude/code-edit
 | `Cargo.toml` | `src/**/*.rs` | `tests/` | `cargo fmt --check` · `cargo clippy -- -D warnings` |
 
 - 명령은 **설정 파일 · 스크립트에 실제로 있는 것**만 쓴다. `package.json` 의 `scripts` · Gradle 플러그인 · `pyproject` 의 도구 절을 읽고 고른다. 없는 도구를 지어내지 않는다
-- 테스트 디렉터리가 코드 디렉터리 안에 섞여 있으면 테스트 글롭이 이긴다 (규칙 1절) — `code` 에 `!` 를 따로 쓰지 않아도 된다
-- 생성 코드 · 빌드 산출물(`generated/` · `build/` · `dist/`)은 `code` 에서 `!` 로 뺀다
+- 테스트 디렉터리가 코드 디렉터리 안에 섞여 있으면 테스트 글롭이 이긴다 (규칙 1절) — `code` 에 느낌표(!) 를 따로 쓰지 않아도 된다
+- 생성 코드 · 빌드 산출물(`generated/` · `build/` · `dist/`)은 `code` 에서 느낌표(!) 로 뺀다
 - Rust 처럼 테스트가 같은 파일에 있는 스택은 `tests/` 만 테스트로 잡힌다. 사용자에게 알리고 면제로 다룬다
 
 ## 2. 품질 lane 을 고른다

@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.11
+
+### Fixed
+- Anthropic 디렉터리 검증기가 문서의 백틱으로 감싼 느낌표를 스킬 · 커맨드 실행 줄로 읽어 COMMAND_PATH_COMPUTED 로 차단하던 것 — 느낌표를 백틱 없이 적었다. 뜻은 그대로다 (#270)
+
 ## 0.1.10
 
 ### Fixed

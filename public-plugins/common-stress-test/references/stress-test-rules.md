@@ -70,7 +70,7 @@
 - 그 이미지를 쓰는 `docker run`
 - `mvn` · `gradle` 의 gatling 태스크
 
-첫 단어를 찾을 때 건너뛰는 것 — 환경 변수 대입 · 옵션, `sudo` · `time` · `nohup` · `exec` · `command` · `env` · `npx` · `bunx` · `pnpx` · `uvx`, `uv` · `poetry` · `pipenv` · `pdm` · `hatch` 의 `run`, `python -m`, `timeout [옵션] 시간`, `nice` · `ionice` · `stdbuf` · `xargs` · `watch` · `caffeinate` 와 그 옵션(값을 받는 옵션은 값까지 — `nice -n 10` · `xargs -n 1`), 셸 키워드 `do` · `then` · `else` · `elif` · `if` · `while` · `until` · `!`. `sh` · `bash` 의 `-c` 는 그 인자를 다시 본다.
+첫 단어를 찾을 때 건너뛰는 것 — 환경 변수 대입 · 옵션, `sudo` · `time` · `nohup` · `exec` · `command` · `env` · `npx` · `bunx` · `pnpx` · `uvx`, `uv` · `poetry` · `pipenv` · `pdm` · `hatch` 의 `run`, `python -m`, `timeout [옵션] 시간`, `nice` · `ionice` · `stdbuf` · `xargs` · `watch` · `caffeinate` 와 그 옵션(값을 받는 옵션은 값까지 — `nice -n 10` · `xargs -n 1`), 셸 키워드 `do` · `then` · `else` · `elif` · `if` · `while` · `until` · 느낌표(!). `sh` · `bash` 의 `-c` 는 그 인자를 다시 본다.
 
 **보지 못하는 것** — 명령 문자열만 보므로 다음은 정적으로 알 수 없어 통과한다. 이런 실행은 대상 호스트를 사람이 확인한다
 - 간접 실행 — `make load` · `npm run load` · `./run.sh` 처럼 부하 명령이 다른 파일 안에 있는 것
