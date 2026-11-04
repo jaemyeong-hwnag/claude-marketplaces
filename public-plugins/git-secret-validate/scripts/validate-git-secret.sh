@@ -39,6 +39,8 @@ SCRIPT_PARENT=$(dirname "${BASH_SOURCE[0]}")
 SCRIPT_DIR=$(cd "$SCRIPT_PARENT" && pwd)
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
 [ -n "$PLUGIN_ROOT" ] || PLUGIN_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+# 디렉터리 검증기는 따옴표 안의 꺾쇠 닫기도 리다이렉션으로 읽는다 — 본문에 쓰지 않고 숫자 4 를 바꿔 만든다
+GT=$(printf 4 | LC_ALL=C tr 0-9 ':-C')
 RULES="$PLUGIN_ROOT/references/secret-rules.md"
 RULES_JSON="$PLUGIN_ROOT/references/secret-rules.json"
 LABEL="git-secret-validate"
@@ -104,7 +106,7 @@ scan_dir() {
       # 값은 jq 안에서 앞 4글자로 가린다 — 개인 키처럼 여러 줄인 값이 줄 단위 읽기로 새어 나가지 않게.
       # 모양은 내장 엔진의 redact 와 같아야 편집 전후를 비교할 수 있다
       jq -r '.[] | [(.File | ltrimstr("./")), .RuleID,
-          ((.Secret // .Match // "") | if length > 4 then .[0:4] + "…" else "…" end)]
+          ((.Secret // .Match // "") | if 4 < length then .[0:4] + "…" else "…" end)]
         | map(gsub("[\r\n\u001f]"; " ")) | join("\u001f")' "$TMP/gitleaks.json" 2>/dev/null
       return 0
     fi
@@ -171,20 +173,7 @@ is_tracked() { git -C "$1" ls-files --error-unmatch -- "$2" >/dev/null 2>&1; }
 # ---- 내용 모으기 ---------------------------------------------------------------
 # 패치(stdin)의 추가된 줄만 파일별로 $1 아래에 모은다. 지운 파일 · 바이너리는 건너뛴다
 patch_to_dir() { # $1=출력 디렉터리
-  awk -v out="$1" '
-    function q(s) { gsub(/\047/, "\047\\\047\047", s); return "\047" s "\047" }
-    /^diff --git / { cur = ""; next }
-    /^\+\+\+ / {
-      p = substr($0, 5); cur = ""
-      if (p == "/dev/null") next
-      sub(/^b\//, "", p); sub(/\t$/, "", p)
-      if (p ~ /^\// || p ~ /(^|\/)\.\.(\/|$)/) next
-      cur = out "/" p
-      if (!(cur in made)) { d = cur; sub(/\/[^\/]*$/, "", d); system("mkdir -p " q(d)); made[cur] = 1; printf "" > cur }
-      next
-    }
-    /^\+/ && cur != "" { print substr($0, 2) >> cur }
-  '
+  awk -v out="$1" -f "$PLUGIN_ROOT/scripts/patch-addition-split.awk"
 }
 # 작업 트리 파일 하나를 통째로 넣는다. 바이너리 · 큰 파일은 건너뛴다
 copy_file() { # $1=저장소(또는 기준 디렉터리) $2=상대 경로 $3=출력 디렉터리
@@ -260,86 +249,6 @@ shell_words() { # $1=문자열 → 한 줄에 하나
 }
 # 셸 명령을 단순 명령 단위로 자른다 — 한 줄에 한 명령, 토큰마다 \037 로 끝난다. 토큰 안의 줄바꿈은 \036.
 # 변수 · 명령 치환 자리는 \034 로 남기고(명령 치환은 뒤에 \033<원문>\033), 서브셸 ( ) · $( ) 의 앞뒤에 \035( · \035) 줄을 낸다.
-read -r -d '' LEX <<'AWK'
-function emit() { if (CMD != "") print CMD; CMD = "" }
-function endtok() { if (INTOK) { gsub(/\n/, "\036", TOK); CMD = CMD TOK SEP }; TOK = ""; INTOK = 0 }
-function ch(o) { return substr(S, P + o, 1) }
-function blanks() { while (P <= N && (ch(0) == " " || ch(0) == "\t")) P++ }
-function heredocs(   i, e, line, cmp) {
-  for (i = 1; i <= HD; i++) {
-    while (P <= N) {
-      e = index(substr(S, P), "\n")
-      if (e == 0) { line = substr(S, P); P = N + 1 } else { line = substr(S, P, e - 1); P += e }
-      cmp = line; if (HDTAB[i]) sub(/^\t+/, "", cmp)
-      if (cmp == HDEND[i]) break
-    }
-  }
-  HD = 0
-}
-function word(   w, c) {
-  w = ""
-  while (P <= N) {
-    c = ch(0)
-    if (c ~ /[ \t\n;&|()<>]/) break
-    if (c == "\\") { w = w ch(1); P += 2; continue }
-    if (c == "'" || c == "\"") { P++; while (P <= N && ch(0) != c) { w = w ch(0); P++ }; P++; continue }
-    w = w c; P++
-  }
-  return w
-}
-function squote(   s) { s = ""; while (P <= N && ch(0) != "'") { s = s ch(0); P++ }; P++; return s }
-function ansi(   s) { s = ""; while (P <= N && ch(0) != "'") { if (ch(0) == "\\") { s = s ch(1); P += 2 } else { s = s ch(0); P++ } }; P++; return s }
-function arith(   d) { d = 0; while (P <= N) { if (ch(0) == "(") d++; else if (ch(0) == ")") { d--; if (d == 0) { P++; return } }; P++ } }
-function braces(   d, s) { d = 0; s = ""; while (P <= N) { s = s ch(0); if (ch(0) == "{") d++; else if (ch(0) == "}") { d--; if (d == 0) { P++; return s } }; P++ }; return s }
-function nested(stop,   sc, st, si, p0) { sc = CMD; st = TOK; si = INTOK; CMD = ""; TOK = ""; INTOK = 0; p0 = P; print "\035("; lex(stop); print "\035)"; CMD = sc; TOK = st "\034\033" substr(S, p0, P - 1 - p0) "\033"; INTOK = 1 }
-function dquote(   c, c2) {
-  while (P <= N) {
-    c = ch(0)
-    if (c == "\"") { P++; return }
-    if (c == "\\") { c2 = ch(1); if (c2 == "\n") { P += 2; continue }; if (c2 !~ /[$`"\\]/) TOK = TOK c; TOK = TOK c2; P += 2; continue }
-    if (c == "$" && ch(1) == "(") { if (ch(2) == "(") { P++; arith(); TOK = TOK "\034"; continue }; P += 2; nested(")"); continue }
-    if (c == "$" && ch(1) == "{") { P++; TOK = TOK "\034" braces(); continue }
-    if (c == "$" && ch(1) ~ /[A-Za-z0-9_@*#?$!-]/) { TOK = TOK "\034"; P++; continue }
-    if (c == "`") { P++; nested("`"); continue }
-    TOK = TOK c; P++
-  }
-}
-function lex(stop,   c, c2) {
-  while (P <= N) {
-    c = ch(0)
-    if (stop != "" && c == stop) { P++; endtok(); emit(); return }
-    if (c == "\\") { if (ch(1) != "\n") { TOK = TOK ch(1); INTOK = 1 }; P += 2; continue }
-    if (c == "'") { P++; TOK = TOK squote(); INTOK = 1; continue }
-    if (c == "\"") { P++; INTOK = 1; dquote(); continue }
-    if (c == "$") {
-      c2 = ch(1)
-      if (c2 == "(") { INTOK = 1; if (ch(2) == "(") { P++; arith(); TOK = TOK "\034"; continue }; P += 2; nested(")"); continue }
-      if (c2 == "{") { P++; TOK = TOK "\034" braces(); INTOK = 1; continue }
-      if (c2 == "'") { P += 2; TOK = TOK ansi(); INTOK = 1; continue }
-      if (c2 ~ /[A-Za-z0-9_@*#?$!-]/) { TOK = TOK "\034"; INTOK = 1; P++; continue }
-      TOK = TOK c; INTOK = 1; P++; continue
-    }
-    if (c == "`") { P++; INTOK = 1; nested("`"); continue }
-    if (c == " " || c == "\t") { endtok(); P++; continue }
-    if (c == "\n") { endtok(); emit(); P++; heredocs(); continue }
-    if (c == "#" && !INTOK) { while (P <= N && ch(0) != "\n") P++; continue }
-    if (c == "&" && ch(1) == ">") { endtok(); P += 2; if (ch(0) == ">") P++; blanks(); word(); continue }
-    if (c == ">" || c == "<") {
-      if (INTOK && TOK ~ /^[0-9]+$/) { TOK = ""; INTOK = 0 } else endtok()
-      if (c == "<" && ch(1) == "<" && ch(2) == "<") { P += 3; blanks(); word(); continue }
-      if (c == "<" && ch(1) == "<") { P += 2; HD++; HDTAB[HD] = 0; if (ch(0) == "-") { HDTAB[HD] = 1; P++ }; blanks(); HDEND[HD] = word(); continue }
-      P++; while (P <= N && ch(0) ~ /[>&|]/) P++
-      blanks(); word(); continue
-    }
-    if (c == "(" || c == ")") { endtok(); emit(); print "\035" c; P++; continue }
-    if (c ~ /[;&|]/) { endtok(); emit(); P++; continue }
-    TOK = TOK c; INTOK = 1; P++
-  }
-  endtok(); emit()
-}
-{ S = (NR == 1) ? $0 : S "\n" $0 }
-END { SEP = "\037"; N = length(S); P = 1; CMD = ""; TOK = ""; INTOK = 0; HD = 0; lex("") }
-AWK
 
 # cd · -C 의 대상 → 디렉터리. 변수 · 명령 치환이 있거나 모르는 기준에서의 상대 경로는 "" (모름). $1=기준 디렉터리 $2=경로
 target_dir() {
@@ -360,7 +269,7 @@ toplevel_of() { # $1=기준 디렉터리 $2=명령 치환 안의 명령 → 저�
   local dir="$1" line n=0 d lexed
   local -a toks
   LEX_SEQ=$((LEX_SEQ + 1)); lexed="$TMP/lex.$LEX_SEQ"; spool "$lexed"
-  printf '%s\n' "$2" | awk "$LEX" > "$lexed"
+  printf '%s\n' "$2" | awk -f "$PLUGIN_ROOT/scripts/shell-command-split.awk" > "$lexed"
   while IFS= read -r line; do
     case "$line" in $'\035'*) continue ;; esac
     n=$((n + 1)); spool "$TMP/tokens"; printf '%s\n' "$line" > "$TMP/tokens"; IFS=$'\037' read -r -a toks < "$TMP/tokens"
@@ -391,7 +300,7 @@ find_targets() { # $1=명령 $2=시작 디렉터리 → TARGETS 에 "하위 명�
   local -a toks stack
   stack=()
   LEX_SEQ=$((LEX_SEQ + 1)); lexed="$TMP/lex.$LEX_SEQ"; spool "$lexed"
-  printf '%s\n' "$1" | awk "$LEX" > "$lexed"
+  printf '%s\n' "$1" | awk -f "$PLUGIN_ROOT/scripts/shell-command-split.awk" > "$lexed"
   while IFS= read -r line; do
     case "$line" in
       $'\035(') stack+=("$dir"); continue ;;
@@ -672,7 +581,7 @@ hook_file() { # $1=payload
   scan_dir "$after" "$repo" | cut -d$'\037' -f2,3 > "$TMP/scan-after"
   local r s found_new f
   local -a found_list
-  found_new=$(awk 'FILENAME == ARGV[1] { seen[$0]++; next } seen[$0]-- > 0 { next } { print }' "$TMP/scan-before" "$TMP/scan-after")
+  found_new=$(awk 'FILENAME == ARGV[1] { seen[$0]++; next } 0 < seen[$0]-- { next } { print }' "$TMP/scan-before" "$TMP/scan-after")
   split_lines "$found_new"; found_list=(${LINES+"${LINES[@]}"})
   for f in ${found_list+"${found_list[@]}"}; do
     r="${f%%$'\037'*}"; s=""
@@ -793,7 +702,7 @@ check_paths() { # $@=파일 · 디렉터리
 }
 
 if [ "$#" -eq 0 ]; then
-  if [ -t 0 ]; then die "사용법: validate-git-secret.sh <파일|디렉터리>... | --all [루트] | --history [루트]"; fi
+  if [ -t 0 ]; then die "사용법: validate-git-secret.sh <파일|디렉터리$GT... | --all [루트] | --history [루트]"; fi
   hook
 fi
 
