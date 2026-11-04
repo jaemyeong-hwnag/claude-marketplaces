@@ -4,7 +4,7 @@
 
 ### Fixed
 - Anthropic 디렉터리 검증기 차단 3건을 같은 동작의 표기로 풀었다 — 판정 · 출력은 그대로다 (#275, `TC-S77`)
-  - here-document 로 넣던 셸 명령 분해 awk 프로그램을 `scripts/shell-command-split.awk`, 패치를 파일별로 나누는 awk 프로그램을 `scripts/patch-addition-split.awk` 로 옮겼다
+  - here-document 로 넣던 셸 명령 분해 awk 프로그램을 `scripts/shell-command-split.sh`, 패치를 파일별로 나누는 awk 프로그램을 `scripts/patch-addition-split.sh` 로 옮겼다 — 훅 스크립트가 bash 로 부른다
   - 따옴표 안의 `>`(jq · awk 비교, 사용법 문구)를 없앴다 — 검증기가 출력 리다이렉션으로 읽는다
   - 따옴표 · `${…}` 안의 `$'…'` 제어 문자를 맨 위에서 만든 변수로 바꾸고, `${…}` 안에 따옴표를 겹친 7곳을 풀었다
 

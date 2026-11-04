@@ -1,3 +1,6 @@
+#!/usr/bin/env bash
+# 셸 명령(stdin)을 단순 명령 단위로 자른다 — validate-git-secret.sh 가 부른다. 출력 형식은 그 스크립트의 shell_words 위 주석을 본다
+read -r -d '' LEX <<'AWK'
 function emit() { if (CMD != "") print CMD; CMD = "" }
 function endtok() { if (INTOK) { gsub(/\n/, "\036", TOK); CMD = CMD TOK SEP }; TOK = ""; INTOK = 0 }
 function ch(o) { return substr(S, P + o, 1) }
@@ -76,3 +79,5 @@ function lex(stop,   c, c2) {
 }
 { S = (NR == 1) ? $0 : S "\n" $0 }
 END { SEP = "\037"; N = length(S); P = 1; CMD = ""; TOK = ""; INTOK = 0; HD = 0; lex("") }
+AWK
+exec awk "$LEX"

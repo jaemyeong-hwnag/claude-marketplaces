@@ -178,7 +178,7 @@ is_tracked() { git -C "$1" ls-files --error-unmatch -- "$2" >/dev/null 2>&1; }
 # ---- 내용 모으기 ---------------------------------------------------------------
 # 패치(stdin)의 추가된 줄만 파일별로 $1 아래에 모은다. 지운 파일 · 바이너리는 건너뛴다
 patch_to_dir() { # $1=출력 디렉터리
-  awk -v out="$1" -f "$PLUGIN_ROOT/scripts/patch-addition-split.awk"
+  bash "$PLUGIN_ROOT/scripts/patch-addition-split.sh" "$1"
 }
 # 작업 트리 파일 하나를 통째로 넣는다. 바이너리 · 큰 파일은 건너뛴다
 copy_file() { # $1=저장소(또는 기준 디렉터리) $2=상대 경로 $3=출력 디렉터리
@@ -274,7 +274,7 @@ toplevel_of() { # $1=기준 디렉터리 $2=명령 치환 안의 명령 → 저�
   local dir="$1" line n=0 d lexed
   local -a toks
   LEX_SEQ=$((LEX_SEQ + 1)); lexed="$TMP/lex.$LEX_SEQ"; spool "$lexed"
-  printf '%s\n' "$2" | awk -f "$PLUGIN_ROOT/scripts/shell-command-split.awk" > "$lexed"
+  printf '%s\n' "$2" | bash "$PLUGIN_ROOT/scripts/shell-command-split.sh" > "$lexed"
   while IFS= read -r line; do
     case "$line" in ${C_GS}*) continue ;; esac
     n=$((n + 1)); spool "$TMP/tokens"; printf '%s\n' "$line" > "$TMP/tokens"; IFS=${C_US} read -r -a toks < "$TMP/tokens"
@@ -305,7 +305,7 @@ find_targets() { # $1=명령 $2=시작 디렉터리 → TARGETS 에 "하위 명�
   local -a toks stack
   stack=()
   LEX_SEQ=$((LEX_SEQ + 1)); lexed="$TMP/lex.$LEX_SEQ"; spool "$lexed"
-  printf '%s\n' "$1" | awk -f "$PLUGIN_ROOT/scripts/shell-command-split.awk" > "$lexed"
+  printf '%s\n' "$1" | bash "$PLUGIN_ROOT/scripts/shell-command-split.sh" > "$lexed"
   while IFS= read -r line; do
     case "$line" in
       "${C_GS}(") stack+=("$dir"); continue ;;
