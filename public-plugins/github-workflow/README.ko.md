@@ -61,6 +61,7 @@ claude plugin install github-workflow@jaemyeong-hwnag-plugins --scope project
 |---|---|
 | `references/workflow-rules.md` | 규칙 원본 (`W-01` ~ `W-10`, 단계) |
 | `scripts/validate-workflow.sh` | 훅 · CLI 겸용 검증 (`--templates` · `--branch` · `--up-to-date`) |
+| `scripts/shell-command-split.sh` | 셸 명령을 단순 명령 단위로 자른다 — `validate-workflow.sh` 가 부른다 |
 | `scripts/branch-create.sh` | 2 단계 — 규칙에 맞는 브랜치와 워크트리를 기본 브랜치에서 |
 | `skills/github-template-create/templates/` | 기본 이슈 폼 · PR 템플릿 |
 | `test/` | 회귀 테스트와 TC 명세 |

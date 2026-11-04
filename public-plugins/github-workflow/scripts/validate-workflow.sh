@@ -29,6 +29,9 @@ BRANCH_RE='^(feature|bugfix)/[0-9]+-[a-z0-9]+(-[a-z0-9]+){0,4}$'
 ERRORS=()
 NOTICES=()
 
+# 디렉터리 검증기는 따옴표 · ${…} 안의 $'…' 를 읽지 못한다 — 제어 문자는 여기서 한 번 만든다
+C_US=$'\037'; C_RS=$'\036'; C_NL=$'\n'
+
 die() { echo "validate-workflow: $*" >&2; exit 1; }
 
 err() { ERRORS+=("$1"); }
@@ -61,7 +64,7 @@ check_templates() { # $1=루트
   done
   for f in "$root/.github/pull_request_template.md" "$root/.github/PULL_REQUEST_TEMPLATE.md" \
            "$root/pull_request_template.md" "$root/docs/pull_request_template.md"; do
-    [ -e "$f" ] && err "${f#"$root"/}: 단일 기본 PR 템플릿을 두지 않습니다 — 폴더 템플릿보다 우선해서 타입 구분이 무너집니다 (W-02)"
+    [ -e "$f" ] && err "${f:${#root}+1}: 단일 기본 PR 템플릿을 두지 않습니다 — 폴더 템플릿보다 우선해서 타입 구분이 무너집니다 (W-02)"
   done
   return 0
 }
@@ -114,7 +117,7 @@ unquote() { local s="$1"; s="${s%\"}"; s="${s#\"}"; s="${s%\'}"; s="${s#\'}"; pr
 # 경로 인자 → 절대 디렉터리. 지금 없는 곳 · 변수 · 모르는 기준에서의 상대 경로는 "" (모름). $1=기준 디렉터리 $2=경로
 resolve_dir() {
   local to="$2"
-  case "$to" in "~") to="$HOME" ;; "~/"*) to="$HOME/${to#"~/"}" ;; esac
+  case "$to" in "~") to="$HOME" ;; "~/"*) to="$HOME/${to:2}" ;; esac
   case "$to" in /*) ;; *) [ -n "$1" ] || return 0; to="$1/$to" ;; esac
   if [ -d "$to" ]; then (cd "$to" && pwd); fi
 }
@@ -315,95 +318,17 @@ check_claude() { # $1=dir, 나머지=claude 뒤 토큰
 
 # 셸 명령을 단순 명령 단위로 자른다 — 한 줄에 한 명령, 토큰마다 \037 로 끝난다. 토큰 안의 줄바꿈은 \036.
 # 따옴표 · 이스케이프 · $( ) · 백틱 · heredoc · 리다이렉션 · 주석을 알고, $( ) 안의 명령도 따로 낸다.
-read -r -d '' LEX <<'AWK'
-function emit() { if (CMD != "") print CMD; CMD = "" }
-function endtok() { if (INTOK) { gsub(/\n/, "\036", TOK); CMD = CMD TOK SEP }; TOK = ""; INTOK = 0 }
-function ch(o) { return substr(S, P + o, 1) }
-function blanks() { while (P <= N && (ch(0) == " " || ch(0) == "\t")) P++ }
-function heredocs(   i, e, line, cmp) {
-  for (i = 1; i <= HD; i++) {
-    while (P <= N) {
-      e = index(substr(S, P), "\n")
-      if (e == 0) { line = substr(S, P); P = N + 1 } else { line = substr(S, P, e - 1); P += e }
-      cmp = line; if (HDTAB[i]) sub(/^\t+/, "", cmp)
-      if (cmp == HDEND[i]) break
-    }
-  }
-  HD = 0
-}
-function word(   w, c) {
-  w = ""
-  while (P <= N) {
-    c = ch(0)
-    if (c ~ /[ \t\n;&|()<>]/) break
-    if (c == "\\") { w = w ch(1); P += 2; continue }
-    if (c == "'" || c == "\"") { P++; while (P <= N && ch(0) != c) { w = w ch(0); P++ }; P++; continue }
-    w = w c; P++
-  }
-  return w
-}
-function squote(   s) { s = ""; while (P <= N && ch(0) != "'") { s = s ch(0); P++ }; P++; return s }
-function ansi(   s) { s = ""; while (P <= N && ch(0) != "'") { if (ch(0) == "\\") { s = s ch(1); P += 2 } else { s = s ch(0); P++ } }; P++; return s }
-function arith(   d) { d = 0; while (P <= N) { if (ch(0) == "(") d++; else if (ch(0) == ")") { d--; if (d == 0) { P++; return } }; P++ } }
-function braces(   d, s) { d = 0; s = ""; while (P <= N) { s = s ch(0); if (ch(0) == "{") d++; else if (ch(0) == "}") { d--; if (d == 0) { P++; return s } }; P++ }; return s }
-function nested(stop,   sc, st, si) { sc = CMD; st = TOK; si = INTOK; CMD = ""; TOK = ""; INTOK = 0; lex(stop); CMD = sc; TOK = st; INTOK = si }
-function dquote(   c, c2) {
-  while (P <= N) {
-    c = ch(0)
-    if (c == "\"") { P++; return }
-    if (c == "\\") { c2 = ch(1); if (c2 == "\n") { P += 2; continue }; if (c2 !~ /[$`"\\]/) TOK = TOK c; TOK = TOK c2; P += 2; continue }
-    if (c == "$" && ch(1) == "(") { if (ch(2) == "(") { P++; arith(); continue }; P += 2; nested(")"); continue }
-    if (c == "$" && ch(1) == "{") { P++; TOK = TOK "$" braces(); continue }
-    if (c == "`") { P++; nested("`"); continue }
-    TOK = TOK c; P++
-  }
-}
-function lex(stop,   c, c2) {
-  while (P <= N) {
-    c = ch(0)
-    if (stop != "" && c == stop) { P++; endtok(); emit(); return }
-    if (c == "\\") { if (ch(1) != "\n") { TOK = TOK ch(1); INTOK = 1 }; P += 2; continue }
-    if (c == "'") { P++; TOK = TOK squote(); INTOK = 1; continue }
-    if (c == "\"") { P++; INTOK = 1; dquote(); continue }
-    if (c == "$") {
-      c2 = ch(1)
-      if (c2 == "(") { INTOK = 1; if (ch(2) == "(") { P++; arith(); continue }; P += 2; nested(")"); continue }
-      if (c2 == "{") { P++; TOK = TOK "$" braces(); INTOK = 1; continue }
-      if (c2 == "'") { P += 2; TOK = TOK ansi(); INTOK = 1; continue }
-      TOK = TOK c; INTOK = 1; P++; continue
-    }
-    if (c == "`") { P++; INTOK = 1; nested("`"); continue }
-    if (c == " " || c == "\t") { endtok(); P++; continue }
-    if (c == "\n") { endtok(); emit(); P++; heredocs(); continue }
-    if (c == "#" && !INTOK) { while (P <= N && ch(0) != "\n") P++; continue }
-    if (c == "&" && ch(1) == ">") { endtok(); P += 2; if (ch(0) == ">") P++; blanks(); word(); continue }
-    if (c == ">" || c == "<") {
-      if (INTOK && TOK ~ /^[0-9]+$/) { TOK = ""; INTOK = 0 } else endtok()
-      if (substr(S, P, 3) ~ /^[<][<][<]$/) { P += 3; blanks(); word(); continue }
-      if (substr(S, P, 2) ~ /^[<][<]$/) { P += 2; HD++; HDTAB[HD] = 0; if (ch(0) == "-") { HDTAB[HD] = 1; P++ }; blanks(); HDEND[HD] = word(); continue }
-      P++; while (P <= N && ch(0) ~ /[>&|]/) P++
-      blanks(); word(); continue
-    }
-    if (c ~ /[;&|()]/) { endtok(); emit(); P++; continue }
-    TOK = TOK c; INTOK = 1; P++
-  }
-  endtok(); emit()
-}
-{ S = (NR == 1) ? $0 : S "\n" $0 }
-END { SEP = "\037"; N = length(S); P = 1; CMD = ""; TOK = ""; INTOK = 0; HD = 0; lex("") }
-AWK
 
 # 명령을 차례로 본다. cd 는 이후 명령의 디렉터리를 바꾸고, 대상을 풀 수 없으면 디렉터리를 모름("")으로 둔다. bash -c · eval 의 문자열은 다시 자른다.
 check_command() { # $1=명령 $2=시작 디렉터리
   local cmd="$1" dir="$2" line base i wrap s lexed old_ifs
   local -a toks lines
-  lexed=$(printf '%s\n' "$cmd" | awk "$LEX")
-  old_ifs="$IFS"; set -f; IFS='
-'
+  lexed=$(printf '%s\n' "$cmd" | bash "$PLUGIN_ROOT/scripts/shell-command-split.sh")
+  old_ifs="$IFS"; set -f; IFS=${C_NL}
   lines=($lexed)
   IFS="$old_ifs"; set +f
   for line in ${lines+"${lines[@]}"}; do
-    old_ifs="$IFS"; set -f; IFS=$'\037'
+    old_ifs="$IFS"; set -f; IFS=${C_US}
     toks=($line)
     IFS="$old_ifs"; set +f
     # 앞의 환경변수 대입 · 예약어 · 래퍼(command · env · sudo …)와 래퍼의 옵션을 건너뛴다
@@ -426,11 +351,11 @@ check_command() { # $1=명령 $2=시작 디렉터리
       git)    check_git "$dir" "${toks[@]:1}" ;;
       gh)     check_gh "$dir" "${toks[@]:1}" ;;
       claude) check_claude "$dir" "${toks[@]:1}" ;;
-      eval)   s="${toks[*]:1}"; check_command "${s//$'\036'/$'\n'}" "$dir" ;;
+      eval)   s="${toks[*]:1}"; check_command "${s//${C_RS}/${C_NL}}" "$dir" ;;
       bash|sh|zsh|dash|ksh)
         for ((i = 1; i < ${#toks[@]}; i++)); do
           case "${toks[$i]}" in
-            -c|-[a-z]*c) s="${toks[$((i+1))]:-}"; [ -n "$s" ] && check_command "${s//$'\036'/$'\n'}" "$dir"; break ;;
+            -c|-[a-z]*c) s="${toks[$((i+1))]:-}"; [ -n "$s" ] && check_command "${s//${C_RS}/${C_NL}}" "$dir"; break ;;
             -*) ;;
             *) break ;;
           esac
@@ -456,7 +381,7 @@ emit_notices_json() {
   [ "${#NOTICES[@]}" -gt 0 ] || return 0
   local body n
   body="개발 플로우 알림 (github-workflow)"
-  for n in "${NOTICES[@]}"; do body="$body"$'\n'"- $n"; done
+  for n in "${NOTICES[@]}"; do body="$body"${C_NL}"- $n"; done
   jq -n --arg c "$body" '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $c}}'
 }
 
