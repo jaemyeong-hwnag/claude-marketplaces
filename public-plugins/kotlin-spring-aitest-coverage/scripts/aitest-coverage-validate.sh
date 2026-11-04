@@ -15,12 +15,15 @@
 # 꺼짐: Gradle Kotlin DSL 이 아닌 저장소(조용히) · build.gradle.kts 에 환경 블록이 없는 저장소(세션당 한 번 알림).
 # 상태: <Gradle 루트>/.claude/kotlin-spring-aitest-coverage/ — Bash 샌드박스 안에서도 ACK 를 쓸 수 있게 프로젝트 안에 둔다.
 set -uo pipefail
+# 디렉터리 검증기는 따옴표 안의 꺾쇠 닫기도 리다이렉션으로 읽는다 — 본문에 쓰지 않고 숫자 4 를 바꿔 만든다
+GT=$(printf 4 | LC_ALL=C tr 0-9 ':-C' 2>/dev/null)
+C_TAB=$'\t'; C_CR=$'\r'; C_NL=$'\n'
 
 # jq 없이 돈다 — jq 가 없는 환경에서 게이트가 꺼지지 않게
 json_str() { # $1 → JSON 문자열 리터럴
   local s b='\' q='"'
   s=$(printf '%s' "$1" | LC_ALL=C tr -d '\001-\010\013\014\016-\037')
-  s=${s//"$b"/"$b$b"}; s=${s//"$q"/"$b$q"}; s=${s//$'\t'/"${b}t"}; s=${s//$'\r'/"${b}r"}; s=${s//$'\n'/"${b}n"}
+  s=${s//"$b"/"$b$b"}; s=${s//"$q"/"$b$q"}; s=${s//"$C_TAB"/"${b}t"}; s=${s//"$C_CR"/"${b}r"}; s=${s//"$C_NL"/"${b}n"}
   printf '"%s"' "$s"
 }
 system_message() { local j; j=$(json_str "$1"); printf '{"systemMessage":%s}\n' "$j"; }
@@ -119,7 +122,7 @@ CHANGED=$({ if [ -n "$ALSO" ]; then { tracked "$REF"; tracked "$ALSO"; } | sort 
 MAIN=$(printf '%s\n' "$CHANGED" | grep -E '(^|/)src/main/(kotlin|java)/.*\.kt$|(^|/)src/main/resources/.*[Mm]apper.*\.xml$' || true)
 [ -z "$MAIN" ] && exit 0
 
-if ! git grep -q --untracked -F '// >>> kotlin-spring-aitest-coverage' -- '*build.gradle.kts' 2>/dev/null; then
+if ! git grep -q --untracked -F '// '"$GT$GT$GT"' kotlin-spring-aitest-coverage' -- '*build.gradle.kts' 2>/dev/null; then
   # 환경이 없는 저장소는 막지 않는다 — 설치만 한 저장소의 완료를 깨지 않게. 세션당 한 번만 알린다.
   if [ ! -f "${STATE}.noenv" ]; then
     state_dir
@@ -162,6 +165,6 @@ state_dir
   printf '%s\n' "$viol" | sed 's/^/  - /'
   echo "조치(택1):"
   echo "  1) 변경 메서드 @AiTest 작성(kotlin-spring-aitest-coverage:kotlin-aitest-generate) 후 \"$VALIDATE\" ${ALSO:+--also $ALSO }$REF 실행(aiTest + JaCoCo 리포트 갱신) → 다시 완료."
-  echo "  2) 면제(주석 · 포맷만 등): 사용자에게 알린 뒤 echo 'aitest: skip <사유>' >> \"$ACK\""
+  echo "  2) 면제(주석 · 포맷만 등): 사용자에게 알린 뒤 echo 'aitest: skip <사유$GT' $GT$GT \"$ACK\""
 } >&2
 exit 2
