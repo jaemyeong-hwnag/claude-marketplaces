@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.12
+
+### Fixed
+- Anthropic 디렉터리 검증기가 PreToolUse 훅 스크립트의 따옴표 안 `>`(정규식 · tr 문자 집합)를 출력 리다이렉션으로 읽어 COMMAND_PATH_COMPUTED 로 차단하던 것 — `>` 를 본문에 쓰지 않고 실행 때 만든 값으로 넣는다. 판정은 그대로다 (#273, `TC-S66`)
+
 ## 0.1.11
 
 ### Fixed
