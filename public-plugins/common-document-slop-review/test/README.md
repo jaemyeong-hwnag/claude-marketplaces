@@ -11,7 +11,7 @@ test/document-slop-validate.test.sh TC-D6    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. bash · awk · jq · git 만 쓴다. 게이트 기록은 임시 `CLAUDE_PLUGIN_DATA` 에 쓴다.
 
-## 자동 TC (34건)
+## 자동 TC (35건)
 
 조항마다 잡아야 하는 것과 잡으면 안 되는 것을 같이 둔다.
 
@@ -83,6 +83,12 @@ test/document-slop-validate.test.sh TC-D6    # ID 접두사로 필터
 | TC-D64 | 백그라운드로 띄운 document-slop-reviewer 는 끝날 때(SubagentStop)까지 리뷰로 치지 않는다 |
 | TC-D65 | 다른 Stop 훅이 먼저 막아 stop_hook_active 가 true 여도, 이 훅이 막은 적이 없으면 한 번 막는다 |
 | TC-D66 | 이 훅이 막은 표시는 다음 요청(UserPromptSubmit)에서 지운다 |
+
+### H. 디렉터리 검증기
+
+| ID | 케이스 |
+|---|---|
+| TC-D70 | 훅 스크립트에 디렉터리 검증기가 막는 표기가 없다 — here-document, `$'…'`(`C_US=` 정의 줄 제외), 리다이렉션(`>&N` · `/dev/null` · `"$변수"` 대상)이 아닌 `>`, `${…}` 안에 겹친 따옴표(`${a+"${a[@]}"}` · `${a+"${!a[@]}"}` 는 허용). 주석 줄은 보지 않는다 |
 
 ## 수동 확인
 
