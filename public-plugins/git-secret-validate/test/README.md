@@ -95,3 +95,4 @@ test/validate-git-secret.test.sh TC-S3    # ID 접두사로 필터
 | TC-S74 | gitleaks 엔진도 편집 전후를 비교한다 (gitleaks 가 있을 때) |
 | TC-S75 | gitleaks 엔진은 여러 줄 개인 키의 본문을 출력하지 않는다 (gitleaks 가 있을 때) |
 | TC-S76 | gitleaks 가 실패하면 내장 패턴으로 보고 알린다 |
+| TC-S77 | 훅 스크립트에 디렉터리 검증기가 막는 표기가 없다 — here-document, 제어 문자 정의 줄 밖의 `$'…'`, 리다이렉션(`>&N` · `/dev/null` · `"$변수"` 대상)이 아닌 `>`. 주석 줄은 보지 않는다 |
