@@ -63,3 +63,4 @@ test/nestjs-stress-config-validate.test.sh TC-N1    # ID 접두사로 필터
 | TC-N40 | bombardier · siege · h2load · httperf · ghz · plow · drill · fortio load 도 부하 명령으로 알린다 |
 | TC-N38 | 래퍼 뒤가 부하 도구가 아니면 조용히 통과한다 |
 | TC-N39 | 워크스페이스 루트에서도 명령이 도는 하위 앱(cwd · 앞머리 cd)부터 위로 가장 가까운 @nestjs/core 프로젝트를 본다 |
+| TC-N41 | 훅 스크립트에 디렉터리 검증기가 막는 표기가 없다 — here-document, 제어 문자 정의 줄(`C_*=`) 밖의 `$'…'`, 리다이렉션(`>&N` · `/dev/null` · `"$변수"` 대상)이 아닌 `>`, `${…}` 안에 겹친 따옴표(`${a+"${a[@]}"}` · `\"` 는 허용). 주석 줄은 보지 않는다 |

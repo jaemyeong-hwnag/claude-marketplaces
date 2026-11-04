@@ -64,3 +64,4 @@ test/django-stress-config-validate.test.sh TC-D3    # ID 접두사로 필터
 | TC-D39 | 래퍼 nice · ionice · stdbuf · xargs · watch · caffeinate 뒤의 부하 명령도 알린다 — 값을 받는 옵션은 값까지 건너뛴다 |
 | TC-D41 | bombardier · siege · h2load · httperf · ghz · plow · drill · fortio load 도 부하 명령으로 알린다 |
 | TC-D40 | 래퍼 뒤가 부하 도구가 아니면 조용히 통과한다 |
+| TC-D42 | 훅 스크립트에 디렉터리 검증기가 막는 표기가 없다 — here-document, 제어 문자 정의 줄(`C_*=`) 밖의 `$'…'`, 리다이렉션(`>&N` · `/dev/null` · `"$변수"` 대상)이 아닌 `>`, `${…}` 안에 겹친 따옴표(`${a+"${a[@]}"}` · `\"` 는 허용). 주석 줄은 보지 않는다 |

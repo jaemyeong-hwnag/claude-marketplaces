@@ -244,6 +244,19 @@ run_hook "$M" "$(bash_payload 'cd apps/api && k6 run load.js')"; expect_code 0; 
 run_hook "$M" "$(jq -n --arg d "$M/apps/api/load" '{hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: {command: "k6 run s.js"}, cwd: $d}')"; expect_out "NEX-03"
 run_hook "$M" "$(bash_payload 'k6 run load.js')"; expect_code 0; expect_no_out
 
+tc TC-E42 "훅 스크립트에 디렉터리 검증기가 막는 표기가 없다 — here-document · 정의 줄 밖 \$'…' · 리다이렉션이 아닌 > · \${…} 안에 겹친 따옴표"
+if [ "$TC_ON" = 1 ]; then
+  body="$(grep -n '' "$SCRIPT" | grep -v '^[0-9]*:[[:space:]]*#')"
+  bad="$(printf '%s\n' "$body" | grep -E '<<-?[[:space:]]*['"'"'"]?[A-Za-z_]' || true)"
+  [ -z "$bad" ] || fail_tc "here-document: $bad"
+  bad="$(printf '%s\n' "$body" | grep -F "\$'\\" | grep -v '^[0-9]*:C_[A-Z]*=' || true)"
+  [ -z "$bad" ] || fail_tc "\$'…': $bad"
+  bad="$(printf '%s\n' "$body" | sed -E 's/[0-9]?>&[0-9]//g; s#[0-9]?>>?[[:space:]]*/dev/null##g; s#[0-9]?>>?[[:space:]]*"\$[A-Za-z0-9_{]##g' | grep '>' || true)"
+  [ -z "$bad" ] || fail_tc "리다이렉션이 아닌 >: $bad"
+  bad="$(printf '%s\n' "$body" | sed 's/\\"//g' | grep -E '\$\{[^}]*"[^}]*\}' | grep -vE '\$\{[A-Za-z_]+\+"\$\{[A-Za-z_]+\[@\]\}"\}' || true)"
+  [ -z "$bad" ] || fail_tc "\${…} 안 따옴표: $bad"
+fi
+
 flush_tc
 echo
 echo "결과: PASS $PASS · FAIL $FAIL · SKIP $SKIP"
