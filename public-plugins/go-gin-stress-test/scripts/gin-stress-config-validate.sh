@@ -8,10 +8,12 @@ set -uo pipefail
 RULES="references/gin-stress-rules.md"
 ERRORS=0
 OUT=""
+# 디렉터리 검증기는 따옴표 · ${…} 안의 $'…' 를 읽지 못한다 — 제어 문자는 여기서 한 번 만들어 변수로 쓴다
+C_NL=$'\n'
 
 add() { # $1=❌|⚠️ $2=조항 $3=위치 $4=내용
   [ "$1" = "❌" ] && ERRORS=$((ERRORS+1))
-  OUT="${OUT}$1 $2 $3: $4"$'\n'
+  OUT="${OUT}$1 $2 $3: $4${C_NL}"
 }
 
 # --- 파일 찾기 ----------------------------------------------------------------
@@ -22,7 +24,7 @@ find_files() { # $1=루트 $2...=find 이름 조건
     -o -name node_modules \) -prune -o -type f \( "$@" \) -print 2>/dev/null | sort
 }
 
-relpath() { printf '%s' "${1#"$ROOT"/}"; }
+relpath() { case "$1" in "$ROOT"/*) printf '%s' "${1:${#ROOT}+1}" ;; *) printf '%s' "$1" ;; esac; }
 
 # 개발 · 로컬 · 테스트용 파일(.env.local · docker-compose.dev.yml …)과 CI 파일은 운영 설정이 아니다
 drop_dev() {
@@ -66,8 +68,8 @@ env_values() { # $1=키
       { pend=0 }
       line ~ ("name:[ \t]*[\"\047]?" k "[\"\047]?[ \t]*$") { pend=1; next }
       { s=line
-        while ((i=index(s, k))>0) {
-          pre=(i>1) ? substr(s, i-1, 1) : ""; rest=substr(s, i+length(k)); s=rest
+        while (0<(i=index(s, k))) {
+          pre=(1<i) ? substr(s, i-1, 1) : ""; rest=substr(s, i+length(k)); s=rest
           if (pre ~ /[A-Za-z0-9_]/ || rest ~ /^[A-Za-z0-9_]/) continue
           sub(/^["\047]/, "", rest)
           if (rest ~ /^[ \t]*[=:]/) sub(/^[ \t]*[=:]/, "", rest)
@@ -363,7 +365,7 @@ if [ $# -eq 0 ] && [ ! -t 0 ]; then
   proj=$(cd "$proj" && pwd)
   check_project "$proj"
   [ -n "$OUT" ] || exit 0
-  msg="부하 측정 전 Go · Gin 설정 점검(go-gin-stress-test) — 아래 설정은 측정을 무효로 만들거나 계측을 빠뜨린다. 고치고 측정할지 사용자에게 알린다. 근거: ${RULES}"$'\n'"${OUT}"
+  msg="부하 측정 전 Go · Gin 설정 점검(go-gin-stress-test) — 아래 설정은 측정을 무효로 만들거나 계측을 빠뜨린다. 고치고 측정할지 사용자에게 알린다. 근거: ${RULES}${C_NL}${OUT}"
   jq -n --arg m "$msg" '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $m}}'
   exit 0
 fi

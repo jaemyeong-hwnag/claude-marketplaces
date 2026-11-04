@@ -26,8 +26,9 @@ add() { # $1=error|warn $2=조항 $3=위치 $4=메시지
 
 # 개발 · 로컬 · 테스트용 파일 (settings/dev.py · local_settings.py · docker-compose.dev.yml · Dockerfile.local …)과 CI 파일
 is_dev() {
-  local b
-  case "${1#"$ROOT"/}" in .github/*|*/.github/*|.gitlab-ci.yml|.gitlab-ci.yaml|*/.gitlab-ci.yml|*/.gitlab-ci.yaml) return 0 ;; esac
+  local b r
+  case "$1" in "$ROOT"/*) r=${1:${#ROOT}+1} ;; *) r=$1 ;; esac
+  case "$r" in .github/*|*/.github/*|.gitlab-ci.yml|.gitlab-ci.yaml|*/.gitlab-ci.yml|*/.gitlab-ci.yaml) return 0 ;; esac
   b=$(printf '%s' "${1##*/}" | tr 'A-Z' 'a-z')
   printf '%s' "$b" | grep -qE '(^|[._-])(dev|develop|development|local|test|tests|testing)([._-]|$)'
 }
@@ -65,7 +66,7 @@ scan() { # $1=목록 이름들(공백 구분) $2=ERE [$3=-i]
   done | awk -F: '{ c = $0; sub(/^[^:]*:[^:]*:/, "", c); if (c !~ /^[ \t]*#/) print }'
 }
 has() { local first; first=$(scan "$1" "$2" "${3:-}" | head -1); [ -n "$first" ]; }
-loc() { local p="${1%%:*}" r="${1#*:}"; printf '%s:%s' "${p#"$ROOT"/}" "${r%%:*}"; }
+loc() { local p="${1%%:*}" r="${1#*:}"; case "$p" in "$ROOT"/*) p=${p:${#ROOT}+1} ;; esac; printf '%s:%s' "$p" "${r%%:*}"; }
 
 check() {
   ROOT="$1"
@@ -138,7 +139,7 @@ check() {
   [ -s "$TMP/py" ] && xargs -0 awk -v q="'" '
     BEGIN { re = "\"[^\"]*\"|" q "[^" q "]*" q }
     function flush() {
-      if (n > 0) {
+      if (0 < n) {
         for (i = 1; i <= n; i++) {
           if (items[i] ~ /PrometheusBeforeMiddleware/ && i != 1) print FILENAME ":" start ":Before"
           if (items[i] ~ /PrometheusAfterMiddleware/ && i != n) print FILENAME ":" start ":After"

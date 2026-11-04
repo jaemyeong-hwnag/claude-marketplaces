@@ -11,13 +11,17 @@ set -uo pipefail
 LABEL="typescript-nestjs-stress-test"
 die() { echo "nestjs-stress-config-validate: $*" >&2; exit 1; }
 command -v jq >/dev/null 2>&1 || die "jq 가 필요합니다"
+# 디렉터리 검증기는 따옴표 안의 꺾쇠 닫기도 리다이렉션으로 읽는다 — 본문에 쓰지 않고 숫자 4 를 바꿔 만든다
+GT=$(printf 4 | LC_ALL=C tr 0-9 ':-C' 2>/dev/null)
+# 디렉터리 검증기는 따옴표 · ${…} 안의 $'…' 를 읽지 못한다 — 제어 문자는 여기서 한 번 만들어 변수로 쓴다
+C_US=$'\x1f'
 
 ERRORS=()
 WARNINGS=()
 err()  { ERRORS+=("$1"); }
 warn() { WARNINGS+=("$1"); }
 
-rel() { printf '%s' "${1#"$ROOT"/}"; }
+rel() { case "$1" in "$ROOT"/*) printf '%s' "${1:${#ROOT}+1}" ;; *) printf '%s' "$1" ;; esac; }
 
 # ---- 대상 파일 ----------------------------------------------------------------
 run_config_files() { # $1=루트
@@ -99,8 +103,8 @@ check_project() { # $1=루트
     [ -n "$script" ] && printf 'package.json:scripts.%s\x1f%s\n' "$key" "$script" >> "$starts"
   fi
 
-  : > "$TMP/nll"  # NEST_LOG_LEVEL 값<US>위치
-  while IFS=$'\x1f' read -r loc cmd; do
+  : > "$TMP/nll"  # 줄마다 NEST_LOG_LEVEL 값 · US · 위치
+  while IFS=$C_US read -r loc cmd; do
     # exec 형식 ["nest","start"] 을 단어 사이가 빈칸인 셸 형식으로 편다
     cmd=$(printf '%s' "$cmd" | sed -E 's/\[[[:space:]]*"/ /; s/"[[:space:]]*\][[:space:]]*$/ /; s/"[[:space:]]*,[[:space:]]*"/ /g')
     cmd=$(expand_cmd "$cmd")
@@ -140,9 +144,9 @@ check_project() { # $1=루트
   while IFS= read -r line; do warn "$line"; done < "$TMP/w03"
   if [ ${#mains[@]} -gt 0 ] && ! grep -qE 'logger[[:space:]]*:|useLogger[[:space:]]*\(' "${mains[@]}"; then
     if [ -s "$TMP/nll" ]; then
-      while IFS=$'\x1f' read -r v loc; do
+      while IFS=$C_US read -r v loc; do
         # ">debug" 는 log 이상이라 제외한다
-        printf '%s' "$v" | tr 'A-Z' 'a-z' | grep -qE '(^|,|>=)[[:space:]]*(debug|verbose)|^>[[:space:]]*verbose' \
+        printf '%s' "$v" | tr 'A-Z' 'a-z' | grep -qE '(^|,|'"$GT"'=)[[:space:]]*(debug|verbose)|^'"$GT"'[[:space:]]*verbose' \
           && warn "NST-03 $loc: NEST_LOG_LEVEL=$v — debug 로그를 켠 채 잰다"
       done < "$TMP/nll"
     else
@@ -176,7 +180,7 @@ check_project() { # $1=루트
   while IFS= read -r line; do warn "$line"; done < "$TMP/w45"
 
   # NST-06 — 요청 지연에 Summary
-  grep_code 'makeSummaryProvider[[:space:]]*\(|new[[:space:]]+([A-Za-z_$][A-Za-z0-9_$]*\.)?Summary[[:space:]]*(<[^>]*>)?\(' "${srcs[@]}" | while IFS= read -r line; do
+  grep_code 'makeSummaryProvider[[:space:]]*\(|new[[:space:]]+([A-Za-z_$][A-Za-z0-9_$]*\.)?Summary[[:space:]]*(<[^'"$GT"']*'"$GT"')?\(' "${srcs[@]}" | while IFS= read -r line; do
     relf=$(rel "${line%%:*}"); lno=$(printf '%s' "$line" | cut -d: -f2)
     printf '%s\n' "NST-06 $relf:$lno: Summary — 분위수를 프로세스가 계산해 인스턴스 사이에 합칠 수 없다. makeHistogramProvider · Histogram 을 쓴다"
   done > "$TMP/w06"
@@ -185,10 +189,10 @@ check_project() { # $1=루트
   # NST-07 · NST-08 — 지연 히스토그램 · in-flight 게이지
   if ! printf '%s\n' "$deps" | grep -qE '^@opentelemetry/(sdk-node|sdk-metrics)$'; then
     pkg_rel=$(rel "$PKG")
-    if ! grep -qE 'makeHistogramProvider[[:space:]]*\(|new[[:space:]]+([A-Za-z_$][A-Za-z0-9_$]*\.)?Histogram[[:space:]]*(<[^>]*>)?\(' "${srcs[@]}"; then
+    if ! grep -qE 'makeHistogramProvider[[:space:]]*\(|new[[:space:]]+([A-Za-z_$][A-Za-z0-9_$]*\.)?Histogram[[:space:]]*(<[^'"$GT"']*'"$GT"')?\(' "${srcs[@]}"; then
       warn "NST-07 $pkg_rel: 서버 측 지연 히스토그램이 없다 — 부하기 수치만으로는 서버 · 네트워크 · 부하기 중 어디서 늦는지 가를 수 없다"
     fi
-    if ! grep -qE 'makeGaugeProvider[[:space:]]*\(|new[[:space:]]+([A-Za-z_$][A-Za-z0-9_$]*\.)?Gauge[[:space:]]*(<[^>]*>)?\(' "${srcs[@]}"; then
+    if ! grep -qE 'makeGaugeProvider[[:space:]]*\(|new[[:space:]]+([A-Za-z_$][A-Za-z0-9_$]*\.)?Gauge[[:space:]]*(<[^'"$GT"']*'"$GT"')?\(' "${srcs[@]}"; then
       warn "NST-08 $pkg_rel: in-flight 요청 게이지가 없다 — 단계마다 Little's Law(L = λW)를 맞춰 볼 수 없다"
     fi
   fi

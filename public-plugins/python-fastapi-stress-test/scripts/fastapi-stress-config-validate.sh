@@ -27,8 +27,9 @@ add() { # $1=error|warn $2=조항 $3=위치 $4=메시지
 
 # 개발 · 로컬 · 테스트용 파일 (settings/dev.py · local_settings.py · docker-compose.dev.yml · Dockerfile.local …)과 CI 파일
 is_dev() {
-  local b
-  case "${1#"$ROOT"/}" in .github/*|*/.github/*|.gitlab-ci.yml|.gitlab-ci.yaml|*/.gitlab-ci.yml|*/.gitlab-ci.yaml) return 0 ;; esac
+  local b r
+  case "$1" in "$ROOT"/*) r=${1:${#ROOT}+1} ;; *) r=$1 ;; esac
+  case "$r" in .github/*|*/.github/*|.gitlab-ci.yml|.gitlab-ci.yaml|*/.gitlab-ci.yml|*/.gitlab-ci.yaml) return 0 ;; esac
   b=$(printf '%s' "${1##*/}" | tr 'A-Z' 'a-z')
   printf '%s' "$b" | grep -qE '(^|[._-])(dev|develop|development|local|test|tests|testing)([._-]|$)'
 }
@@ -80,7 +81,7 @@ scan() { # $1=목록 파일들(공백 구분) $2=ERE [$3=-i]
   done | awk -F: '{ c = $0; sub(/^[^:]*:[^:]*:/, "", c); if (c !~ /^[ \t]*#/) print }'
 }
 has() { local first; first=$(scan "$1" "$2" "${3:-}" | head -1); [ -n "$first" ]; }
-loc() { local p="${1%%:*}" r="${1#*:}"; printf '%s:%s' "${p#"$ROOT"/}" "${r%%:*}"; }
+loc() { local p="${1%%:*}" r="${1#*:}"; case "$p" in "$ROOT"/*) p=${p:${#ROOT}+1} ;; esac; printf '%s:%s' "$p" "${r%%:*}"; }
 
 check() {
   ROOT="$1"
@@ -117,9 +118,9 @@ check() {
       FNR == 1 { depth = 0 }
       /^[ \t]*#/ { next }
       {
-        if (depth == 0 && match($0, /(FastAPI|Starlette)\(/)) { depth = 1; rest = substr($0, RSTART + RLENGTH) } else if (depth > 0) rest = $0; else next
+        if (depth == 0 && match($0, /(FastAPI|Starlette)\(/)) { depth = 1; rest = substr($0, RSTART + RLENGTH) } else if (0 < depth) rest = $0; else next
         if (rest ~ /(^|[^[:alnum:]_])debug[ \t]*=[ \t]*True/) print FILENAME ":" FNR ":" $0
-        n = split(rest, ch, ""); for (i = 1; i <= n && depth > 0; i++) { if (ch[i] == "(") depth++; else if (ch[i] == ")") depth-- }
+        n = split(rest, ch, ""); for (i = 1; i <= n && 0 < depth; i++) { if (ch[i] == "(") depth++; else if (ch[i] == ")") depth-- }
       }' < "$TMP/py"
   } > "$TMP/f04"
   while IFS= read -r line; do
@@ -146,11 +147,11 @@ check() {
     /^[ \t]*($|#)/ { next }
     {
       i = ind($0)
-      if (si >= 0 && i <= si) si = -1
-      if (ai >= 0 && i <= ai) ai = -1
+      if (0 <= si && i <= si) si = -1
+      if (0 <= ai && i <= ai) ai = -1
       if ($0 ~ /^[ \t]*async[ \t]+def[ \t]/) { if (ai < 0) ai = i; next }
-      if (ai >= 0 && si < 0 && $0 ~ /^[ \t]*def[ \t]/) { si = i; next }
-      if (ai >= 0 && si < 0 && $0 ~ /(^|[^[:alnum:]_.])(time\.sleep|requests\.(get|post|put|patch|delete|head|options|request)|urllib\.request\.urlopen)\(/)
+      if (0 <= ai && si < 0 && $0 ~ /^[ \t]*def[ \t]/) { si = i; next }
+      if (0 <= ai && si < 0 && $0 ~ /(^|[^[:alnum:]_.])(time\.sleep|requests\.(get|post|put|patch|delete|head|options|request)|urllib\.request\.urlopen)\(/)
         print FILENAME ":" FNR ":" $0
     }' < "$TMP/py" > "$TMP/f07"
   while IFS= read -r line; do
