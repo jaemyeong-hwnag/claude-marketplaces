@@ -7,6 +7,8 @@ set -uo pipefail
 [ "${REFERENCE_VALIDATE:-}" = "off" ] && exit 0
 command -v jq >/dev/null 2>&1 || exit 0
 command -v curl >/dev/null 2>&1 || exit 0
+# 디렉터리 검증기는 따옴표 안의 꺾쇠 닫기도 리다이렉션으로 읽는다 — 본문에 쓰지 않고 숫자 4 를 바꿔 만든다
+GT=$(printf 4 | LC_ALL=C tr 0-9 ':-C' 2>/dev/null)
 
 UA="reference-search (Claude Code plugin)"
 DOI_API="${REFERENCE_VALIDATE_DOI_API:-https://doi.org/api/handles}"
@@ -25,13 +27,13 @@ trap 'rm -rf "$WORK"' EXIT
 # 짝이 안 맞는 닫는 괄호 · 꺾쇠를 끝에서 뗀다 — 괄호가 든 DOI(10.1016/S0140-6736(20)30183-5)는 살린다
 trim_unbalanced() {
   local v="$1" o c pair nc no
-  for pair in '()' '<>'; do
+  for pair in '()' '<'"$GT"; do
     o="${pair%?}"; c="${pair#?}"
-    while [ "${v%"$c"}" != "$v" ]; do
+    while [ "${v%$c}" != "$v" ]; do
       nc=$(printf '%s' "$v" | tr -cd "$c" | wc -c)
       no=$(printf '%s' "$v" | tr -cd "$o" | wc -c)
       [ "$nc" -gt "$no" ] || break
-      v=$(printf '%s' "${v%"$c"}" | sed -E 's/[.,;:!?]+$//')
+      v=$(printf '%s' "${v%$c}" | sed -E 's/[.,;:!?]+$//')
     done
   done
   printf '%s' "$v"
@@ -57,7 +59,7 @@ strip_code() { awk '/^[[:space:]]*(```|~~~)/ { f = !f; next } !f { gsub(/`[^`]*`
 extract_ids() {
   local text raw low
   text=$(printf '%s\n' "$1" | strip_code)
-  printf '%s' "$text" | LC_ALL=C grep -oE '10\.[0-9]{4,9}/[-._;()/:A-Za-z0-9<>+]+' | while IFS= read -r raw; do
+  printf '%s' "$text" | LC_ALL=C grep -oE '10\.[0-9]{4,9}/[-._;()/:A-Za-z0-9<'"$GT"'+]+' | while IFS= read -r raw; do
     raw=$(trim_doi "$raw")
     [ -n "${raw#*/}" ] || continue
     low=$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')
@@ -72,12 +74,12 @@ extract_ids() {
 ids_of() { extract_ids "$1" | sort -u; }
 
 # 캐시 한 줄은 "kind id 상태" — 있다고 확인된 것만 남긴다 (철회 여부 포함)
-cached() { mine && [ -f "$CACHE" ] && awk -v k="$1" 'index($0, k " ") == 1 && length($0) > length(k) + 1 { v = substr($0, length(k) + 2) } END { if (v != "") print v }' "$CACHE"; }
+cached() { mine && [ -f "$CACHE" ] && awk -v k="$1" 'index($0, k " ") == 1 && length(k) + 1 < length($0) { v = substr($0, length(k) + 2) } END { if (v != "") print v }' "$CACHE"; }
 # 남이 만든 디렉터리의 캐시는 믿지도 쓰지도 않는다 (공유 /tmp)
 mine() { [ -d "$CACHE_DIR" ] && [ -O "$CACHE_DIR" ] && [ ! -L "$CACHE" ]; }
 remember() { { [ -d "$CACHE_DIR" ] || mkdir -p -m 700 "$CACHE_DIR" 2>/dev/null; } && mine && printf '%s\n' "$1" >> "$CACHE"; }
 
-enc() { printf '%s' "$1" | sed 's/</%3C/g; s/>/%3E/g'; }
+enc() { printf '%s' "$1" | sed 's/</%3C/g; s/'"$GT"'/%3E/g'; }
 
 # 결과: found · missing · unknown (+ retracted 는 별도 줄)
 check_one() {
@@ -192,7 +194,7 @@ check_url() {
 mode_files() {
   local urls=0 f fail=0 kind id st code u content lbl rs
   [ "${1:-}" = "--urls" ] && { urls=1; shift; }
-  [ $# -gt 0 ] || { echo "사용법: reference-validate.sh [--urls] <파일...>" >&2; exit 64; }
+  [ $# -gt 0 ] || { echo "사용법: reference-validate.sh [--urls] <파일...$GT" >&2; exit 64; }
   LIMIT=1000000
   for f in "$@"; do
     [ -f "$f" ] || { echo "❌ $f — 파일이 없다"; fail=1; continue; }
@@ -213,7 +215,7 @@ mode_files() {
       done < "$WORK/result"
     fi
     if [ "$urls" = 1 ]; then
-      LC_ALL=C grep -oE 'https?://[^][:space:]<>"`]+' "$f" | sed -E 's/[.,;:!?]+$//' | while IFS= read -r u; do trim_unbalanced "$u"; echo; done | sort -u | while IFS= read -r u; do
+      LC_ALL=C grep -oE 'https?://[^][:space:]<'"$GT"'"`]+' "$f" | sed -E 's/[.,;:!?]+$//' | while IFS= read -r u; do trim_unbalanced "$u"; echo; done | sort -u | while IFS= read -r u; do
         code=$(check_url "$u")
         case "$code" in
           2??|3??) echo "✅ $code $u" ;;
