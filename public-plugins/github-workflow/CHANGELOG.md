@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.2.4
+
+### Fixed
+- 훅 스크립트에서 Anthropic 디렉터리 검증기가 막는 here-document · 따옴표 안 `>` · 따옴표 · `${…}` 안의 `$'…'` · `${…}` 안에 겹친 따옴표를 없앴다 — 명령을 자르는 awk 프로그램은 `scripts/shell-command-split.sh` 로 옮겼고 판정은 같다. 다시 들어오면 TC-W181 이 실패한다 (#282)
+
 ## 0.2.3
 
 ### Fixed

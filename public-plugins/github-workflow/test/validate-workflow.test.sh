@@ -540,6 +540,19 @@ expect_code 2; expect_out "jq 가 없어"
 run env PATH="$NOJQ" bash -c "printf '%s' '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"ls -la\"}}' | '$V'"
 expect_code 0
 
+tc TC-W181 "훅 스크립트에 디렉터리 검증기가 막는 표기가 없다 — here-document · \$'…' · 리다이렉션이 아닌 > · \${…} 안에 겹친 따옴표"
+if [ "$TC_ON" = 1 ]; then
+  body="$(grep -n '' "$V" | grep -v '^[0-9]*:[[:space:]]*#')"
+  bad="$(printf '%s\n' "$body" | grep -E '<<-?[[:space:]]*['"'"'"]?[A-Za-z_]' || true)"
+  [ -z "$bad" ] || fail_tc "here-document: $bad"
+  bad="$(printf '%s\n' "$body" | grep -F "\$'\\" | grep -v '^[0-9]*:C_US=' || true)"
+  [ -z "$bad" ] || fail_tc "\$'…': $bad"
+  bad="$(printf '%s\n' "$body" | sed -E 's/[0-9]?>&[0-9]//g; s#[0-9]?>>?[[:space:]]*/dev/null##g; s#[0-9]?>>?[[:space:]]*"\$[A-Za-z0-9_{]##g' | grep '>' || true)"
+  [ -z "$bad" ] || fail_tc "리다이렉션이 아닌 >: $bad"
+  bad="$(printf '%s\n' "$body" | sed -E 's/\\["'"'"']//g; s/\$\{[A-Za-z_]+(\[@\])?:?\+[^}]*\}//g' | grep -E '\$\{[^}]*"[^}]*\}' || true)"
+  [ -z "$bad" ] || fail_tc "\${…} 안 따옴표: $bad"
+fi
+
 flush_tc
 echo
 printf '통과 %d / 실패 %d' "$PASS" "$FAIL"
