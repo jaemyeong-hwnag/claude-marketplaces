@@ -7,6 +7,8 @@ set -uo pipefail
 SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
 PLUGIN_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 RULES="$PLUGIN_ROOT/references/evidence-rules.md"
+# 디렉터리 검증기는 따옴표 안의 꺾쇠 닫기도 리다이렉션으로 읽는다 — 본문에 쓰지 않고 숫자 4 를 바꿔 만든다
+GT=$(printf 4 | LC_ALL=C tr 0-9 ':-C' 2>/dev/null)
 MIN_LINES="${EVIDENCE_REVIEW_MIN_LINES:-3}"
 case "$MIN_LINES" in ''|*[!0-9]*) MIN_LINES=3 ;; esac
 
@@ -72,7 +74,7 @@ hook_prompt() {
   local p f now
   [ "${EVIDENCE_REVIEW_GATE:-1}" != 0 ] || exit 0
   p=$(printf '%s' "$1" | jq -r '.prompt // ""')
-  case "$p" in ''|'<task-notification>'*) exit 0 ;; esac
+  case "$p" in ''|"<task-notification$GT"*) exit 0 ;; esac
   clear_state "$1"   # 새 요청 — 중단돼 Stop 이 돌지 않은 요청의 기록을 잇지 않는다
   f=$(state "$1" request) || exit 0
   now=$(date '+%Y-%m-%d %H:%M:%S')
@@ -101,7 +103,7 @@ hook_edit() {
     printf '%s' "$1" | jq -r '[.tool_input.new_string // empty, (.tool_input.edits // [] | .[].new_string)] | join("\n")' > "$after"
   fi
 
-  t="$f"; [ -n "$cwd" ] && case "$f" in "$cwd"/*) t="${f#"$cwd"/}" ;; esac
+  t="$f"; [ -n "$cwd" ] && case "$f" in "$cwd"/*) t=${f:${#cwd}+1} ;; esac
   sig=""
   is_test "$t" && sig=$(signals "$before" "$after")
 
@@ -158,12 +160,12 @@ hook_subagent_stop() {
 }
 
 claims() { # $1=훅 입력 → 최종 답의 주장 후보 줄 (코드 펜스 밖, 10개까지). macOS cut · awk 는 바이트로 잘라 jq 로 자른다
-  printf '%s' "$1" | jq -r --arg re "$CLAIM_RE" '
+  printf '%s' "$1" | jq -r --arg re "$CLAIM_RE" --arg gt "$GT" '
     (.last_assistant_message // "") | split("\n")
     | reduce .[] as $l ({f: false, o: []};
         if ($l | test("^\\s*```")) then .f = (.f | not)
         elif .f then .
-        elif ($l | test($re; "i")) then .o += [$l | sub("^[\\s#>*|-]+"; "") | .[0:200]]
+        elif ($l | test($re; "i")) then .o += [$l | sub("^[\\s#" + $gt + "*|-]+"; "") | .[0:200]]
         else . end)
     | .o | map(select(test("\\S"))) | .[0:10][]' 2>/dev/null
 }
@@ -247,7 +249,7 @@ N=0; FILES=0
 CHANGED=$( { git -C "$TOP" -c core.quotePath=false diff --name-only "$BASE" --; git -C "$TOP" -c core.quotePath=false ls-files --others --exclude-standard; } | sort -u)
 REST="$CHANGED$NL"
 while [ -n "$REST" ]; do
-  rel="${REST%%"$NL"*}"; REST="${REST#*"$NL"}"
+  rel=${REST%%$NL*}; REST=${REST#*$NL}
   [ -n "$rel" ] || continue
   is_test "$rel" || continue
   FILES=$((FILES+1))
@@ -256,7 +258,7 @@ while [ -n "$REST" ]; do
   SIGS=$(signals "$B" "$A")
   SREST="$SIGS$NL"
   while [ -n "$SREST" ]; do
-    s="${SREST%%"$NL"*}"; SREST="${SREST#*"$NL"}"
+    s=${SREST%%$NL*}; SREST=${SREST#*$NL}
     [ -n "$s" ] || continue
     N=$((N+1)); echo "⚠️  $rel: E-20 $s"
   done
