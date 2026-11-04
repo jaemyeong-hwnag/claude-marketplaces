@@ -96,6 +96,19 @@ test/evidence-validate.test.sh                 # regression tests
 
 Sources and confirmation level for each item are in `references/evidence-methods.md`.
 
+## Privacy
+
+This plugin makes no network calls and sends nothing to any service other than Claude Code itself.
+
+| What | Where | How long |
+|---|---|---|
+| The text of the current request (with a timestamp) | `<session_id>.request` in the plugin's data directory — `~/.claude/plugins/data/common-evidence-review-<marketplace>/` (`$CLAUDE_PLUGIN_DATA`), or `$TMPDIR/common-evidence-review/` when that is not set | Replaced when the next request in the same session starts. Left on disk after the session ends |
+| Paths of edited files, changed-line counts, and test-weakening signals | `<session_id>.edits` · `.signals` in the same directory | Removed when the next request starts, and reset on the first edit after verification |
+| Gate state markers (no content) | `<session_id>.reviewed` · `.pending` · `.blocked` in the same directory | Removed when the next request starts |
+
+- The request text is stored so the `evidence-reviewer` agent can judge changes against the original request. The Stop hook shows it to Claude in the same session; it does not leave your machine through this plugin.
+- Requests can contain whatever you typed, including names or emails. To delete everything, remove the directory above. Set `EVIDENCE_REVIEW_GATE=0` to turn off the completion gate.
+
 ## Changelog
 
 See [`CHANGELOG.md`](CHANGELOG.md).

@@ -96,6 +96,19 @@ test/evidence-validate.test.sh                 # 回归测试
 
 各项的出处 · 确认程度见 `references/evidence-methods.md`。
 
+## 隐私
+
+本插件不进行任何网络调用，也不向 Claude Code 之外的任何服务发送数据。
+
+| 内容 | 位置 | 保留多久 |
+|---|---|---|
+| 当前请求的原文（含时间） | 插件数据目录中的 `<session_id>.request` — `~/.claude/plugins/data/common-evidence-review-<marketplace>/`（`$CLAUDE_PLUGIN_DATA`），未设置时为 `$TMPDIR/common-evidence-review/` | 同一会话的下一个请求开始时被替换。会话结束后仍留在磁盘上 |
+| 修改过的文件路径、变更行数、测试削弱信号 | 同一目录中的 `<session_id>.edits` · `.signals` | 下一个请求开始时删除，验证后的第一次修改时重新开始 |
+| 门控状态标记（无内容） | 同一目录中的 `<session_id>.reviewed` · `.pending` · `.blocked` | 下一个请求开始时删除 |
+
+- 保存请求原文是为了让 `evidence-reviewer` 代理对照原始请求判定变更。Stop 钩子只在同一会话中展示给 Claude，不会经由本插件离开你的电脑。
+- 请求会原样包含你输入的内容，可能含有姓名或邮箱。要全部删除，删除上述目录即可。设置 `EVIDENCE_REVIEW_GATE=0` 可关闭完成门控。
+
 ## 变更记录
 
 参见 [`CHANGELOG.md`](CHANGELOG.md)。

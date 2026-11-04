@@ -96,6 +96,19 @@ test/evidence-validate.test.sh                 # 회귀 테스트
 
 각 항목의 출처 · 확인 수준은 `references/evidence-methods.md` 에 있다.
 
+## 개인정보
+
+이 플러그인은 네트워크를 호출하지 않으며, Claude Code 밖의 어떤 서비스로도 데이터를 보내지 않는다.
+
+| 무엇 | 어디 | 얼마나 |
+|---|---|---|
+| 현재 요청의 원문(시각 포함) | 플러그인 데이터 디렉터리의 `<session_id>.request` — `~/.claude/plugins/data/common-evidence-review-<marketplace>/` (`$CLAUDE_PLUGIN_DATA`), 없으면 `$TMPDIR/common-evidence-review/` | 같은 세션의 다음 요청이 시작될 때 바뀐다. 세션이 끝나도 디스크에 남는다 |
+| 고친 파일 경로 · 바뀐 줄 수 · 테스트 약화 신호 | 같은 디렉터리의 `<session_id>.edits` · `.signals` | 다음 요청이 시작될 때 지우고, 검증 뒤 첫 수정 때 새로 시작한다 |
+| 게이트 상태 표시(내용 없음) | 같은 디렉터리의 `<session_id>.reviewed` · `.pending` · `.blocked` | 다음 요청이 시작될 때 지운다 |
+
+- 요청 원문은 `evidence-reviewer` 에이전트가 변경을 원래 요청에 대어 판정하도록 저장한다. Stop 훅이 같은 세션의 Claude 에게 보여 줄 뿐, 이 플러그인을 통해 PC 밖으로 나가지 않는다.
+- 요청에는 입력한 내용이 그대로 들어가므로 이름 · 이메일이 담길 수 있다. 모두 지우려면 위 디렉터리를 지운다. 종료 게이트를 끄려면 `EVIDENCE_REVIEW_GATE=0`.
+
 ## 변경 이력
 
 [`CHANGELOG.md`](CHANGELOG.md) 참조.
