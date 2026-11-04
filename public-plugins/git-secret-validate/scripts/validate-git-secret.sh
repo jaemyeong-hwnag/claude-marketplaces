@@ -48,6 +48,8 @@ ALLOW_FILE=".git-secret-allow"
 MAX_BYTES=1048576
 
 die() { echo "validate-git-secret: $*" >&2; exit 1; }
+# 앞부분이 글자 그대로 $2 이면 떼어 DROPPED 에 둔다 — ${1#"$2"} 와 같다. 디렉터리 검증기가 ${…} 안의 따옴표를 읽지 못해 함수로 둔다
+drop_prefix() { case "$1" in "$2"*) DROPPED=${1:${#2}} ;; *) DROPPED=$1 ;; esac; }
 command -v jq >/dev/null 2>&1 || die "jq 가 필요합니다"
 command -v git >/dev/null 2>&1 || die "git 이 필요합니다"
 [ -f "$RULES_JSON" ] || die "규칙 파일이 없습니다: $RULES_JSON"
@@ -126,7 +128,8 @@ scan_dir() {
       [ -n "$m" ] || continue
       if [ -n "$placeholder" ] && printf '%s' "$m" | grep -qiE -- "$placeholder"; then continue; fi
       shown=$(redact "$m")
-      printf '%s\037%s\037%s\n' "${file#"$dir"/}" "$id" "$shown"
+      drop_prefix "$file" "$dir/"
+      printf '%s\037%s\037%s\n' "$DROPPED" "$id" "$shown"
     done
   done
 }
@@ -155,10 +158,10 @@ is_sensitive() { # $1=상대 경로
 }
 # 저장소의 .git-secret-allow — 사용자가 일부러 둔 파일(테스트용 키 등)
 is_allowed() { # $1=저장소 $2=상대 경로
-  local g
+  local g t
   [ -f "$1/$ALLOW_FILE" ] || return 1
   while IFS= read -r g || [ -n "$g" ]; do
-    g="${g%%#*}"; g="${g%"${g##*[![:space:]]}"}"; g="${g#"${g%%[![:space:]]*}"}"
+    g="${g%%#*}"; t=${g##*[![:space:]]}; g=${g:0:${#g}-${#t}}; t=${g%%[![:space:]]*}; g=${g:${#t}}
     [ -n "$g" ] || continue
     glob_match "$2" "$g" && return 0
     [[ "$2" == $g/* ]] && return 0
@@ -261,7 +264,7 @@ target_dir() {
       toplevel_of "$1" "${in//$'\036'/$'\n'}"; return 0 ;;
     *$'\034'*) return 0 ;;
   esac
-  case "$to" in "~") to="$HOME" ;; "~/"*) to="$HOME/${to#"~/"}" ;; esac
+  case "$to" in "~") to="$HOME" ;; "~/"*) to="$HOME/${to:2}" ;; esac
   case "$to" in /*) ;; *) [ -n "$1" ] || return 0; to="$1/$to" ;; esac
   printf '%s' "$to"
 }
@@ -555,7 +558,7 @@ hook_file() { # $1=payload
   while [ ! -d "$d" ]; do d="${d%/*}"; [ -n "$d" ] || d="/"; done
   repo=$(git -C "$d" rev-parse --show-toplevel 2>/dev/null) || exit 0
   repo=$(cd "$repo" && pwd -P)
-  rel="${abs#"$repo"/}"
+  drop_prefix "$abs" "$repo/"; rel=$DROPPED
   [ "$rel" != "$abs" ] || exit 0
   case "/$rel" in */.git/*) exit 0 ;; esac
   is_allowed "$repo" "$rel" && exit 0
@@ -639,7 +642,7 @@ check_tree() { # $1=디렉터리
   mkdir -p "$scan"; : > "$TMP/tree-paths"
   if repo=$(git -C "$root" rev-parse --show-toplevel 2>/dev/null); then
     repo=$(cd "$repo" && pwd -P)
-    [ "$root" = "$repo" ] || prefix="${root#"$repo"/}/"
+    [ "$root" = "$repo" ] || { drop_prefix "$root" "$repo/"; prefix="$DROPPED/"; }
     files=$(g -C "$root" ls-files --full-name -co --exclude-standard -- . 2>/dev/null)
     split_lines "$files"; file_list=(${LINES+"${LINES[@]}"})
     for p in ${file_list+"${file_list[@]}"}; do
@@ -660,7 +663,7 @@ check_tree() { # $1=디렉터리
     files=$(find "$root" -type f -not -path '*/.git/*' -not -path '*/node_modules/*' 2>/dev/null)
     split_lines "$files"; file_list=(${LINES+"${LINES[@]}"})
     for p in ${file_list+"${file_list[@]}"}; do
-      p="${p#"$root"/}"; copy_file "$root" "$p" "$scan"
+      drop_prefix "$p" "$root/"; p=$DROPPED; copy_file "$root" "$p" "$scan"
     done
     scan_dir "$scan" "" | sort -u > "$TMP/found"
     collect_findings "$root" "$TMP/found" GS-01
@@ -690,7 +693,7 @@ check_paths() { # $@=파일 · 디렉터리
       # 저장소 안 파일이면 .git-secret-allow 를 따른다
       if repo=$(git -C "$base" rev-parse --show-toplevel 2>/dev/null); then
         repo=$(cd "$repo" && pwd -P)
-        rel="${base#"$repo"}/$aname"
+        drop_prefix "$base" "$repo"; rel="$DROPPED/$aname"
         is_allowed "$repo" "${rel#/}" && continue
       fi
       copy_file "$base" "$aname" "$scan"
