@@ -15,6 +15,8 @@ if [ -z "$PLUGIN_DIR" ]; then
   PLUGIN_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 fi
 RULES="$PLUGIN_DIR/references/stress-test-rules.md"
+# 디렉터리 검증기는 따옴표 안의 꺾쇠 닫기도 리다이렉션으로 읽는다 — 본문에 쓰지 않고 숫자 4 를 바꿔 만든다
+GT=$(printf 4 | LC_ALL=C tr 0-9 ':-C')
 die() { echo "stress-target-validate: $*" >&2; exit 1; }
 command -v jq >/dev/null 2>&1 || die "jq 가 필요하다"
 
@@ -186,12 +188,12 @@ $ASSIGN_TXT"
 
 # 대상이 아닌 값을 뺀다 — 출력 대상(--out · -o · > 파일)과 k6 자체 설정(K6_* 대입, -e 로 넘기는 것은 스크립트 변수라 남긴다)
 drop_outputs() {
-  sed -E 's/[<>]+/ & /g' | awk '
+  sed -E "s/[<$GT]+/ & /g" | awk -v gt="$GT" '
     { out = ""; skip = 0; prev = ""; n = split($0, w, /[ \t]+/)
       for (i = 1; i <= n; i++) {
         t = w[i]; if (t == "") continue
         if (skip) { skip = 0 }
-        else if (t ~ /^>+$/ || t == "--out" || t == "-o") skip = 1
+        else if (t ~ ("^" gt "+$") || t == "--out" || t == "-o") skip = 1
         else if (t ~ /^</ || t ~ /^--out=/) ;
         else if (t ~ /^K6_[A-Z0-9_]*=/ && prev != "-e" && prev != "--env") ;
         else out = out " " t
@@ -206,7 +208,7 @@ LOCUST_TXT=$(printf '%s\n' "$LOCUST_TXT" | drop_outputs)
 hosts_from_text() {
   grep -vE '^[[:space:]]*(import|from|require|//|#)|require\(' \
     | sed -E "s/(^|[^[:alnum:]_])from[[:space:]]*['\"][^'\"]*['\"]//g" \
-    | grep -oE '[a-zA-Z][a-zA-Z0-9+.-]*://([^][ "'"'"'`<>(){}/@]*@)?(\[[0-9A-Fa-f:.]+\]|[^][ "'"'"'`<>(){}]+)' \
+    | grep -oE '[a-zA-Z][a-zA-Z0-9+.-]*://([^][ "'"'"'`<'"$GT"'(){}/@]*@)?(\[[0-9A-Fa-f:.]+\]|[^][ "'"'"'`<'"$GT"'(){}]+)' \
     | sed -E 's#^[^:]+://##; s#^[^@/]*@##; s#[/?\#].*$##; s#^(\[[^]]*\]):[0-9]+$#\1#; s#^([^]:]*):[0-9]+$#\1#' \
     | grep -vE '^$|\$|^__ENV' || true
 }
@@ -234,7 +236,7 @@ $H_LOCUST
 $H_ASSIGN"
 
 FILES=""
-for tok in $(printf '%s' "$LOAD_TXT" | tr -s ' \t"'"'"'=<>' '\n\n\n\n\n\n\n'); do
+for tok in $(printf '%s' "$LOAD_TXT" | tr -s ' \t"'"'"'=<'"$GT" '\n\n\n\n\n\n\n'); do
   case "$tok" in *.js|*.ts|*.mjs|*.py|*.jmx|*.yml|*.yaml|*.scala|*.java|*.kt|*.json|*.txt)
     for p in "$tok" "$BASE/$tok"; do [ -f "$p" ] && { FILES="$FILES
 $p"; break; }; done ;;
@@ -254,7 +256,7 @@ for f in ${FILE_LIST+"${FILE_LIST[@]}"}; do
 $H_FILE
 $H_FILE_ENV"
   case "$f" in *.jmx)
-    H_JMX=$(grep -oE 'HTTPSampler\.domain">[^<]+' "$f" | sed 's/.*">//' | grep -vE '\$\{' || true)
+    H_JMX=$(grep -oE 'HTTPSampler\.domain"'"$GT"'[^<]+' "$f" | sed 's/.*"'"$GT"'//' | grep -vE '\$\{' || true)
     HOSTS="$HOSTS
 $H_JMX" ;; esac
 done

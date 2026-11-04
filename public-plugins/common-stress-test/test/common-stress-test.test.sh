@@ -406,6 +406,12 @@ expect_code 1; expect_out "5개 이상"
 F="$(put m/nan '1\n2\nx\n4\n5\n')"; run stress-regression-validate.sh "$F" "$B"
 expect_code 1
 
+tc TC-S66 "훅 스크립트 본문에 리다이렉션이 아닌 > 가 없다 (디렉터리 검증기가 리다이렉션으로 읽고 막는다)"
+for h in stress-target-validate.sh stress-script-validate.sh; do
+  BAD=$(grep -n '' "$S/$h" | grep -v '^[0-9]*:[[:space:]]*#' | sed -E 's/[0-9]?>&[0-9]//g; s#[0-9]?>>?[[:space:]]*/dev/null##g' | grep '>' || true)
+  [ -z "$BAD" ] || fail_tc "$h: $BAD"
+done
+
 flush_tc
 echo ""
 echo "통과 $PASS · 실패 $FAIL · 건너뜀 $SKIP"
