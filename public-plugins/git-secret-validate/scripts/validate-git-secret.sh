@@ -39,13 +39,19 @@ SCRIPT_PARENT=$(dirname "${BASH_SOURCE[0]}")
 SCRIPT_DIR=$(cd "$SCRIPT_PARENT" && pwd)
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
 [ -n "$PLUGIN_ROOT" ] || PLUGIN_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+# 디렉터리 검증기는 따옴표 안의 꺾쇠 닫기도 리다이렉션으로 읽는다 — 본문에 쓰지 않고 숫자 4 를 바꿔 만든다
+GT=$(printf 4 | LC_ALL=C tr 0-9 ':-C')
 RULES="$PLUGIN_ROOT/references/secret-rules.md"
 RULES_JSON="$PLUGIN_ROOT/references/secret-rules.json"
 LABEL="git-secret-validate"
 ALLOW_FILE=".git-secret-allow"
 MAX_BYTES=1048576
 
+# 디렉터리 검증기는 따옴표 · ${…} 안의 $'…' 를 읽지 못한다 — 제어 문자는 여기서 한 번 만들고 본문에서는 변수로 쓴다
+C_US=$'\037'; C_RS=$'\036'; C_GS=$'\035'; C_FS=$'\034'; C_ESC=$'\033'; C_NL=$'\n'; C_TAB=$'\t'
 die() { echo "validate-git-secret: $*" >&2; exit 1; }
+# 앞부분이 글자 그대로 $2 이면 떼어 DROPPED 에 둔다 — ${1#"$2"} 와 같다. 디렉터리 검증기가 ${…} 안의 따옴표를 읽지 못해 함수로 둔다
+drop_prefix() { case "$1" in "$2"*) DROPPED=${1:${#2}} ;; *) DROPPED=$1 ;; esac; }
 command -v jq >/dev/null 2>&1 || die "jq 가 필요합니다"
 command -v git >/dev/null 2>&1 || die "git 이 필요합니다"
 [ -f "$RULES_JSON" ] || die "규칙 파일이 없습니다: $RULES_JSON"
@@ -67,7 +73,7 @@ LEX_SEQ=0
 # 여러 줄 문자열 → LINES 배열. 빈 줄은 빠진다
 split_lines() {
   local old_ifs="$IFS"
-  set -f; IFS=$'\n'
+  set -f; IFS=${C_NL}
   LINES=($1)
   IFS="$old_ifs"; set +f
 }
@@ -104,7 +110,7 @@ scan_dir() {
       # 값은 jq 안에서 앞 4글자로 가린다 — 개인 키처럼 여러 줄인 값이 줄 단위 읽기로 새어 나가지 않게.
       # 모양은 내장 엔진의 redact 와 같아야 편집 전후를 비교할 수 있다
       jq -r '.[] | [(.File | ltrimstr("./")), .RuleID,
-          ((.Secret // .Match // "") | if length > 4 then .[0:4] + "…" else "…" end)]
+          ((.Secret // .Match // "") | if 4 < length then .[0:4] + "…" else "…" end)]
         | map(gsub("[\r\n\u001f]"; " ")) | join("\u001f")' "$TMP/gitleaks.json" 2>/dev/null
       return 0
     fi
@@ -116,7 +122,7 @@ scan_dir() {
   patterns=$(jq -r '.patterns[] | [.id, (.flags // ""), .regex] | join("\u001f")' "$RULES_JSON")
   split_lines "$patterns"; pattern_list=(${LINES+"${LINES[@]}"})
   for pat in ${pattern_list+"${pattern_list[@]}"}; do
-    id="${pat%%$'\037'*}"; rest="${pat#*$'\037'}"; flags="${rest%%$'\037'*}"; re="${rest#*$'\037'}"
+    id="${pat%%${C_US}*}"; rest="${pat#*${C_US}}"; flags="${rest%%${C_US}*}"; re="${rest#*${C_US}}"
     # grep -rnIE 의 줄 → 파일:줄번호:내용. 오탐 탈출구는 gitleaks 와 같은 gitleaks:allow
     grep -rnIE${flags:+i} -- "$re" "$dir" 2>/dev/null | grep -v 'gitleaks:allow' | while IFS= read -r hit; do
       file="${hit%%:*}"; rest="${hit#*:}"; line="${rest#*:}"
@@ -124,7 +130,8 @@ scan_dir() {
       [ -n "$m" ] || continue
       if [ -n "$placeholder" ] && printf '%s' "$m" | grep -qiE -- "$placeholder"; then continue; fi
       shown=$(redact "$m")
-      printf '%s\037%s\037%s\n' "${file#"$dir"/}" "$id" "$shown"
+      drop_prefix "$file" "$dir/"
+      printf '%s\037%s\037%s\n' "$DROPPED" "$id" "$shown"
     done
   done
 }
@@ -153,10 +160,10 @@ is_sensitive() { # $1=상대 경로
 }
 # 저장소의 .git-secret-allow — 사용자가 일부러 둔 파일(테스트용 키 등)
 is_allowed() { # $1=저장소 $2=상대 경로
-  local g
+  local g t
   [ -f "$1/$ALLOW_FILE" ] || return 1
   while IFS= read -r g || [ -n "$g" ]; do
-    g="${g%%#*}"; g="${g%"${g##*[![:space:]]}"}"; g="${g#"${g%%[![:space:]]*}"}"
+    g="${g%%#*}"; t=${g##*[![:space:]]}; g=${g:0:${#g}-${#t}}; t=${g%%[![:space:]]*}; g=${g:${#t}}
     [ -n "$g" ] || continue
     glob_match "$2" "$g" && return 0
     [[ "$2" == $g/* ]] && return 0
@@ -171,20 +178,7 @@ is_tracked() { git -C "$1" ls-files --error-unmatch -- "$2" >/dev/null 2>&1; }
 # ---- 내용 모으기 ---------------------------------------------------------------
 # 패치(stdin)의 추가된 줄만 파일별로 $1 아래에 모은다. 지운 파일 · 바이너리는 건너뛴다
 patch_to_dir() { # $1=출력 디렉터리
-  awk -v out="$1" '
-    function q(s) { gsub(/\047/, "\047\\\047\047", s); return "\047" s "\047" }
-    /^diff --git / { cur = ""; next }
-    /^\+\+\+ / {
-      p = substr($0, 5); cur = ""
-      if (p == "/dev/null") next
-      sub(/^b\//, "", p); sub(/\t$/, "", p)
-      if (p ~ /^\// || p ~ /(^|\/)\.\.(\/|$)/) next
-      cur = out "/" p
-      if (!(cur in made)) { d = cur; sub(/\/[^\/]*$/, "", d); system("mkdir -p " q(d)); made[cur] = 1; printf "" > cur }
-      next
-    }
-    /^\+/ && cur != "" { print substr($0, 2) >> cur }
-  '
+  bash "$PLUGIN_ROOT/scripts/patch-addition-split.sh" "$1"
 }
 # 작업 트리 파일 하나를 통째로 넣는다. 바이너리 · 큰 파일은 건너뛴다
 copy_file() { # $1=저장소(또는 기준 디렉터리) $2=상대 경로 $3=출력 디렉터리
@@ -200,7 +194,7 @@ copy_file() { # $1=저장소(또는 기준 디렉터리) $2=상대 경로 $3=출
 # $1=저장소 $2=탐지 결과 파일 $3=조항 — 예외를 빼고 ERRORS 에 넣는다
 collect_findings() {
   local f r s
-  while IFS=$'\037' read -r f r s; do
+  while IFS=${C_US} read -r f r s; do
     [ -n "$f" ] || continue
     is_allowed "$1" "$f" && continue
     ERRORS+=("[$3] $f — $r: $s")
@@ -251,7 +245,7 @@ shell_words() { # $1=문자열 → 한 줄에 하나
     fi
     case "$c" in
       \"|\') q="$c"; on=1 ;;
-      ' '|$'\t') [ "$on" = 1 ] && printf '%s\n' "$w"; w=""; on=0 ;;
+      ' '|${C_TAB}) [ "$on" = 1 ] && printf '%s\n' "$w"; w=""; on=0 ;;
       *) w="$w$c"; on=1 ;;
     esac
   done
@@ -260,99 +254,19 @@ shell_words() { # $1=문자열 → 한 줄에 하나
 }
 # 셸 명령을 단순 명령 단위로 자른다 — 한 줄에 한 명령, 토큰마다 \037 로 끝난다. 토큰 안의 줄바꿈은 \036.
 # 변수 · 명령 치환 자리는 \034 로 남기고(명령 치환은 뒤에 \033<원문>\033), 서브셸 ( ) · $( ) 의 앞뒤에 \035( · \035) 줄을 낸다.
-read -r -d '' LEX <<'AWK'
-function emit() { if (CMD != "") print CMD; CMD = "" }
-function endtok() { if (INTOK) { gsub(/\n/, "\036", TOK); CMD = CMD TOK SEP }; TOK = ""; INTOK = 0 }
-function ch(o) { return substr(S, P + o, 1) }
-function blanks() { while (P <= N && (ch(0) == " " || ch(0) == "\t")) P++ }
-function heredocs(   i, e, line, cmp) {
-  for (i = 1; i <= HD; i++) {
-    while (P <= N) {
-      e = index(substr(S, P), "\n")
-      if (e == 0) { line = substr(S, P); P = N + 1 } else { line = substr(S, P, e - 1); P += e }
-      cmp = line; if (HDTAB[i]) sub(/^\t+/, "", cmp)
-      if (cmp == HDEND[i]) break
-    }
-  }
-  HD = 0
-}
-function word(   w, c) {
-  w = ""
-  while (P <= N) {
-    c = ch(0)
-    if (c ~ /[ \t\n;&|()<>]/) break
-    if (c == "\\") { w = w ch(1); P += 2; continue }
-    if (c == "'" || c == "\"") { P++; while (P <= N && ch(0) != c) { w = w ch(0); P++ }; P++; continue }
-    w = w c; P++
-  }
-  return w
-}
-function squote(   s) { s = ""; while (P <= N && ch(0) != "'") { s = s ch(0); P++ }; P++; return s }
-function ansi(   s) { s = ""; while (P <= N && ch(0) != "'") { if (ch(0) == "\\") { s = s ch(1); P += 2 } else { s = s ch(0); P++ } }; P++; return s }
-function arith(   d) { d = 0; while (P <= N) { if (ch(0) == "(") d++; else if (ch(0) == ")") { d--; if (d == 0) { P++; return } }; P++ } }
-function braces(   d, s) { d = 0; s = ""; while (P <= N) { s = s ch(0); if (ch(0) == "{") d++; else if (ch(0) == "}") { d--; if (d == 0) { P++; return s } }; P++ }; return s }
-function nested(stop,   sc, st, si, p0) { sc = CMD; st = TOK; si = INTOK; CMD = ""; TOK = ""; INTOK = 0; p0 = P; print "\035("; lex(stop); print "\035)"; CMD = sc; TOK = st "\034\033" substr(S, p0, P - 1 - p0) "\033"; INTOK = 1 }
-function dquote(   c, c2) {
-  while (P <= N) {
-    c = ch(0)
-    if (c == "\"") { P++; return }
-    if (c == "\\") { c2 = ch(1); if (c2 == "\n") { P += 2; continue }; if (c2 !~ /[$`"\\]/) TOK = TOK c; TOK = TOK c2; P += 2; continue }
-    if (c == "$" && ch(1) == "(") { if (ch(2) == "(") { P++; arith(); TOK = TOK "\034"; continue }; P += 2; nested(")"); continue }
-    if (c == "$" && ch(1) == "{") { P++; TOK = TOK "\034" braces(); continue }
-    if (c == "$" && ch(1) ~ /[A-Za-z0-9_@*#?$!-]/) { TOK = TOK "\034"; P++; continue }
-    if (c == "`") { P++; nested("`"); continue }
-    TOK = TOK c; P++
-  }
-}
-function lex(stop,   c, c2) {
-  while (P <= N) {
-    c = ch(0)
-    if (stop != "" && c == stop) { P++; endtok(); emit(); return }
-    if (c == "\\") { if (ch(1) != "\n") { TOK = TOK ch(1); INTOK = 1 }; P += 2; continue }
-    if (c == "'") { P++; TOK = TOK squote(); INTOK = 1; continue }
-    if (c == "\"") { P++; INTOK = 1; dquote(); continue }
-    if (c == "$") {
-      c2 = ch(1)
-      if (c2 == "(") { INTOK = 1; if (ch(2) == "(") { P++; arith(); TOK = TOK "\034"; continue }; P += 2; nested(")"); continue }
-      if (c2 == "{") { P++; TOK = TOK "\034" braces(); INTOK = 1; continue }
-      if (c2 == "'") { P += 2; TOK = TOK ansi(); INTOK = 1; continue }
-      if (c2 ~ /[A-Za-z0-9_@*#?$!-]/) { TOK = TOK "\034"; INTOK = 1; P++; continue }
-      TOK = TOK c; INTOK = 1; P++; continue
-    }
-    if (c == "`") { P++; INTOK = 1; nested("`"); continue }
-    if (c == " " || c == "\t") { endtok(); P++; continue }
-    if (c == "\n") { endtok(); emit(); P++; heredocs(); continue }
-    if (c == "#" && !INTOK) { while (P <= N && ch(0) != "\n") P++; continue }
-    if (c == "&" && ch(1) == ">") { endtok(); P += 2; if (ch(0) == ">") P++; blanks(); word(); continue }
-    if (c == ">" || c == "<") {
-      if (INTOK && TOK ~ /^[0-9]+$/) { TOK = ""; INTOK = 0 } else endtok()
-      if (c == "<" && ch(1) == "<" && ch(2) == "<") { P += 3; blanks(); word(); continue }
-      if (c == "<" && ch(1) == "<") { P += 2; HD++; HDTAB[HD] = 0; if (ch(0) == "-") { HDTAB[HD] = 1; P++ }; blanks(); HDEND[HD] = word(); continue }
-      P++; while (P <= N && ch(0) ~ /[>&|]/) P++
-      blanks(); word(); continue
-    }
-    if (c == "(" || c == ")") { endtok(); emit(); print "\035" c; P++; continue }
-    if (c ~ /[;&|]/) { endtok(); emit(); P++; continue }
-    TOK = TOK c; INTOK = 1; P++
-  }
-  endtok(); emit()
-}
-{ S = (NR == 1) ? $0 : S "\n" $0 }
-END { SEP = "\037"; N = length(S); P = 1; CMD = ""; TOK = ""; INTOK = 0; HD = 0; lex("") }
-AWK
 
 # cd · -C 의 대상 → 디렉터리. 변수 · 명령 치환이 있거나 모르는 기준에서의 상대 경로는 "" (모름). $1=기준 디렉터리 $2=경로
 target_dir() {
   local to="$2" in
   # $(git [-C 경로] rev-parse --show-toplevel) 하나뿐이면 그 저장소 루트로 푼다
   case "$to" in
-    $'\034\033'*$'\033')
-      in="${to#$'\034\033'}"; in="${in%$'\033'}"
-      case "$in" in *$'\033'*|*$'\034'*) return 0 ;; esac
-      toplevel_of "$1" "${in//$'\036'/$'\n'}"; return 0 ;;
-    *$'\034'*) return 0 ;;
+    ${C_FS}${C_ESC}*${C_ESC})
+      in="${to#${C_FS}${C_ESC}}"; in="${in%${C_ESC}}"
+      case "$in" in *${C_ESC}*|*${C_FS}*) return 0 ;; esac
+      toplevel_of "$1" "${in//${C_RS}/${C_NL}}"; return 0 ;;
+    *${C_FS}*) return 0 ;;
   esac
-  case "$to" in "~") to="$HOME" ;; "~/"*) to="$HOME/${to#"~/"}" ;; esac
+  case "$to" in "~") to="$HOME" ;; "~/"*) to="$HOME/${to:2}" ;; esac
   case "$to" in /*) ;; *) [ -n "$1" ] || return 0; to="$1/$to" ;; esac
   printf '%s' "$to"
 }
@@ -360,10 +274,10 @@ toplevel_of() { # $1=기준 디렉터리 $2=명령 치환 안의 명령 → 저�
   local dir="$1" line n=0 d lexed
   local -a toks
   LEX_SEQ=$((LEX_SEQ + 1)); lexed="$TMP/lex.$LEX_SEQ"; spool "$lexed"
-  printf '%s\n' "$2" | awk "$LEX" > "$lexed"
+  printf '%s\n' "$2" | bash "$PLUGIN_ROOT/scripts/shell-command-split.sh" > "$lexed"
   while IFS= read -r line; do
-    case "$line" in $'\035'*) continue ;; esac
-    n=$((n + 1)); spool "$TMP/tokens"; printf '%s\n' "$line" > "$TMP/tokens"; IFS=$'\037' read -r -a toks < "$TMP/tokens"
+    case "$line" in ${C_GS}*) continue ;; esac
+    n=$((n + 1)); spool "$TMP/tokens"; printf '%s\n' "$line" > "$TMP/tokens"; IFS=${C_US} read -r -a toks < "$TMP/tokens"
   done < "$lexed"
   [ "$n" = 1 ] || return 0
   if [ "${#toks[@]}" = 5 ] && [ "${toks[1]}" = -C ]; then dir=$(target_dir "$dir" "${toks[2]}"); toks=("${toks[0]}" "${toks[@]:3}"); fi
@@ -382,7 +296,7 @@ git_target() { # $1=디렉터리, 나머지=git 뒤 토큰 → commit · push �
       *) break ;;
     esac
   done
-  case "${1:-}" in commit|push) TARGETS+=("$1"$'\037'"$dir") ;; esac
+  case "${1:-}" in commit|push) TARGETS+=("$1"${C_US}"$dir") ;; esac
   return 0
 }
 # 단순 명령을 차례로 보며 cd 를 따라간다. 서브셸이 끝나면 디렉터리를 되돌리고, bash -c · eval 의 문자열은 다시 자른다
@@ -391,13 +305,13 @@ find_targets() { # $1=명령 $2=시작 디렉터리 → TARGETS 에 "하위 명�
   local -a toks stack
   stack=()
   LEX_SEQ=$((LEX_SEQ + 1)); lexed="$TMP/lex.$LEX_SEQ"; spool "$lexed"
-  printf '%s\n' "$1" | awk "$LEX" > "$lexed"
+  printf '%s\n' "$1" | bash "$PLUGIN_ROOT/scripts/shell-command-split.sh" > "$lexed"
   while IFS= read -r line; do
     case "$line" in
-      $'\035(') stack+=("$dir"); continue ;;
-      $'\035)') if [ "${#stack[@]}" -gt 0 ]; then i=$((${#stack[@]} - 1)); dir="${stack[$i]}"; unset "stack[$i]"; fi; continue ;;
+      "${C_GS}(") stack+=("$dir"); continue ;;
+      "${C_GS})") if [ "${#stack[@]}" -gt 0 ]; then i=$((${#stack[@]} - 1)); dir="${stack[$i]}"; unset "stack[$i]"; fi; continue ;;
     esac
-    spool "$TMP/tokens"; printf '%s\n' "$line" > "$TMP/tokens"; IFS=$'\037' read -r -a toks < "$TMP/tokens"
+    spool "$TMP/tokens"; printf '%s\n' "$line" > "$TMP/tokens"; IFS=${C_US} read -r -a toks < "$TMP/tokens"
     wrap=0
     while [ "${#toks[@]}" -gt 0 ]; do
       case "${toks[0]}" in
@@ -415,11 +329,11 @@ find_targets() { # $1=명령 $2=시작 디렉터리 → TARGETS 에 "하위 명�
         if [ "${toks[$i]:-}" = - ]; then dir=""; else dir=$(target_dir "$dir" "${toks[$i]:-$HOME}"); fi ;;
       popd) dir="" ;;
       git) git_target "$dir" "${toks[@]:1}" ;;
-      eval) s="${toks[*]:1}"; WRAPPED+=("${s//$'\036'/$'\n'}"); find_targets "${s//$'\036'/$'\n'}" "$dir" ;;
+      eval) s="${toks[*]:1}"; WRAPPED+=("${s//${C_RS}/${C_NL}}"); find_targets "${s//${C_RS}/${C_NL}}" "$dir" ;;
       bash|sh|zsh|dash|ksh)
         for ((i = 1; i < ${#toks[@]}; i++)); do
           case "${toks[$i]}" in
-            -c|-[a-z]*c) s="${toks[$((i+1))]:-}"; [ -n "$s" ] && { WRAPPED+=("${s//$'\036'/$'\n'}"); find_targets "${s//$'\036'/$'\n'}" "$dir"; }; break ;;
+            -c|-[a-z]*c) s="${toks[$((i+1))]:-}"; [ -n "$s" ] && { WRAPPED+=("${s//${C_RS}/${C_NL}}"); find_targets "${s//${C_RS}/${C_NL}}" "$dir"; }; break ;;
             -*) ;;
             *) break ;;
           esac
@@ -566,7 +480,7 @@ hook_push() { # $1=저장소 $2=번호
 }
 
 hook_bash() { # $1=payload
-  local cmd cwd repo what="" t sub n=0 seen=$'\n'
+  local cmd cwd repo what="" t sub n=0 seen=${C_NL}
   cmd=$(printf '%s' "$1" | jq -r '.tool_input.command // ""' 2>/dev/null)
   [ -n "$cmd" ] || exit 0
   has_git_sub "$cmd" commit && what="commit"
@@ -579,20 +493,20 @@ hook_bash() { # $1=payload
   TARGETS=(); WRAPPED=()
   find_targets "$cmd" "$cwd"
   # 렉서가 git 명령으로 보지 못한 형태는 cwd 를 본다
-  if [ "${#TARGETS[@]}" = 0 ]; then for t in $what; do TARGETS+=("$t"$'\037'"$cwd"); done; fi
+  if [ "${#TARGETS[@]}" = 0 ]; then for t in $what; do TARGETS+=("$t"${C_US}"$cwd"); done; fi
   [ "${#TARGETS[@]}" -gt 0 ] || exit 0
-  [ -n "$what" ] || for t in "${TARGETS[@]}"; do case "$what " in *" ${t%%$'\037'*} "*) ;; *) what="$what ${t%%$'\037'*}" ;; esac; done
+  [ -n "$what" ] || for t in "${TARGETS[@]}"; do case "$what " in *" ${t%%${C_US}*} "*) ;; *) what="$what ${t%%${C_US}*}" ;; esac; done
   for t in "${TARGETS[@]}"; do
-    [ -n "${t#*$'\037'}" ] && continue
-    echo "❌ git ${t%%$'\037'*} 의 대상 저장소를 알 수 없어 막는다 ($LABEL) — cd · git -C 의 대상에 변수 · 명령 치환이 있다." >&2
+    [ -n "${t#*${C_US}}" ] && continue
+    echo "❌ git ${t%%${C_US}*} 의 대상 저장소를 알 수 없어 막는다 ($LABEL) — cd · git -C 의 대상에 변수 · 명령 치환이 있다." >&2
     echo "경로를 그대로 적어 다시 실행한다 (예: git -C /abs/repo commit …). 규칙: $RULES" >&2
     exit 2
   done
   for t in "${TARGETS[@]}"; do
-    sub="${t%%$'\037'*}"; CMD_DIR="${t#*$'\037'}"
+    sub="${t%%${C_US}*}"; CMD_DIR="${t#*${C_US}}"
     repo=$(g -C "$CMD_DIR" rev-parse --show-toplevel 2>/dev/null) || continue
-    case "$seen" in *$'\n'"$sub $repo"$'\n'*) continue ;; esac
-    seen="$seen$sub $repo"$'\n'; n=$((n + 1))
+    case "$seen" in *${C_NL}"$sub $repo"${C_NL}*) continue ;; esac
+    seen="$seen$sub $repo"${C_NL}; n=$((n + 1))
     case "$sub" in commit) hook_commit "$repo" "$cmd" "$n" ;; push) hook_push "$repo" "$n" ;; esac
   done
 
@@ -646,7 +560,7 @@ hook_file() { # $1=payload
   while [ ! -d "$d" ]; do d="${d%/*}"; [ -n "$d" ] || d="/"; done
   repo=$(git -C "$d" rev-parse --show-toplevel 2>/dev/null) || exit 0
   repo=$(cd "$repo" && pwd -P)
-  rel="${abs#"$repo"/}"
+  drop_prefix "$abs" "$repo/"; rel=$DROPPED
   [ "$rel" != "$abs" ] || exit 0
   case "/$rel" in */.git/*) exit 0 ;; esac
   is_allowed "$repo" "$rel" && exit 0
@@ -668,15 +582,15 @@ hook_file() { # $1=payload
   : > "$before/$rel"
   [ -f "$abs" ] && cat "$abs" > "$before/$rel"
   after_content "$1" "$before/$rel" > "$after/$rel" || exit 0
-  scan_dir "$before" "$repo" | cut -d$'\037' -f2,3 > "$TMP/scan-before"
-  scan_dir "$after" "$repo" | cut -d$'\037' -f2,3 > "$TMP/scan-after"
+  scan_dir "$before" "$repo" | cut -d${C_US} -f2,3 > "$TMP/scan-before"
+  scan_dir "$after" "$repo" | cut -d${C_US} -f2,3 > "$TMP/scan-after"
   local r s found_new f
   local -a found_list
-  found_new=$(awk 'FILENAME == ARGV[1] { seen[$0]++; next } seen[$0]-- > 0 { next } { print }' "$TMP/scan-before" "$TMP/scan-after")
+  found_new=$(awk 'FILENAME == ARGV[1] { seen[$0]++; next } 0 < seen[$0]-- { next } { print }' "$TMP/scan-before" "$TMP/scan-after")
   split_lines "$found_new"; found_list=(${LINES+"${LINES[@]}"})
   for f in ${found_list+"${found_list[@]}"}; do
-    r="${f%%$'\037'*}"; s=""
-    case "$f" in *$'\037'*) s="${f#*$'\037'}" ;; esac
+    r="${f%%${C_US}*}"; s=""
+    case "$f" in *${C_US}*) s="${f#*${C_US}}" ;; esac
     [ -n "$r" ] || continue
     WARNINGS+=("[GS-03] $rel — $r: $s 를 쓴다. 파일이 $why — 커밋되면 노출된다")
   done
@@ -684,9 +598,9 @@ hook_file() { # $1=payload
   if [ "${#WARNINGS[@]}" -gt 0 ]; then
     local w body
     body="시크릿 경고 ($LABEL) — 막지 않았다. 시크릿은 환경 변수나 ignore 된 파일(.env 등)로 옮기고, 민감 파일은 .gitignore 에 넣어라."
-    for w in "${WARNINGS[@]}"; do body="$body"$'\n'"- $w"; done
-    [ "$ENGINE" = builtin ] && body="$body"$'\n'"(gitleaks 가 없어 내장 패턴으로 봤다 — GS-05)"
-    body="$body"$'\n'"규칙: $RULES"
+    for w in "${WARNINGS[@]}"; do body="$body"${C_NL}"- $w"; done
+    [ "$ENGINE" = builtin ] && body="$body"${C_NL}"(gitleaks 가 없어 내장 패턴으로 봤다 — GS-05)"
+    body="$body"${C_NL}"규칙: $RULES"
     jq -n --arg c "$body" '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $c}}'
   fi
   exit 0
@@ -730,7 +644,7 @@ check_tree() { # $1=디렉터리
   mkdir -p "$scan"; : > "$TMP/tree-paths"
   if repo=$(git -C "$root" rev-parse --show-toplevel 2>/dev/null); then
     repo=$(cd "$repo" && pwd -P)
-    [ "$root" = "$repo" ] || prefix="${root#"$repo"/}/"
+    [ "$root" = "$repo" ] || { drop_prefix "$root" "$repo/"; prefix="$DROPPED/"; }
     files=$(g -C "$root" ls-files --full-name -co --exclude-standard -- . 2>/dev/null)
     split_lines "$files"; file_list=(${LINES+"${LINES[@]}"})
     for p in ${file_list+"${file_list[@]}"}; do
@@ -751,7 +665,7 @@ check_tree() { # $1=디렉터리
     files=$(find "$root" -type f -not -path '*/.git/*' -not -path '*/node_modules/*' 2>/dev/null)
     split_lines "$files"; file_list=(${LINES+"${LINES[@]}"})
     for p in ${file_list+"${file_list[@]}"}; do
-      p="${p#"$root"/}"; copy_file "$root" "$p" "$scan"
+      drop_prefix "$p" "$root/"; p=$DROPPED; copy_file "$root" "$p" "$scan"
     done
     scan_dir "$scan" "" | sort -u > "$TMP/found"
     collect_findings "$root" "$TMP/found" GS-01
@@ -781,7 +695,7 @@ check_paths() { # $@=파일 · 디렉터리
       # 저장소 안 파일이면 .git-secret-allow 를 따른다
       if repo=$(git -C "$base" rev-parse --show-toplevel 2>/dev/null); then
         repo=$(cd "$repo" && pwd -P)
-        rel="${base#"$repo"}/$aname"
+        drop_prefix "$base" "$repo"; rel="$DROPPED/$aname"
         is_allowed "$repo" "${rel#/}" && continue
       fi
       copy_file "$base" "$aname" "$scan"
@@ -793,7 +707,7 @@ check_paths() { # $@=파일 · 디렉터리
 }
 
 if [ "$#" -eq 0 ]; then
-  if [ -t 0 ]; then die "사용법: validate-git-secret.sh <파일|디렉터리>... | --all [루트] | --history [루트]"; fi
+  if [ -t 0 ]; then die "사용법: validate-git-secret.sh <파일|디렉터리$GT... | --all [루트] | --history [루트]"; fi
   hook
 fi
 

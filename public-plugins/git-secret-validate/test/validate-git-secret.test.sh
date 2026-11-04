@@ -447,6 +447,18 @@ else
   echo "  SKIP      TC-S72 ~ TC-S75 — gitleaks 가 없다"
 fi
 
+
+tc TC-S77 "훅 스크립트에 디렉터리 검증기가 막는 표기가 없다 — here-document · 따옴표 안 \$'…' · 리다이렉션이 아닌 >"
+if [ "$TC_ON" = 1 ]; then
+  body="$(grep -n '' "$SCRIPT" | grep -v '^[0-9]*:[[:space:]]*#')"
+  bad="$(printf '%s\n' "$body" | grep -E '<<-?[[:space:]]*['"'"'"]?[A-Za-z_]' || true)"
+  [ -z "$bad" ] || fail_tc "here-document: $bad"
+  bad="$(printf '%s\n' "$body" | grep -F "\$'" | grep -v '^[0-9]*:C_US=' || true)"
+  [ -z "$bad" ] || fail_tc "\$'…': $bad"
+  bad="$(printf '%s\n' "$body" | sed -E 's/[0-9]?>&[0-9]//g; s#[0-9]?>>?[[:space:]]*/dev/null##g; s#[0-9]?>>?[[:space:]]*"\$[A-Za-z0-9_{]##g' | grep '>' || true)"
+  [ -z "$bad" ] || fail_tc "리다이렉션이 아닌 >: $bad"
+fi
+
 flush_tc
 echo "결과: $PASS 통과, $FAIL 실패, $SKIP 건너뜀"
 [ "$FAIL" = 0 ]
