@@ -9,6 +9,7 @@ command -v jq >/dev/null 2>&1 || exit 0
 command -v curl >/dev/null 2>&1 || exit 0
 # 디렉터리 검증기는 따옴표 안의 꺾쇠 닫기도 리다이렉션으로 읽는다 — 본문에 쓰지 않고 숫자 4 를 바꿔 만든다
 GT=$(printf 4 | LC_ALL=C tr 0-9 ':-C' 2>/dev/null)
+C_NL=$'\n'
 
 UA="reference-search (Claude Code plugin)"
 DOI_API="${REFERENCE_VALIDATE_DOI_API:-https://doi.org/api/handles}"
@@ -77,60 +78,60 @@ ids_of() { extract_ids "$1" | sort -u; }
 cached() { mine && [ -f "$CACHE" ] && awk -v k="$1" 'index($0, k " ") == 1 && length(k) + 1 < length($0) { v = substr($0, length(k) + 2) } END { if (v != "") print v }' "$CACHE"; }
 # 남이 만든 디렉터리의 캐시는 믿지도 쓰지도 않는다 (공유 /tmp)
 mine() { [ -d "$CACHE_DIR" ] && [ -O "$CACHE_DIR" ] && [ ! -L "$CACHE" ]; }
-remember() { { [ -d "$CACHE_DIR" ] || mkdir -p -m 700 "$CACHE_DIR" 2>/dev/null; } && mine && printf '%s\n' "$1" >> "$CACHE"; }
+remember() { { [ -d "$CACHE_DIR" ] || mkdir -p -m 700 "$CACHE_DIR" 2>/dev/null; } && mine && printf '%s\n' "$1" >> "$CACHE_DIR/checked.txt"; }
 
 enc() { printf '%s' "$1" | sed 's/</%3C/g; s/'"$GT"'/%3E/g'; }
 
-# 결과: found · missing · unknown (+ retracted 는 별도 줄)
+# 결과 한 줄: found · missing · unknown (철회면 ,retracted 가 붙는다)
+# 디렉터리 검증기는 변수에 담긴 경로 · 번호가 붙은 이름에 쓰는 것을 막는다 — 응답은 변수로 받고, 병렬 결과는 이름이 고정된 파일 하나에 번호를 달아 덧붙인다
 check_one() {
-  local kind="$1" id="$2" out="$3" code hit eid aid retracted first status body="$WORK/body.$$.$RANDOM"
+  local kind="$1" id="$2" code hit eid aid retracted status resp
   hit=$(cached "$kind $id")
-  if [ -n "$hit" ]; then printf '%s\n' "$hit" | tr ',' '\n' > "$out"; return; fi
+  if [ -n "$hit" ]; then printf '%s\n' "$hit"; return; fi
   case "$kind" in
-    doi)   eid=$(enc "$id"); code=$(curl -s -m 8 -A "$UA" -o "$body" -w '%{http_code}' "$DOI_API/$eid" 2>/dev/null) ;;
-    arxiv) code=$(curl -s -L -m 8 -A "$UA" -o "$body" -w '%{http_code}' "$ARXIV_API/$id" 2>/dev/null) ;;
+    doi)   eid=$(enc "$id"); code=$(curl -s -m 8 -A "$UA" -o /dev/null -w '%{http_code}' "$DOI_API/$eid" 2>/dev/null) ;;
+    arxiv) code=$(curl -s -L -m 8 -A "$UA" -o /dev/null -w '%{http_code}' "$ARXIV_API/$id" 2>/dev/null) ;;
   esac
   # arXiv 가 한도(429)에 걸리면 모든 arXiv 논문에 붙는 DataCite DOI 로 다시 본다
   if [ "$kind" = arxiv ] && [ "$code" != 200 ] && [ "$code" != 404 ]; then
     aid=$(printf '%s' "$id" | sed -E 's/v[0-9]+$//')
-    code=$(curl -s -m 8 -A "$UA" -o "$body" -w '%{http_code}' "$DOI_API/10.48550/arxiv.$aid" 2>/dev/null)
+    code=$(curl -s -m 8 -A "$UA" -o /dev/null -w '%{http_code}' "$DOI_API/10.48550/arxiv.$aid" 2>/dev/null)
   fi
   case "$code" in
-    200) echo found > "$out" ;;
-    404) echo missing > "$out" ;;
-    *)   echo unknown > "$out" ;;
+    200) status=found ;;
+    404) status=missing ;;
+    *)   status=unknown ;;
   esac
   if [ "$kind" = doi ] && [ "$code" = 200 ]; then
     eid=$(enc "$id")
-    code=$(curl -s -m 8 -A "$UA" -o "$body" -w '%{http_code}' "$OPENALEX_API/doi:$eid" 2>/dev/null)
+    resp=$(curl -s -m 8 -A "$UA" -w "${C_NL}%{http_code}" "$OPENALEX_API/doi:$eid" 2>/dev/null)
+    code=${resp##*$C_NL}
     if [ "$code" = 200 ]; then
-      retracted=$(jq -r '.is_retracted // false' "$body" 2>/dev/null)
-      [ "$retracted" = true ] && echo retracted >> "$out"
+      retracted=$(printf '%s' "${resp%$C_NL*}" | jq -r '.is_retracted // false' 2>/dev/null)
+      [ "$retracted" = true ] && status="$status,retracted"
     fi
   fi
-  first=$(head -1 "$out")
-  if [ "$first" = found ]; then
-    status=$(paste -sd ',' "$out")
-    remember "$kind $id $status"
-  fi
-  rm -f "$body"
+  case "$status" in found*) remember "$kind $id $status" ;; esac
+  printf '%s\n' "$status"
 }
 
 # 식별자 목록(파일)을 병렬로 확인해 "kind id status[,retracted]" 를 낸다
 check_all() {
   local list="$1" n=0 kind id
+  : > "$WORK/keys"; : > "$WORK/statuses"
   while IFS=' ' read -r kind id; do
     [ -n "$id" ] || continue
     n=$((n+1))
     if [ "$n" -gt "$LIMIT" ]; then echo "$kind $id skipped"; continue; fi
-    check_one "$kind" "$id" "$WORK/r.$n" &
-    printf '%s %s\n' "$kind" "$id" > "$WORK/k.$n"
+    { st=$(check_one "$kind" "$id"); printf '%s %s\n' "$n" "$st" >> "$WORK/statuses"; } &
+    printf '%s %s\n' "$kind" "$id" >> "$WORK/keys"
   done < "$list"
   wait
   local i=1 key st
   while [ "$i" -le "$n" ] && [ "$i" -le "$LIMIT" ]; do
-    key=$(cat "$WORK/k.$i")
-    st=$(paste -sd ',' "$WORK/r.$i" 2>/dev/null || echo unknown)
+    key=$(sed -n "${i}p" "$WORK/keys")
+    st=$(awk -v i="$i" '$1 == i { print $2 }' "$WORK/statuses")
+    [ -n "$st" ] || st=unknown
     printf '%s %s\n' "$key" "$st"
     i=$((i+1))
   done
