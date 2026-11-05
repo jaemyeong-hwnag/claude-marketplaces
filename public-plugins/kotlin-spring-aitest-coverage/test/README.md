@@ -125,6 +125,7 @@ Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아�
 | TC-H28 | Gradle Kotlin DSL 이 아니면 조용히 통과하고 상태를 만들지 않는다 |
 | TC-H29 | 판정 도구(javap)가 없으면 막는다 (C-09) |
 | TC-H30 | 아직 커밋하지 않은 환경 블록도 환경으로 본다 |
+| TC-H31 | 훅 스크립트에 디렉터리 검증기가 막는 표기가 없다 — here-document · `$'…'` · 리다이렉션이 아닌 `>` · 큰따옴표 안 `${…}` 안의 겹친 따옴표 |
 
 ### E. Docker 준비 템플릿 (ensure-docker-for-aitest.sh.tmpl)
 
