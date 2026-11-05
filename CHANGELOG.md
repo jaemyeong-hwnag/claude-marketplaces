@@ -2,6 +2,9 @@
 
 ## 미출시
 
+### Added
+- `plugin-search-install` 을 0.4.0 으로 다시 배포한다 — 마켓플레이스 엔트리 · 루트 README 세 언어 수록 표에 다시 올렸다. `plugin-browser` · `project-completeness` 는 되살리지 않는다 (#293)
+
 ### Removed
 - `plugin-search-install` · `plugin-browser` 플러그인 제거 — 내장 `/plugin` 과 겹치고 대상이 이 마켓뿐이었다. 루트 README 의 설치 안내를 `/plugin install` 로 바꿨다 (#251)
 - `project-completeness` 플러그인 제거 — 자동 판정이 파일 이름 grep 이라 이름만 맞춰도 통과했고, 같은 일을 하는 별도 도구가 있다 (#251)

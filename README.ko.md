@@ -89,6 +89,7 @@ Claude Code 세션 안에서:
 | | [`common-document-slop-review`](public-plugins/common-document-slop-review) | 문서를 쓰거나 고칠 때마다 slop(대화 잔재 · 깨진 링크 · 근거 없는 주장)을 막고 사실관계 리뷰를 요구 |
 | 레퍼런스 찾기 | [`reference-search`](public-plugins/reference-search) | 논문 · 다른 회사 기술 사례 · 공식 문서 · 표준을 출처별 에이전트로 찾고, 없는 DOI · arXiv ID 인용을 막는다 |
 | GitHub 플로우 | [`github-workflow`](public-plugins/github-workflow) | 이슈 → 이슈 번호 브랜치 → PR → 머지 커밋 → 태그 흐름을 강제 |
+| 플러그인 찾기 · 설치 | [`plugin-search-install`](public-plugins/plugin-search-install) | 이 마켓의 public 플러그인 검색 · 연관 · 프로젝트에 필요한 것 · 설치. 로컬 MCP 서버 포함 |
 
 이 저장소 개발에만 쓰는 internal 플러그인 — [`plugin-naming`](internal-plugins/plugin-naming) · [`marketplace-directory-structure`](internal-plugins/marketplace-directory-structure) · [`plugin-versioning`](internal-plugins/plugin-versioning) · [`plugin-authoring`](internal-plugins/plugin-authoring) · [`plugin-dependency`](internal-plugins/plugin-dependency) · [`plugin-enforcement-effectiveness`](internal-plugins/plugin-enforcement-effectiveness) · [`plugin-workflow`](internal-plugins/plugin-workflow).
 

@@ -89,6 +89,7 @@
 | | [`common-document-slop-review`](public-plugins/common-document-slop-review) | 每次编写或修改文档时阻止 slop（对话残留 · 失效链接 · 无依据的论断），并要求事实核查 |
 | 查找参考资料 | [`reference-search`](public-plugins/reference-search) | 用按来源划分的代理查找论文、其他公司的技术案例、官方文档和标准，并阻止引用不存在的 DOI · arXiv ID |
 | GitHub 流程 | [`github-workflow`](public-plugins/github-workflow) | 强制 issue → 带 issue 编号的分支 → PR → 合并提交 → 标签 的流程 |
+| 查找 · 安装插件 | [`plugin-search-install`](public-plugins/plugin-search-install) | 本市场 public 插件的搜索 · 相关 · 项目所需 · 安装。包含本地 MCP 服务器 |
 
 仅用于开发本仓库的 internal 插件 — [`plugin-naming`](internal-plugins/plugin-naming) · [`marketplace-directory-structure`](internal-plugins/marketplace-directory-structure) · [`plugin-versioning`](internal-plugins/plugin-versioning) · [`plugin-authoring`](internal-plugins/plugin-authoring) · [`plugin-dependency`](internal-plugins/plugin-dependency) · [`plugin-enforcement-effectiveness`](internal-plugins/plugin-enforcement-effectiveness) · [`plugin-workflow`](internal-plugins/plugin-workflow)。
 

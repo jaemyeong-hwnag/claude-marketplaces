@@ -89,6 +89,7 @@ Install: `/plugin install <name>@jaemyeong-hwnag-plugins`. Every public plugin h
 | | [`common-document-slop-review`](public-plugins/common-document-slop-review) | Blocks slop (chat leftovers · broken links · unsupported claims) whenever docs are written or edited, and requires a fact-check review |
 | Finding references | [`reference-search`](public-plugins/reference-search) | Finds papers, other companies' engineering cases, official docs, and standards with per-source agents, and blocks citing DOIs · arXiv IDs that do not exist |
 | GitHub flow | [`github-workflow`](public-plugins/github-workflow) | Enforces issue → issue-numbered branch → PR → merge commit → tag |
+| Finding · installing plugins | [`plugin-search-install`](public-plugins/plugin-search-install) | Search, related plugins, what a project needs, and install for this marketplace's public plugins. Includes a local MCP server |
 
 Internal plugins used only to develop this repository — [`plugin-naming`](internal-plugins/plugin-naming) · [`marketplace-directory-structure`](internal-plugins/marketplace-directory-structure) · [`plugin-versioning`](internal-plugins/plugin-versioning) · [`plugin-authoring`](internal-plugins/plugin-authoring) · [`plugin-dependency`](internal-plugins/plugin-dependency) · [`plugin-enforcement-effectiveness`](internal-plugins/plugin-enforcement-effectiveness) · [`plugin-workflow`](internal-plugins/plugin-workflow).
 
