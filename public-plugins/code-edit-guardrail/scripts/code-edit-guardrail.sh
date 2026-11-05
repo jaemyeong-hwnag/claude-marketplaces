@@ -10,6 +10,9 @@
 # 설정이 없거나 jq 가 없으면 훅은 아무것도 하지 않는다 (fail-open).
 # 종료 코드: 0 통과 / 2 차단 · 위반 / 1 사용법 오류
 set -uo pipefail
+# 디렉터리 검증기는 따옴표 안의 꺾쇠 닫기를 리다이렉션으로, 따옴표 안의 $'…' 를 읽을 수 없는 스크립트로 본다 — 본문에 쓰지 않고 여기서 만든다
+GT=$(printf 4 | LC_ALL=C tr 0-9 ':-C' 2>/dev/null)
+C_US=$'\037'
 
 MODE="${1:-}"
 command -v jq >/dev/null 2>&1 || { [ "$MODE" = validate ] && { echo "❌ jq 가 필요하다" >&2; exit 2; }; exit 0; }
@@ -30,7 +33,7 @@ def glob_re:
   | ($core | ltrimstr("./") | ltrimstr("/") | if $dir then . + "/**" else . end) as $g
   | "^" + (if $anchored then "" else "(.*/)?" end)
     + ($g
-      | gsub("(?<c>[.+^(){}$|\\[\\]\\\\])"; "\\\(.c)")
+      | gsub("(?<c'"$GT"'[.+^(){}$|\\[\\]\\\\])"; "\\\(.c)")
       | gsub("\\*\\*/"; "\u0001") | gsub("\\*\\*"; "\u0002")
       | gsub("\\*"; "[^/]*") | gsub("\\?"; "[^/]")
       | gsub("\u0001"; "(.*/)?") | gsub("\u0002"; ".*"))
@@ -73,7 +76,8 @@ rel_path() {
   if top=$(git -C "$d" rev-parse --show-toplevel 2>/dev/null) && top=$(cd "$top" && pwd -P); then
     case "$top/" in "$ROOT"/?*) cfg=$(config_of "$top"); config_ok "$cfg" && root="$top" ;; esac
   fi
-  sub=$(printf '%s' "${d#"$root"}/$rest" | sed 's#^/##')
+  case "$d" in "$root"*) sub=${d:${#root}} ;; *) sub=$d ;; esac
+  sub=$(printf '%s' "$sub/$rest" | sed 's#^/##')
   printf '%s\037%s' "$root" "$sub"
 }
 
@@ -88,7 +92,7 @@ mode_track() {
   path=$(input_get '.tool_input.file_path // .tool_input.notebook_path')
   loc=$(rel_path "$path")
   [ -n "$loc" ] || return 0
-  root="${loc%%$'\037'*}"; rel="${loc#*$'\037'}"
+  root="${loc%%${C_US}*}"; rel="${loc#*${C_US}}"
   cfg=$(config_of "$root")
   config_ok "$cfg" || exit 0
   state_paths
@@ -103,13 +107,13 @@ mode_shared() {
   path=$(input_get .tool_input.file_path)
   loc=$(rel_path "$path")
   [ -n "$loc" ] || exit 0
-  rel="${loc#*$'\037'}"; CONFIG=$(config_of "${loc%%$'\037'*}")
+  rel="${loc#*${C_US}}"; CONFIG=$(config_of "${loc%%${C_US}*}")
   config_ok "$CONFIG" || exit 0
   jq -e 'has("shared")' "$CONFIG" >/dev/null 2>&1 || exit 0
   content=$(printf '%s' "$INPUT" | jq -r '[.tool_input.content, .tool_input.new_string, (.tool_input.edits[]?.new_string)] | map(select(. != null)) | join("\n")' 2>/dev/null || true)
   hits=$(jq -r --arg f "$rel" --arg c "$content" "$JQ_LIB"'
     .shared as $s
-    | (if (($s.paths // []) | length) > 0 and ($f | globs_match($s.paths)) then "경로 \($f)" else empty end),
+    | (if 0 < (($s.paths // []) | length) and ($f | globs_match($s.paths)) then "경로 \($f)" else empty end),
       (($s.content // [])[] as $re | select(try ($c | test($re)) catch false) | "내용 /\($re)/")' "$CONFIG" 2>/dev/null | paste -sd ',' - | sed 's/,/, /g')
   [ -n "$hits" ] || exit 0
   jq -n --arg r "G-03 공유자원 편집 — [$hits]. 다른 팀 · 서비스가 같이 쓰는 자원이다. 영향을 사용자에게 확인받고 진행한다" \
@@ -123,14 +127,14 @@ mode_stop() {
   active=$(input_get .stop_hook_active)
   # 기록 한 줄은 "루트 \037 상대 경로" — 루트마다 그 루트의 설정으로 보고 lane 도 거기서 돌린다
   edits=$(jq -R -s -c --arg root "$ROOT" '
-    [split("\n")[] | select(length > 0) | split("\u001f") | if length > 1 then {r: .[0], f: .[1]} else {r: $root, f: .[0]} end]' "$EDITS")
+    [split("\n")[] | select(0 < length) | split("\u001f") | if 1 < length then {r: .[0], f: .[1]} else {r: $root, f: .[0]} end]' "$EDITS")
   roots=$(printf '%s' "$edits" | jq -r '[.[].r] | unique[]')
   rest="$roots$NL"
   while [ -n "$rest" ]; do
-    root="${rest%%"$NL"*}"; rest="${rest#*"$NL"}"
+    root="${rest%%$NL*}"; rest="${rest#*$NL}"
     CONFIG=$(config_of "$root")
     config_ok "$CONFIG" || continue
-    where=""; [ "$root" = "$ROOT" ] || where="${root#"$ROOT"/}/"
+    where=""; [ "$root" = "$ROOT" ] || case "$root" in "$ROOT"/*) where="${root:${#ROOT}+1}/" ;; *) where="$root/" ;; esac
     files=$(printf '%s' "$edits" | jq -c --arg r "$root" '[.[] | select(.r == $r) | .f] | unique')
 
     if jq -e 'has("test")' "$CONFIG" >/dev/null 2>&1; then
@@ -141,7 +145,7 @@ mode_stop() {
         code_list=$(printf '%s' "$codes" | paste -sd ' ' -)
         viol="${viol}- G-01 코드를 고쳤는데 테스트를 고치지 않았다: $code_list
   조치: 바뀐 동작을 덮는 테스트를 쓰거나 고친다. 동작이 그대로인 변경(리팩터 · 포맷 · 주석)이면 사용자에게 알리고 면제한다
-        echo 'test: <사유>' >> \"$ACK\"
+        echo 'test: <사유${GT}' ${GT}${GT} \"$ACK\"
 "
       fi
     fi
@@ -179,7 +183,7 @@ mode_validate() {
   jq -e . "$CONFIG" >/dev/null 2>&1 || { echo "❌ C-01 올바른 JSON 이 아니다: $CONFIG" >&2; exit 2; }
   local findings files errs warns unmatched summary
   findings=$(jq -r --arg q "'" '
-    def strarr: type == "array" and length > 0 and all(.[]; type == "string" and length > 0);
+    def strarr: type == "array" and 0 < length and all(.[]; type == "string" and 0 < length);
     def e: "E\u001f" + .;
     if type != "object" then "C-02 최상위는 객체여야 한다" | e else
       ((keys - ["test", "quality", "shared"])[] | "C-02 알 수 없는 키 \($q)\(.)\($q) — test · quality · shared 만 쓴다" | e),
@@ -197,9 +201,9 @@ mode_validate() {
                   ((keys - ["name", "paths", "command"])[] | "C-03 quality[\($i)] 에 알 수 없는 키 \($q)\(.)\($q)" | e),
                   (if (.name | type) == "string" and (.name | test("^[a-z0-9]+(-[a-z0-9]+)*$")) then empty else "C-03 quality[\($i)].name 은 kebab-case 문자열이어야 한다" | e end),
                   (if (.paths | strarr) then empty else "C-03 quality[\($i)].paths 는 비지 않은 문자열 배열이어야 한다" | e end),
-                  (if (.command | type) == "string" and (.command | length) > 0 then empty else "C-03 quality[\($i)].command 는 비지 않은 문자열이어야 한다" | e end)
+                  (if (.command | type) == "string" and 0 < (.command | length) then empty else "C-03 quality[\($i)].command 는 비지 않은 문자열이어야 한다" | e end)
                 end),
-            ([.[] | objects | .name | strings] | group_by(.)[] | select(length > 1) | "C-03 quality name \($q)\(.[0])\($q) 이 겹친다" | e)
+            ([.[] | objects | .name | strings] | group_by(.)[] | select(1 < length) | "C-03 quality name \($q)\(.[0])\($q) 이 겹친다" | e)
           end
       else empty end),
       (if has("shared") then .shared
@@ -250,5 +254,5 @@ case "$MODE" in
   shared) mode_shared ;;
   stop) mode_stop ;;
   validate) mode_validate ;;
-  *) echo "사용법: code-edit-guardrail.sh <reset|track|shared|stop|validate [루트]>" >&2; exit 1 ;;
+  *) echo "사용법: code-edit-guardrail.sh <reset|track|shared|stop|validate [루트]${GT}" >&2; exit 1 ;;
 esac

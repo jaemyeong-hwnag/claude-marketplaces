@@ -11,7 +11,7 @@ test/code-edit-guardrail.test.sh TC-B     # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. 필요한 것: `git`, `jq`.
 
-## 자동 TC (54건)
+## 자동 TC (55건)
 
 픽스처는 **모든 절을 갖춘 설정**과 두 스택(루트 Kotlin `src/main` · `src/test` + `web/src` TypeScript), 생성 코드(`generated/`), 공유자원(`db/migration/` · `*.proto`)이 있는 저장소다. 품질 lane 명령은 표식 파일(`api.fail` · `web.fail`)이 있으면 실패하고, `web` lane 은 돌았다는 표식(`web.ran`)을 남긴다. TC 마다 한 곳만 바꾼다 — 절 하나를 빼는 TC(`A12` · `C07`)를 따로 둔다.
 
@@ -98,3 +98,9 @@ test/code-edit-guardrail.test.sh TC-B     # ID 접두사로 필터
 | TC-F02 | / 로 시작하는 글롭은 루트 기준이다 |
 | TC-F03 | 끝 / 는 그 디렉터리 아래 전부다 — 어느 깊이든 |
 | TC-F04 | 점 · 괄호 같은 정규식 문자는 글자 그대로다 |
+
+### G. 디렉터리 검증기
+
+| ID | 케이스 |
+|---|---|
+| TC-G01 | 훅 스크립트에 디렉터리 검증기가 막는 표기가 없다 — here-document, `$'…'`(`C_US=` 정의 줄 제외), 리다이렉션(`>&N` · `/dev/null` · `"$변수"` 대상)이 아닌 `>`, `${…}` 안에 겹친 따옴표(`${a+"${a[@]}"}` · `${a+"${!a[@]}"}` 는 허용). 주석 줄은 보지 않는다 |
