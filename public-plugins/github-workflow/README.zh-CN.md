@@ -61,6 +61,7 @@ claude plugin install github-workflow@jaemyeong-hwnag-plugins --scope project
 |---|---|
 | `references/workflow-rules.md` | 规则原文（`W-01` ~ `W-10`，步骤） |
 | `scripts/validate-workflow.sh` | 钩子 · CLI 共用的验证（`--templates` · `--branch` · `--up-to-date`） |
+| `scripts/shell-command-split.sh` | 将 shell 命令拆分为简单命令 — 由 `validate-workflow.sh` 调用 |
 | `scripts/branch-create.sh` | 第 2 步 — 从默认分支创建符合规则的分支和工作树 |
 | `skills/github-template-create/templates/` | 默认 issue 表单 · PR 模板 |
 | `test/` | 回归测试与 TC 规格 |

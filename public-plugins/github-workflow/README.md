@@ -61,6 +61,7 @@ None
 |---|---|
 | `references/workflow-rules.md` | Rule source (`W-01` – `W-10`, steps) |
 | `scripts/validate-workflow.sh` | Validation for both hook and CLI (`--templates` · `--branch` · `--up-to-date`) |
+| `scripts/shell-command-split.sh` | Splits a shell command into simple commands — called by `validate-workflow.sh` |
 | `scripts/branch-create.sh` | Step 2 — a rule-compliant branch and worktree from the default branch |
 | `skills/github-template-create/templates/` | Default issue forms · PR templates |
 | `test/` | Regression tests and TC specs |
