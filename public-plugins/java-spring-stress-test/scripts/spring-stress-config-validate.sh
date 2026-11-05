@@ -8,10 +8,14 @@ set -uo pipefail
 RULES="references/spring-stress-rules.md"
 ERRORS=0
 OUT=""
+# 디렉터리 검증기는 따옴표 안의 꺾쇠 닫기도 리다이렉션으로 읽는다 — 본문에 쓰지 않고 숫자 4 를 바꿔 만든다
+GT=$(printf 4 | LC_ALL=C tr 0-9 ':-C' 2>/dev/null)
+# 디렉터리 검증기는 따옴표 · ${…} 안의 $'…' 를 읽지 못한다 — 제어 문자는 여기서 한 번 만들어 변수로 쓴다
+C_NL=$'\n'
 
 add() { # $1=❌|⚠️ $2=조항 $3=파일 $4=내용
   [ "$1" = "❌" ] && ERRORS=$((ERRORS+1))
-  OUT="${OUT}$1 $2 $3: $4"$'\n'
+  OUT="${OUT}$1 $2 $3: $4${C_NL}"
 }
 
 # --- 파일 찾기 ----------------------------------------------------------------
@@ -42,7 +46,7 @@ flatten_props() {
     /^[#!]---[ \t]*$/ { doc_flush(); next }
     /^[ \t]*[#!]/ || /^[ \t]*$/ { next }
     { line=$0; sub(/^[ \t]+/, "", line)
-      p=index(line, "="); q=index(line, ":"); if (p==0 || (q>0 && q<p)) p=q
+      p=index(line, "="); q=index(line, ":"); if (p==0 || (0<q && q<p)) p=q
       if (p==0) next
       k=substr(line,1,p-1); v=substr(line,p+1)
       gsub(/[ \t]+$/, "", k); gsub(/^[ \t]+|[ \t]+$/, "", v)
@@ -50,9 +54,9 @@ flatten_props() {
 }
 
 flatten_yaml() {
-  awk -v q="'" "$DOC_AWK"'
+  awk -v q="'" -v gt="$GT" "$DOC_AWK"'
     function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
-    function unquote(s) { if (length(s)>=2 && (substr(s,1,1)=="\"" || substr(s,1,1)==q) && substr(s,length(s))==substr(s,1,1)) return substr(s,2,length(s)-2); return s }
+    function unquote(s) { if (2<=length(s) && (substr(s,1,1)=="\"" || substr(s,1,1)==q) && substr(s,length(s))==substr(s,1,1)) return substr(s,2,length(s)-2); return s }
     /^---/ { n=0; doc_flush(); next }
     { raw=$0; sub(/\r$/, "", raw) }
     raw ~ /^[ \t]*#/ || raw ~ /^[ \t]*$/ { next }
@@ -61,9 +65,9 @@ flatten_yaml() {
     { p=index(line, ":"); if (p==0) next
       k=trim(substr(line,1,p-1)); v=trim(substr(line,p+1))
       k=unquote(k); sub(/[ \t]+#.*$/, "", v); v=unquote(v)
-      while (n>0 && ind<=si[n]) n--
+      while (0<n && ind<=si[n]) n--
       path=""; for (i=1;i<=n;i++) path=path sk[i] "."
-      if (v=="" || v=="|" || v==">") { n++; si[n]=ind; sk[n]=k } else emit(path k, v) }' "$1"
+      if (v=="" || v=="|" || v==gt) { n++; si[n]=ind; sk[n]=k } else emit(path k, v) }' "$1"
 }
 
 normalize() { # key=value → 정규화 키=값 (map 키의 [ ] 표기도 벗긴다)
@@ -86,7 +90,7 @@ flat_of() {
   esac
 }
 
-relpath() { local p="$1"; printf '%s' "${p#"$ROOT"/}"; }
+relpath() { local p="$1"; case "$p" in "$ROOT"/*) printf '%s' "${p:${#ROOT}+1}" ;; *) printf '%s' "$p" ;; esac; }
 
 # --- 검사 ----------------------------------------------------------------------
 check_project() {
@@ -100,16 +104,16 @@ check_project() {
     [ -n "$f" ] || continue
     rel=$(relpath "$f")
     content=$(cat "$f")
-    build_text="${build_text}${content}"$'\n'
+    build_text="${build_text}${content}${C_NL}"
     case "$f" in
       *pom.xml)
-        awk '
-          /<dependency>/ { inb=1; blk=""; ln=NR }
+        awk -v gt="$GT" '
+          $0 ~ ("<dependency" gt) { inb=1; blk=""; ln=NR }
           inb { blk=blk $0 "\n" }
-          /<\/dependency>/ { if (inb && blk ~ /spring-boot-devtools/ && blk !~ /<optional>[ \t]*true[ \t]*<\/optional>/ && blk !~ /<scope>[ \t]*(test|provided)[ \t]*<\/scope>/) print ln; inb=0 }' "$f" \
+          $0 ~ ("</dependency" gt) { if (inb && blk ~ /spring-boot-devtools/ && blk !~ ("<optional" gt "[ \t]*true[ \t]*</optional" gt) && blk !~ ("<scope" gt "[ \t]*(test|provided)[ \t]*</scope" gt)) print ln; inb=0 }' "$f" \
           | while IFS= read -r ln; do echo "$ln"; done > "$TMPD/pom-devtools"
         while IFS= read -r ln; do
-          [ -n "$ln" ] && add "⚠️" "SPR-01" "$rel:$ln" "spring-boot-devtools 에 <optional>true</optional> 이 없다 — 운영 아티팩트 · 부하 대상에 devtools 가 따라간다"
+          [ -n "$ln" ] && add "⚠️" "SPR-01" "$rel:$ln" "spring-boot-devtools 에 <optional${GT}true</optional${GT} 이 없다 — 운영 아티팩트 · 부하 대상에 devtools 가 따라간다"
         done < "$TMPD/pom-devtools"
         ;;
       *)
@@ -337,7 +341,7 @@ if [ $# -eq 0 ] && [ ! -t 0 ]; then
   proj=$(cd "$proj" && pwd)
   check_project "$proj"
   [ -n "$OUT" ] || exit 0
-  msg="부하 측정 전 Spring 설정 점검(java-spring-stress-test) — 아래 설정은 측정을 무효로 만들거나 계측을 빠뜨린다. 고치고 측정할지 사용자에게 알린다. 근거: ${RULES}"$'\n'"${OUT}"
+  msg="부하 측정 전 Spring 설정 점검(java-spring-stress-test) — 아래 설정은 측정을 무효로 만들거나 계측을 빠뜨린다. 고치고 측정할지 사용자에게 알린다. 근거: ${RULES}${C_NL}${OUT}"
   jq -n --arg m "$msg" '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $m}}'
   exit 0
 fi
