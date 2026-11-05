@@ -108,6 +108,22 @@ test/design-soundness-validate.test.sh                                # regressi
 
 Sources, confidence levels, and "choices" (adopted or decided without direct evidence) for each item are in `references/design-soundness-methods.md`.
 
+## Privacy
+
+This plugin makes no network calls and sends nothing to any service other than Claude Code itself.
+
+| What | Where | How long |
+|---|---|---|
+| The text of the current request (with a timestamp) | `<session_id>.request` in the plugin's data directory — `~/.claude/plugins/data/common-design-soundness-review-<marketplace>/` (`$CLAUDE_PLUGIN_DATA`), or `$TMPDIR/common-design-soundness-review/` when that is not set | Removed when a response ends and when the next request starts. Kept while the completion is sent back once or a background verifier is still judging; if the session ends in between, it stays on disk |
+| A copy of the plan you tried to leave plan mode with, and its hash | `<session_id>.plan.md` · `.plan` in the same directory | Same as above |
+| Paths of edited design documents and changed-line counts, plus the mechanical signals already reported per file | `<session_id>.edits` · `.seen/` in the same directory | Same as above |
+| Gate state markers (no content) | `<session_id>.design` · `.reviewed` · `.pending` · `.blocked` · `.alerted` in the same directory | Same as above |
+| A copy of a design proposed in conversation, made to hand it to the verifier | `design-<time>.md` in `$CLAUDE_PLUGIN_DATA` or a temporary directory (the skill has Claude create it) | Not removed by the plugin |
+
+- The request text and plan copy are stored so the `design-soundness-reviewer` agent can judge the design against the original request. The hooks only tell Claude in the same session where they are, and the agent uses only `Read` · `Grep` · `Glob`. They do not leave your machine through this plugin.
+- `$TMPDIR/design-soundness.XXXXXX`, created briefly during a check, is removed as soon as the check ends.
+- Requests and plans can contain whatever you typed, including names or emails. To delete everything, remove the directory above. `DESIGN_SOUNDNESS_GATE=0` turns off only the gates; requests are still recorded.
+
 ## Changelog
 
 See [`CHANGELOG.md`](CHANGELOG.md).

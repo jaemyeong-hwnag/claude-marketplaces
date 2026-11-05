@@ -108,6 +108,22 @@ test/design-soundness-validate.test.sh                                # 회귀 �
 
 각 항목의 출처 · 확인 수준과 "선택"(직접 근거가 없어 옮겨 쓰거나 정한 것)은 `references/design-soundness-methods.md` 에 있다.
 
+## 개인정보
+
+이 플러그인은 네트워크를 호출하지 않으며, Claude Code 밖의 어떤 서비스로도 데이터를 보내지 않는다.
+
+| 무엇 | 어디 | 얼마나 |
+|---|---|---|
+| 현재 요청의 원문(시각 포함) | 플러그인 데이터 디렉터리의 `<session_id>.request` — `~/.claude/plugins/data/common-design-soundness-review-<marketplace>/` (`$CLAUDE_PLUGIN_DATA`), 없으면 `$TMPDIR/common-design-soundness-review/` | 응답이 끝날 때와 다음 요청이 시작될 때 지운다. 종료를 한 번 되돌리거나 백그라운드 검증자가 판정 중이면 남겨 두며, 그 사이 세션이 끝나면 디스크에 남는다 |
+| 플랜 모드를 나가려던 계획 본문 사본 · 그 해시 | 같은 디렉터리의 `<session_id>.plan.md` · `.plan` | 위와 같다 |
+| 고친 설계 문서 경로 · 바뀐 줄 수, 파일마다 이미 알린 기계 신호 | 같은 디렉터리의 `<session_id>.edits` · `.seen/` | 위와 같다 |
+| 게이트 상태 표시(내용 없음) | 같은 디렉터리의 `<session_id>.design` · `.reviewed` · `.pending` · `.blocked` · `.alerted` | 위와 같다 |
+| 대화 속 설계안을 검증자에게 넘기려 옮긴 사본 | `$CLAUDE_PLUGIN_DATA` 또는 임시 디렉터리의 `design-<시각>.md` (스킬이 Claude 에게 만들게 한다) | 플러그인이 지우지 않는다 |
+
+- 요청 원문과 계획 사본은 `design-soundness-reviewer` 에이전트가 설계를 원래 요청에 대어 판정하도록 저장한다. 훅은 그 경로를 같은 세션의 Claude 에게 알릴 뿐이고, 에이전트는 `Read` · `Grep` · `Glob` 만 쓴다. 이 플러그인을 통해 PC 밖으로 나가지 않는다.
+- 검사 중 잠깐 만드는 `$TMPDIR/design-soundness.XXXXXX` 는 검사가 끝나면 바로 지운다.
+- 요청 · 계획에는 입력한 내용이 그대로 들어가므로 이름 · 이메일이 담길 수 있다. 모두 지우려면 위 디렉터리를 지운다. `DESIGN_SOUNDNESS_GATE=0` 은 게이트만 끄고 요청 기록은 그대로 한다.
+
 ## 변경 이력
 
 [`CHANGELOG.md`](CHANGELOG.md) 참조.

@@ -108,6 +108,22 @@ test/design-soundness-validate.test.sh                                # 回归�
 
 各项的出处 · 确认程度，以及"选择"（没有直接依据而沿用或自定的部分）见 `references/design-soundness-methods.md`。
 
+## 隐私
+
+本插件不进行任何网络调用，也不向 Claude Code 之外的任何服务发送数据。
+
+| 内容 | 位置 | 保留多久 |
+|---|---|---|
+| 当前请求的原文（含时间） | 插件数据目录中的 `<session_id>.request` — `~/.claude/plugins/data/common-design-soundness-review-<marketplace>/`（`$CLAUDE_PLUGIN_DATA`），未设置时为 `$TMPDIR/common-design-soundness-review/` | 响应结束时和下一个请求开始时删除。完成被退回一次或后台验证者仍在判定时保留；若在此期间会话结束，则留在磁盘上 |
+| 试图退出计划模式时的计划正文副本及其哈希 | 同一目录中的 `<session_id>.plan.md` · `.plan` | 同上 |
+| 修改过的设计文档路径、变更行数，以及每个文件已提示过的机械信号 | 同一目录中的 `<session_id>.edits` · `.seen/` | 同上 |
+| 门控状态标记（无内容） | 同一目录中的 `<session_id>.design` · `.reviewed` · `.pending` · `.blocked` · `.alerted` | 同上 |
+| 为交给验证者而复制的对话中的设计方案 | `$CLAUDE_PLUGIN_DATA` 或临时目录中的 `design-<时间>.md`（由技能让 Claude 创建） | 插件不会删除 |
+
+- 保存请求原文和计划副本是为了让 `design-soundness-reviewer` 代理对照原始请求判定设计。钩子只在同一会话中告诉 Claude 其路径，代理只使用 `Read` · `Grep` · `Glob`。不会经由本插件离开你的电脑。
+- 检查时临时创建的 `$TMPDIR/design-soundness.XXXXXX` 在检查结束后立即删除。
+- 请求和计划会原样包含你输入的内容，可能含有姓名或邮箱。要全部删除，删除上述目录即可。`DESIGN_SOUNDNESS_GATE=0` 只关闭门控，请求仍会被记录。
+
 ## 变更记录
 
 参见 [`CHANGELOG.md`](CHANGELOG.md)。

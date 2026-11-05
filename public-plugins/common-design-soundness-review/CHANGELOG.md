@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.6
+
+### Added
+- README 세 언어판에 개인정보 절 — 무엇을 어디에 얼마나 두는지(요청 원문 · 계획 사본 · 고친 설계 문서 · 게이트 상태), 밖으로 보내지 않음, 지우는 법. `plugin.json` 에 `privacyPolicyUrl` (#292)
+
 ## 0.1.5
 
 ### Fixed
