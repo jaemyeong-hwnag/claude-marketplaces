@@ -98,6 +98,7 @@ Gradle · testcontainer 까지 태우는 확인은 자동 TC 가 아니다. 아�
 | TC-H25 | jq 가 없어도 막는다 |
 | TC-H26 | jq 가 없어도 stop_hook_active 를 읽고 systemMessage 를 올바른 JSON 으로 낸다 (C-08) |
 | TC-H27 | 판정 도구(javap)가 없으면 막는다 (C-09) |
+| TC-H28 | 훅 스크립트에 디렉터리 검증기가 막는 표기가 없다 — here-document · `$'…'` · 리다이렉션이 아닌 `>` · 큰따옴표 안 `${…}` 안의 겹친 따옴표 |
 
 ### D. Docker 준비 템플릿 (ensure-docker-for-aitest.sh.tmpl)
 

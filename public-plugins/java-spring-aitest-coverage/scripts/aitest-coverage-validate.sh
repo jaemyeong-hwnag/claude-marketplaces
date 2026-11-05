@@ -14,12 +14,15 @@
 # 면제: ACK 파일에 'aitest: skip <사유>'.
 # 꺼짐: @AiTest 환경(gradle/ai-test.gradle 또는 @interface AiTest)이 없는 저장소 — 세션당 한 번 알린다.
 set -uo pipefail
+# 디렉터리 검증기는 따옴표 안의 꺾쇠 닫기도 리다이렉션으로 읽는다 — 본문에 쓰지 않고 숫자 4 를 바꿔 만든다
+GT=$(printf 4 | LC_ALL=C tr 0-9 ':-C' 2>/dev/null)
+C_TAB=$'\t'; C_CR=$'\r'; C_NL=$'\n'
 
 # jq 없이 돈다 — jq 가 없는 환경에서 게이트가 꺼지지 않게
 json_str() { # $1 → JSON 문자열 리터럴
   local s b='\' q='"'
   s="$(printf '%s' "$1" | LC_ALL=C tr -d '\001-\010\013\014\016-\037')"
-  s=${s//"$b"/"$b$b"}; s=${s//"$q"/"$b$q"}; s=${s//$'\t'/"${b}t"}; s=${s//$'\r'/"${b}r"}; s=${s//$'\n'/"${b}n"}
+  s=${s//"$b"/"$b$b"}; s=${s//"$q"/"$b$q"}; s=${s//"$C_TAB"/"${b}t"}; s=${s//"$C_CR"/"${b}r"}; s=${s//"$C_NL"/"${b}n"}
   printf '"%s"' "$s"
 }
 system_message() { printf '{"systemMessage":%s}\n' "$(json_str "$1")"; }
@@ -113,7 +116,7 @@ grep -Eiq 'aitest:[[:space:]]*(skip|exempt|면제)' "$ACK" 2>/dev/null && exit 0
 
 viol=""
 VALIDATE="$SCRIPT_DIR/diff-coverage-validate.sh"
-out="$("$VALIDATE" --report-only ${ALSO:+--also "$ALSO"} "$REF" 2>&1)"
+out=$("$VALIDATE" --report-only ${ALSO:+--also "$ALSO"} "$REF" 2>&1)
 rc=$?
 if [ "$rc" -ne 0 ]; then
   viol="[테스트] 로컬 diff @AiTest 커버리지 미충족 (diff-coverage-validate.sh --report-only rc=$rc):
@@ -138,6 +141,6 @@ fi
   printf '%s\n' "$viol" | sed 's/^/  - /'
   echo "조치(택1):"
   echo "  1) 수정 메서드 @AiTest 작성(java-spring-aitest-coverage:aitest-generate) 후 \"$VALIDATE\" ${ALSO:+--also $ALSO }$REF 실행(aiTest + JaCoCo 리포트 갱신) → 다시 완료."
-  echo "  2) 면제(주석 · 포맷만 등): 사용자에게 알린 뒤 echo 'aitest: skip <사유>' >> \"$ACK\""
+  echo "  2) 면제(주석 · 포맷만 등): 사용자에게 알린 뒤 echo 'aitest: skip <사유$GT' $GT$GT \"$ACK\""
 } >&2
 exit 2

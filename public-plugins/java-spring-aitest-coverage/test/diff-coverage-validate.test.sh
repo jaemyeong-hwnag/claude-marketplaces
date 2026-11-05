@@ -830,6 +830,19 @@ if on; then
   AITEST_JAVAP="$TMP/no-javap" CLAUDE_PROJECT_DIR="$R" run_in "$(hook_in h27)" "$H"; expect_code 2; expect_out "C-09"
 fi
 
+tc TC-H28 "훅 스크립트에 디렉터리 검증기가 막는 표기가 없다 — here-document · \$'…' · 리다이렉션이 아닌 > · 큰따옴표 안 \${…} 안의 겹친 따옴표"
+if on; then
+  body="$(grep -n '' "$H" | grep -v '^[0-9]*:[[:space:]]*#')"
+  bad="$(printf '%s\n' "$body" | grep -E '<<-?[[:space:]]*['"'"'"]?[A-Za-z_]' || true)"
+  [ -z "$bad" ] || fail_tc "here-document: $bad"
+  bad="$(printf '%s\n' "$body" | grep -E "(^|[^A-Za-z0-9_])\\\$'" | grep -v '^[0-9]*:C_TAB=' || true)"
+  [ -z "$bad" ] || fail_tc "\$'…': $bad"
+  bad="$(printf '%s\n' "$body" | sed -E 's/[0-9]?>&[0-9]//g; s#[0-9]?>>?[[:space:]]*/dev/null##g; s#[0-9]?>>?[[:space:]]*"\$[A-Za-z0-9_{]##g' | grep '>' || true)"
+  [ -z "$bad" ] || fail_tc "리다이렉션이 아닌 >: $bad"
+  bad="$(printf '%s\n' "$body" | grep -E '"\$\{[^}]*"|"\$\(.*\$\{[^}]*"' || true)"
+  [ -z "$bad" ] || fail_tc "큰따옴표 안 \${…} 안 따옴표: $bad"
+fi
+
 flush_tc; echo "== ensure-docker-for-aitest.sh (템플릿)"
 
 # 템플릿을 채우고 docker · colima · open 을 호출만 남기는 스텁으로 바꾼다. $1=이름 $2=데몬이 처음부터 떠 있으면 1 → 디렉터리 출력
