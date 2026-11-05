@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.6
+
+### Fixed
+- Anthropic 디렉터리 검증기가 막는 표기를 같은 동작의 표기로 바꿨다 — 따옴표 안에 `>` 가 많은 awk 프로그램을 `scripts/performance-line-check.sh` 로 옮겨 훅 스크립트가 bash 로 부르고, `${…}` 안에 겹친 따옴표 5곳은 풀어 썼다. 판정 · 출력은 그대로다 (#283, `TC-P55`)
+
 ## 0.1.5
 
 ### Fixed

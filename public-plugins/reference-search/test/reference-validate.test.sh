@@ -15,11 +15,12 @@ mkdir -p "$STUB" "$TMP/bin" "$TMP/docs"
 # 스텁: routes 의 "부분 문자열 \037 상태 \037 본문" 첫 일치로 답한다. 상태 timeout 은 응답 없음
 cat > "$TMP/bin/curl" <<'EOF'
 #!/usr/bin/env bash
-out=""; url=""
+out=""; url=""; w=""
 while [ $# -gt 0 ]; do
   case "$1" in
     -o) out="$2"; shift 2 ;;
-    -w|-m|-A) shift 2 ;;
+    -w) w="$2"; shift 2 ;;
+    -m|-A) shift 2 ;;
     -*) shift ;;
     *) url="$1"; shift ;;
   esac
@@ -28,13 +29,13 @@ printf '%s\n' "$url" >> "$STUB/calls"
 while IFS=$'\037' read -r pat code body; do
   case "$url" in
     *"$pat"*)
-      if [ "$code" = timeout ]; then printf '000'; exit 28; fi
+      if [ "$code" = timeout ]; then printf '%s' "${w//%\{http_code\}/000}"; exit 28; fi
       if [ -n "$out" ]; then printf '%s' "$body" > "$out"; else printf '%s' "$body"; fi
-      printf '%s' "$code"; exit 0 ;;
+      printf '%s' "${w//%\{http_code\}/$code}"; exit 0 ;;
   esac
 done < "$STUB/routes"
 [ -n "$out" ] && : > "$out"
-printf '404'
+printf '%s' "${w//%\{http_code\}/404}"
 EOF
 chmod +x "$TMP/bin/curl"
 export PATH="$TMP/bin:$PATH"
@@ -279,6 +280,26 @@ route "handles/" 404 '{}'
 mkdir -p "$TMP/foreign"; ln -s /dev/null "$TMP/foreign/checked.txt"
 OUT="$(printf 'x 10.99999/fake.6\n' > "$TMP/docs/w.md"; CLAUDE_PLUGIN_DATA="$TMP/foreign" "$SCRIPT" "$TMP/docs/w.md" 2>&1)"; CODE=$?
 expect_code 1; expect_out "RS-01"
+
+tc TC-V53 "훅 스크립트에 디렉터리 검증기가 막는 표기가 없다 — here-document · \$'…' · 리다이렉션이 아닌 > · \${…} 안에 겹친 따옴표"
+if [ "$TC_ON" = 1 ]; then
+  body="$(grep -n '' "$SCRIPT" | grep -v '^[0-9]*:[[:space:]]*#')"
+  bad="$(printf '%s\n' "$body" | grep -E '<<-?[[:space:]]*['"'"'"]?[A-Za-z_]' || true)"
+  [ -z "$bad" ] || fail_tc "here-document: $bad"
+  bad="$(printf '%s\n' "$body" | grep -E "\\\$'[^']*'" | grep -vE '^[0-9]+:[A-Z_]+=\$'"'"'[^'"'"']*'"'"'$' || true)"
+  [ -z "$bad" ] || fail_tc "\$'…': $bad"
+  bad="$(printf '%s\n' "$body" | sed -E 's/[0-9]?>&[0-9]//g; s#[0-9]?>>?[[:space:]]*/dev/null##g; s#[0-9]?>>?[[:space:]]*"\$[A-Za-z0-9_{]##g' | grep '>' || true)"
+  [ -z "$bad" ] || fail_tc "리다이렉션이 아닌 >: $bad"
+  bad="$(printf '%s\n' "$body" | grep -E '\$\{[^}]*"[^}]*\}' | grep -vE '\$\{[A-Za-z_]+\+"\$\{!?[A-Za-z_]+\[@\]\}"\}' || true)"
+  [ -z "$bad" ] || fail_tc "\${…} 안 따옴표: $bad"
+fi
+
+tc TC-V54 "훅 스크립트가 쓰는 파일은 \"\$WORK/<고정 이름>\" · \"\$CACHE_DIR/<고정 이름>\" · /dev/null 뿐이다"
+if [ "$TC_ON" = 1 ]; then
+  body="$(grep -n '' "$SCRIPT" | grep -v '^[0-9]*:[[:space:]]*#')"
+  bad="$(printf '%s\n' "$body" | grep -oE '(>>?|-o) *"[^"]*"' | grep -vE '^(>>?|-o) *"\$(WORK|CACHE_DIR)/[A-Za-z._-]+"$' || true)"
+  [ -z "$bad" ] || fail_tc "변수 경로 쓰기: $bad"
+fi
 
 flush_tc
 echo
