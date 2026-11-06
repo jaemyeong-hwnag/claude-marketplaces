@@ -19,7 +19,10 @@
   ],
   "mcpServers": {
     "stress-hook": {
-      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/stress-hook-server.sh"
+      "command": "bash",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/scripts/stress-hook-server.sh"
+      ]
     }
   }
 }
