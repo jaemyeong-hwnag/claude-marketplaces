@@ -28,6 +28,8 @@
 
 ## 포함된 훅
 
+훅은 `mcp_tool` 타입이다. 플러그인 안 stdio MCP 서버 `stress-hook`(`scripts/stress-hook-server.sh`, `plugin.json` `mcpServers`)을 Claude Code 가 세션마다 띄우고, 서버가 아래 스크립트로 판정한다. 따로 띄울 서버는 없다.
+
 | 스크립트 | 이벤트 | 동작 |
 |---|---|---|
 | stress-target-validate.sh | PreToolUse (Bash) | 부하 도구가 허용 목록 밖 호스트를 겨누면 **차단** (`ST-01`) |
@@ -49,6 +51,7 @@
   - `make load` · `npm run load` · `./run.sh` 같은 간접 실행, `$TOOL` · `"$URL"` 처럼 변수로 만든 명령 · 대상
   - 규칙 원본 목록 밖의 부하 도구, 스크립트가 실행 중에 다른 곳(설정 서버 등)에서 읽는 대상
 - closed 모델이 맞는 시스템이면 스크립트에 `stress-test: closed-model` 주석을 둔다. `ST-02` 경고가 꺼진다
+- 훅 서버가 연결되지 않으면(jq 없음 · 서버 종료) 훅은 막지 않고 통과한다. `/mcp` 에서 `plugin:common-stress-test:stress-hook` 이 connected 인지 본다. 판정 스크립트 실행 오류는 막는다
 - 분석 스크립트는 bash · awk · jq 만 쓴다. 부하 도구(k6 등)는 프로젝트가 설치하거나 Docker 이미지로 돌린다
 - SLO 값(p99 기준 · 에러율)은 서비스가 정한다. 문서의 `300 ms` · `1%` 는 예시다
 

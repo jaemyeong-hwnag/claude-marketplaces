@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.2.0
+
+### Changed
+- 훅 두 개를 `command` 에서 `mcp_tool` 로 바꿨다. 플러그인 안 stdio MCP 서버 `stress-hook`(`scripts/stress-hook-server.sh`)이 기존 판정 스크립트를 부르고, `ST-01` 위반과 판정 스크립트 실행 오류는 `permissionDecision: deny` 로 막는다. Anthropic 디렉터리가 Verified 가 아닌 조직의 command 훅을 거절(LOCAL_CODE_HOOK_COMMAND)해서다. 훅 서버가 연결되지 않으면 훅은 통과한다 (#297, `TC-S67` ~ `TC-S70`)
+
 ## 0.1.12
 
 ### Fixed

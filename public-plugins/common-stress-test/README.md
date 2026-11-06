@@ -28,6 +28,8 @@ None
 
 ## Hooks
 
+The hooks are of type `mcp_tool`. Claude Code starts the plugin's stdio MCP server `stress-hook` (`scripts/stress-hook-server.sh`, `plugin.json` `mcpServers`) in each session, and the server runs the scripts below. There is no server to start yourself.
+
 | Script | Event | Behavior |
 |---|---|---|
 | stress-target-validate.sh | PreToolUse (Bash) | **Blocks** when a load tool targets a host outside the allowlist (`ST-01`) |
@@ -49,6 +51,7 @@ None
   - Indirect runs such as `make load` · `npm run load` · `./run.sh`, and commands or targets built from variables like `$TOOL` · `"$URL"`
   - Load tools outside the list in the rule source, and targets the script reads from elsewhere at runtime (a config server, etc.)
 - If the system really is a closed model, put a `stress-test: closed-model` comment in the script. This turns off the `ST-02` warning
+- If the hook server is not connected (no jq, server exited), the hooks pass instead of blocking. Check in `/mcp` that `plugin:common-stress-test:stress-hook` is connected. An error inside a check script blocks
 - Analysis scripts use only bash · awk · jq. Load tools (k6, etc.) are installed by the project or run as Docker images
 - SLO values (p99 limit · error rate) are set by the service. The `300 ms` · `1%` in the docs are examples
 

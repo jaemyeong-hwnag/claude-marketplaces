@@ -5,10 +5,16 @@
         "matcher": "Bash",
         "hooks": [
           {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/stress-target-validate.sh\"",
-            "timeout": 10,
-            "onFailure": "block"
+            "type": "mcp_tool",
+            "server": "plugin:common-stress-test:stress-hook",
+            "tool": "stress_target_validate",
+            "input": {
+              "tool_name": "${tool_name}",
+              "hook_event_name": "${hook_event_name}",
+              "cwd": "${cwd}",
+              "tool_input": "${tool_input}"
+            },
+            "timeout": 10
           }
         ]
       }
@@ -18,8 +24,15 @@
         "matcher": "Write|Edit",
         "hooks": [
           {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/stress-script-validate.sh\"",
+            "type": "mcp_tool",
+            "server": "plugin:common-stress-test:stress-hook",
+            "tool": "stress_script_validate",
+            "input": {
+              "tool_name": "${tool_name}",
+              "hook_event_name": "${hook_event_name}",
+              "cwd": "${cwd}",
+              "tool_input": "${tool_input}"
+            },
             "timeout": 10
           }
         ]

@@ -1,6 +1,6 @@
 # common-stress-test 테스트
 
-`scripts/` 다섯 개의 회귀 테스트. 규칙이나 스크립트를 고치면 여기부터 돌린다.
+`scripts/` 여섯 개와 `hooks/hooks.json` 의 회귀 테스트. 규칙이나 스크립트를 고치면 여기부터 돌린다.
 
 ## 실행
 
@@ -11,7 +11,7 @@ test/common-stress-test.test.sh TC-S5    # ID 접두사로 필터
 
 종료 코드 0 이면 전체 통과다. 부하 도구 · Docker 없이 돈다 (bash · awk · jq).
 
-## 자동 TC (57건)
+## 자동 TC (62건)
 
 차단(위반을 잡는다) TC 와 허용(잡으면 안 되는 것) TC 를 조항마다 둔다. 단계 판정 · 회귀 판정 픽스처는 실측 데이터와 scipy 로 검산한 값이다.
 
@@ -101,7 +101,16 @@ test/common-stress-test.test.sh TC-S5    # ID 접두사로 필터
 
 | ID | 케이스 |
 |---|---|
-| TC-S66 | 훅 스크립트 본문에 리다이렉션(`>&N` · `>/dev/null`)이 아닌 `>` 가 없다 — 따옴표 안이어도 검증기가 리다이렉션으로 읽고 COMMAND_PATH_COMPUTED 로 막는다 |
+| TC-S66 | 훅 스크립트 본문에 리다이렉션(`>&N` · `>/dev/null`)이 아닌 `>` 가 없다 — 따옴표 안이어도 검증기가 리다이렉션으로 읽고 COMMAND_PATH_COMPUTED 로 막는다 (`stress-hook-server.sh` 포함) |
+| TC-S70 | `hooks.json` 에 command 훅이 없고 (디렉터리가 Verified 가 아닌 조직의 command 훅을 거절한다), mcp_tool 훅의 서버 이름 · 도구가 `plugin.json` `mcpServers` · 서버 `tools/list` 와 맞는다 |
+
+### G. 훅 서버 (`stress-hook-server.sh`)
+
+| ID | 케이스 |
+|---|---|
+| TC-S67 | `ST-01` 위반은 deny, 허용 · 무관 명령은 빈 결과 |
+| TC-S68 | 판정 스크립트 실행 오류도 deny 로 막는다 |
+| TC-S69 | 저장한 closed 모델 k6 스크립트는 `ST-02` 알림을 넘긴다 |
 
 ## eval (`evals/`)
 
