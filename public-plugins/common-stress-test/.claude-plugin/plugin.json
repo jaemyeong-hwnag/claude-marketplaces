@@ -16,13 +16,5 @@
     "latency",
     "capacity",
     "regression"
-  ],
-  "mcpServers": {
-    "stress-hook": {
-      "command": "bash",
-      "args": [
-        "${CLAUDE_PLUGIN_ROOT}/scripts/stress-hook-server.sh"
-      ]
-    }
-  }
+  ]
 }
