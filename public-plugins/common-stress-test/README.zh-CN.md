@@ -28,6 +28,8 @@
 
 ## 钩子
 
+钩子类型为 `mcp_tool`。Claude Code 在每个会话中启动插件内的 stdio MCP 服务器 `stress-hook`（`scripts/stress-hook-server.sh`，`plugin.json` `mcpServers`），由服务器调用下列脚本判定。无需自行启动服务器。
+
 | 脚本 | 事件 | 行为 |
 |---|---|---|
 | stress-target-validate.sh | PreToolUse (Bash) | 负载工具指向允许列表外的主机时**阻止** (`ST-01`) |
@@ -49,6 +51,7 @@
   - `make load` · `npm run load` · `./run.sh` 这类间接执行，以及 `$TOOL` · `"$URL"` 这类由变量构成的命令 · 目标
   - 规则原文列表之外的负载工具，以及脚本在运行时从别处（配置服务器等）读取的目标
 - 如果系统确实是 closed 模型，在脚本中加 `stress-test: closed-model` 注释。`ST-02` 警告会关闭
+- 钩子服务器未连接时（没有 jq、服务器退出），钩子不阻止而直接放行。请在 `/mcp` 中确认 `plugin:common-stress-test:stress-hook` 为 connected。判定脚本运行出错时会阻止
 - 分析脚本只使用 bash · awk · jq。负载工具（k6 等）由项目安装或以 Docker 镜像运行
 - SLO 值（p99 标准 · 错误率）由服务决定。文档中的 `300 ms` · `1%` 是示例
 

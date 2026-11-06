@@ -407,10 +407,49 @@ F="$(put m/nan '1\n2\nx\n4\n5\n')"; run stress-regression-validate.sh "$F" "$B"
 expect_code 1
 
 tc TC-S66 "훅 스크립트 본문에 리다이렉션이 아닌 > 가 없다 (디렉터리 검증기가 리다이렉션으로 읽고 막는다)"
-for h in stress-target-validate.sh stress-script-validate.sh; do
+for h in stress-target-validate.sh stress-script-validate.sh stress-hook-server.sh; do
   BAD=$(grep -n '' "$S/$h" | grep -v '^[0-9]*:[[:space:]]*#' | sed -E 's/[0-9]?>&[0-9]//g; s#[0-9]?>>?[[:space:]]*/dev/null##g' | grep '>' || true)
   [ -z "$BAD" ] || fail_tc "$h: $BAD"
 done
+
+# MCP 서버에 initialize 뒤 tools/call 하나를 보내고 도구 결과 text 를 OUT 에 받는다
+mcp_call() { # $1=도구, $2=tool_input JSON, $3=이벤트, $4=도구 이름
+  [ "$TC_ON" = 1 ] || return 0
+  OUT="$({ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}' '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+    jq -cn --arg n "$1" --arg ti "$2" --arg e "$3" --arg t "$4" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:$n,arguments:{tool_name:$t,hook_event_name:$e,cwd:"/tmp",tool_input:$ti}}}'
+  } | "$S/stress-hook-server.sh" 2>&1 | jq -r 'select(.id==2) | .result.content[0].text')"; CODE=$?
+}
+
+tc TC-S67 "훅 서버 — ST-01 위반은 deny, 허용 · 무관 명령은 빈 결과"
+mcp_call stress_target_validate '{"command":"k6 run -e BASE_URL=https://api.example.com x.js"}' PreToolUse Bash
+expect_out '"permissionDecision":"deny"'; expect_out "ST-01"
+mcp_call stress_target_validate '{"command":"k6 run -e BASE_URL=http://localhost:8080 x.js"}' PreToolUse Bash
+expect_no_out
+mcp_call stress_target_validate '{"command":"ls -al"}' PreToolUse Bash
+expect_no_out
+
+tc TC-S68 "훅 서버 — 판정 스크립트 실행 오류도 deny 로 막는다"
+if [ "$TC_ON" = 1 ]; then
+  OUT="$({ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
+    jq -cn '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"stress_target_validate",arguments:{tool_name:"Bash",hook_event_name:"PreToolUse",cwd:"/tmp",tool_input:"{\"command\":\"ls\"}"}}}'
+  } | CLAUDE_PLUGIN_ROOT="$TMP/none" "$S/stress-hook-server.sh" 2>&1 | jq -r 'select(.id==2) | .result.content[0].text')"
+fi
+expect_out '"permissionDecision":"deny"'; expect_out "실행 오류"
+
+tc TC-S69 "훅 서버 — 저장한 closed 모델 k6 스크립트는 ST-02 알림을 넘긴다"
+F="$(put mcp/closed.js "$K6_CLOSED")"
+mcp_call stress_script_validate "$(jq -cn --arg p "$F" '{file_path:$p}')" PostToolUse Write
+expect_out "additionalContext"; expect_out "ST-02"
+
+tc TC-S70 "hooks.json 에 command 훅이 없고, mcp_tool 훅의 도구가 서버 tools/list 에 있다"
+if [ "$TC_ON" = 1 ]; then
+  H="$PLUGIN_ROOT/hooks/hooks.json"
+  [ "$(jq '[.hooks[][].hooks[] | select(.type != "mcp_tool")] | length' "$H")" = 0 ] || fail_tc "mcp_tool 이 아닌 훅이 있다"
+  LIST="$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | "$S/stress-hook-server.sh" | jq -r '.result.tools[].name')"
+  for t in $(jq -r '.hooks[][].hooks[].tool' "$H"); do printf '%s\n' "$LIST" | grep -qx "$t" || fail_tc "서버에 없는 도구: $t"; done
+  SRV="$(jq -r '.mcpServers | keys[0]' "$PLUGIN_ROOT/.claude-plugin/plugin.json")"
+  for s in $(jq -r '.hooks[][].hooks[].server' "$H"); do [ "$s" = "plugin:common-stress-test:$SRV" ] || fail_tc "서버 이름이 plugin.json mcpServers 와 다르다: $s"; done
+fi
 
 flush_tc
 echo ""
