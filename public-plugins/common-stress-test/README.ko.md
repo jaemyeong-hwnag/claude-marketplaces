@@ -28,12 +28,13 @@
 
 ## 포함된 훅
 
-훅은 `mcp_tool` 타입이다. 플러그인 안 stdio MCP 서버 `stress-hook`(`scripts/stress-hook-server.sh`, `plugin.json` `mcpServers`)을 Claude Code 가 세션마다 띄우고, 서버가 아래 스크립트로 판정한다. 따로 띄울 서버는 없다.
+훅은 `prompt` 타입이다. 부하 도구 이름이 든 Bash 명령에서만(`if` 규칙) Claude Code 의 백그라운드 모델이 명령 문자열을 읽고, 허용 목록 밖 호스트를 겨누면 **막고** 그 이유를 Claude 에게 돌려준다. 부하 도구가 없는 명령에서는 모델을 부르지 않는다.
 
-| 스크립트 | 이벤트 | 동작 |
+| 이벤트 | 대상 | 동작 |
 |---|---|---|
-| stress-target-validate.sh | PreToolUse (Bash) | 부하 도구가 허용 목록 밖 호스트를 겨누면 **차단** (`ST-01`) |
-| stress-script-validate.sh | PostToolUse (Write\|Edit) | 저장한 k6 · Gatling · Locust · JMeter 스크립트의 측정 설계를 **알린다** (`ST-02` ~ `ST-06`) |
+| PreToolUse (Bash) | 부하 도구 실행 명령 | 허용 목록 밖 호스트면 **차단** (`ST-01`) |
+
+훅은 명령 문자열만 본다. 스크립트 파일 안 URL, `STRESS_TEST_ALLOWED_HOSTS`, 측정 설계(`ST-02` ~ `ST-06`)는 스킬이 `scripts/stress-target-validate.sh` 와 `/stress-script-validate` 로 본다.
 
 ## 주의
 
@@ -41,17 +42,17 @@
   - 루프백, 사설 IP — IP 리터럴만이다. `10.evil.com` 같은 이름과 정수 · 16진 · 8진 표기 IP 는 사설로 보지 않는다
   - 점 없는 이름 (컨테이너 · 서비스 이름)
   - `*.localhost` · `*.local` · `*.test` · `*.internal` · `host.docker.internal`
-- 전용 테스트 도메인은 `.claude/settings.json` 의 `env.STRESS_TEST_ALLOWED_HOSTS` 에 넣는다 (쉼표 · 공백 구분, `*.perf.example.com` 형태 허용)
-- 대상 호스트는 다음 위치에서 찾는다.
+- 전용 테스트 도메인은 `.claude/settings.json` 의 `env.STRESS_TEST_ALLOWED_HOSTS` 에 넣는다 (쉼표, 공백 구분, `*.perf.example.com` 형태 허용). 이 목록은 `stress-target-validate.sh` 만 읽는다. 훅은 읽지 못해 이 도메인도 막으므로, 확인한 사용자가 명령을 직접 실행한다
+- `stress-target-validate.sh` 는 대상 호스트를 다음 위치에서 찾는다. 훅은 이 중 명령 문자열 안의 것만 본다.
   - 부하 명령 안의 URL
   - `--host` · locust 의 `-H`
   - 이름에 `URL` · `HOST` 가 든 변수 대입
   - 명령이 가리키는 스크립트 파일 안의 URL
-- 명령 문자열만 보므로 다음은 보지 못하고 통과한다 — 대상 호스트를 사람이 확인한다
+- 다음은 둘 다 보지 못하고 통과한다. 대상 호스트를 사람이 확인한다
   - `make load` · `npm run load` · `./run.sh` 같은 간접 실행, `$TOOL` · `"$URL"` 처럼 변수로 만든 명령 · 대상
   - 규칙 원본 목록 밖의 부하 도구, 스크립트가 실행 중에 다른 곳(설정 서버 등)에서 읽는 대상
 - closed 모델이 맞는 시스템이면 스크립트에 `stress-test: closed-model` 주석을 둔다. `ST-02` 경고가 꺼진다
-- 훅 서버가 연결되지 않으면(jq 없음 · 서버 종료) 훅은 막지 않고 통과한다. `/mcp` 에서 `plugin:common-stress-test:stress-hook` 이 connected 인지 본다. 판정 스크립트 실행 오류는 막는다
+- 훅 판정은 모델이 해서 결정적이지 않다. 같은 명령에도 판정이 달라질 수 있고, 꾸민 표기에 속을 수 있다. 부하 도구가 든 명령마다 모델 호출 한 번(시간 제한 30초)이 더해진다
 - 분석 스크립트는 bash · awk · jq 만 쓴다. 부하 도구(k6 등)는 프로젝트가 설치하거나 Docker 이미지로 돌린다
 - SLO 값(p99 기준 · 에러율)은 서비스가 정한다. 문서의 `300 ms` · `1%` 는 예시다
 

@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.3.0
+
+### Changed
+- `ST-01` 훅을 `prompt` 타입으로 바꿨다. 부하 도구 이름이 든 Bash 명령에서만(`if` 규칙) 모델이 명령 문자열을 판정하고, 허용 목록 밖 호스트면 막고 이유를 Claude 에게 돌려준다 (`continueOnBlock`). 디렉터리가 Verified 가 아닌 조직의 mcp_tool 훅과 로컬 MCP 서버를 거절해서다. 훅 판정은 결정적이지 않고, 스크립트 파일 안 URL 과 `STRESS_TEST_ALLOWED_HOSTS` 를 보지 않는다. 이 둘은 `stress-test-create` 스킬이 실행 전에 `stress-target-validate.sh` 로 보고, 목록에 넣은 호스트도 훅이 막으므로 사용자가 직접 실행한다 (#299, `TC-S67` ~ `TC-S69`)
+
+### Removed
+- MCP 서버 `stress-hook`(`scripts/stress-hook-server.sh`, `plugin.json` `mcpServers`)
+- 저장 시 `ST-02` ~ `ST-06` 알림 훅(PostToolUse `Write|Edit`). `stress-test-create` 스킬과 `/stress-script-validate` 가 맡는다 (#299)
+
 ## 0.2.0
 
 ### Changed

@@ -407,48 +407,82 @@ F="$(put m/nan '1\n2\nx\n4\n5\n')"; run stress-regression-validate.sh "$F" "$B"
 expect_code 1
 
 tc TC-S66 "훅 스크립트 본문에 리다이렉션이 아닌 > 가 없다 (디렉터리 검증기가 리다이렉션으로 읽고 막는다)"
-for h in stress-target-validate.sh stress-script-validate.sh stress-hook-server.sh; do
+for h in stress-target-validate.sh stress-script-validate.sh; do
   BAD=$(grep -n '' "$S/$h" | grep -v '^[0-9]*:[[:space:]]*#' | sed -E 's/[0-9]?>&[0-9]//g; s#[0-9]?>>?[[:space:]]*/dev/null##g' | grep '>' || true)
   [ -z "$BAD" ] || fail_tc "$h: $BAD"
 done
 
-# MCP 서버에 initialize 뒤 tools/call 하나를 보내고 도구 결과 text 를 OUT 에 받는다
-mcp_call() { # $1=도구, $2=tool_input JSON, $3=이벤트, $4=도구 이름
-  [ "$TC_ON" = 1 ] || return 0
-  OUT="$({ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}' '{"jsonrpc":"2.0","method":"notifications/initialized"}'
-    jq -cn --arg n "$1" --arg ti "$2" --arg e "$3" --arg t "$4" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:$n,arguments:{tool_name:$t,hook_event_name:$e,cwd:"/tmp",tool_input:$ti}}}'
-  } | "$S/stress-hook-server.sh" 2>&1 | jq -r 'select(.id==2) | .result.content[0].text')"; CODE=$?
+# if 규칙 "Bash(<글롭>)" 의 글롭이 명령에 맞는가 — 권한 규칙처럼 * 는 아무 문자열이다
+if_hit() { # $1=명령 → 맞는 규칙 수를 HITS 에
+  local pat; HITS=0
+  while IFS= read -r pat; do
+    pat="${pat#Bash(}"; pat="${pat%)}"
+    # shellcheck disable=SC2053
+    [[ "$1" == $pat ]] && HITS=$((HITS+1))
+  done < <(jq -r '.hooks.PreToolUse[].hooks[].if' "$PLUGIN_ROOT/hooks/hooks.json")
 }
 
-tc TC-S67 "훅 서버 — ST-01 위반은 deny, 허용 · 무관 명령은 빈 결과"
-mcp_call stress_target_validate '{"command":"k6 run -e BASE_URL=https://api.example.com x.js"}' PreToolUse Bash
-expect_out '"permissionDecision":"deny"'; expect_out "ST-01"
-mcp_call stress_target_validate '{"command":"k6 run -e BASE_URL=http://localhost:8080 x.js"}' PreToolUse Bash
-expect_no_out
-mcp_call stress_target_validate '{"command":"ls -al"}' PreToolUse Bash
-expect_no_out
-
-tc TC-S68 "훅 서버 — 판정 스크립트 실행 오류도 deny 로 막는다"
-if [ "$TC_ON" = 1 ]; then
-  OUT="$({ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
-    jq -cn '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"stress_target_validate",arguments:{tool_name:"Bash",hook_event_name:"PreToolUse",cwd:"/tmp",tool_input:"{\"command\":\"ls\"}"}}}'
-  } | CLAUDE_PLUGIN_ROOT="$TMP/none" "$S/stress-hook-server.sh" 2>&1 | jq -r 'select(.id==2) | .result.content[0].text')"
-fi
-expect_out '"permissionDecision":"deny"'; expect_out "실행 오류"
-
-tc TC-S69 "훅 서버 — 저장한 closed 모델 k6 스크립트는 ST-02 알림을 넘긴다"
-F="$(put mcp/closed.js "$K6_CLOSED")"
-mcp_call stress_script_validate "$(jq -cn --arg p "$F" '{file_path:$p}')" PostToolUse Write
-expect_out "additionalContext"; expect_out "ST-02"
-
-tc TC-S70 "hooks.json 에 command 훅이 없고, mcp_tool 훅의 도구가 서버 tools/list 에 있다"
+tc TC-S67 "훅은 prompt 타입만 있고 MCP 서버가 없다 (디렉터리가 command, mcp_tool 훅과 로컬 MCP 서버를 거절한다)"
 if [ "$TC_ON" = 1 ]; then
   H="$PLUGIN_ROOT/hooks/hooks.json"
-  [ "$(jq '[.hooks[][].hooks[] | select(.type != "mcp_tool")] | length' "$H")" = 0 ] || fail_tc "mcp_tool 이 아닌 훅이 있다"
-  LIST="$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | "$S/stress-hook-server.sh" | jq -r '.result.tools[].name')"
-  for t in $(jq -r '.hooks[][].hooks[].tool' "$H"); do printf '%s\n' "$LIST" | grep -qx "$t" || fail_tc "서버에 없는 도구: $t"; done
-  SRV="$(jq -r '.mcpServers | keys[0]' "$PLUGIN_ROOT/.claude-plugin/plugin.json")"
-  for s in $(jq -r '.hooks[][].hooks[].server' "$H"); do [ "$s" = "plugin:common-stress-test:$SRV" ] || fail_tc "서버 이름이 plugin.json mcpServers 와 다르다: $s"; done
+  [ "$(jq '[.hooks[][].hooks[] | select(.type != "prompt")] | length' "$H")" = 0 ] || fail_tc "prompt 가 아닌 훅이 있다"
+  [ "$(jq '[.hooks[][].hooks[]] | length' "$H")" -gt 0 ] || fail_tc "훅이 없다"
+  [ "$(jq 'has("mcpServers")' "$PLUGIN_ROOT/.claude-plugin/plugin.json")" = false ] || fail_tc "plugin.json 에 mcpServers 가 있다"
+  [ ! -e "$PLUGIN_ROOT/.mcp.json" ] || fail_tc ".mcp.json 이 있다"
+fi
+
+tc TC-S68 "ST-01 prompt 훅: 부하 도구 명령마다 if 가 맞고, 부하 도구 없는 명령에는 하나도 맞지 않는다"
+if [ "$TC_ON" = 1 ]; then
+  while IFS= read -r c; do if_hit "$c"; [ "$HITS" -gt 0 ] || fail_tc "if 가 맞지 않는 부하 명령: $c"; done <<'EOF'
+k6 run -e BASE_URL=https://api.example.com t.js
+k6 cloud t.js
+sudo timeout 60 k6 run t.js
+locust --headless -H https://x.example.com
+uv run locust -f l.py
+jmeter -n -t p.jmx
+gatling.sh -s Sim
+./mvnw gatling:test
+gradle gatlingRun
+wrk -t2 http://x.example.com/
+wrk2 -R 100 http://x.example.com/
+echo 'GET https://x.example.com/' | vegeta attack -rate 10
+hey -n 10 https://x.example.com/
+cd load && hey https://x.example.com/
+oha https://x.example.com/
+ab -n 10 http://x.example.com/
+artillery run a.yml
+npx autocannon https://x.example.com
+bombardier x.example.com
+siege -c 5 https://x.example.com
+h2load -n 10 https://x.example.com
+httperf --server x.example.com
+ghz --call a.B x.example.com:443
+plow https://x.example.com
+drill --benchmark d.yml
+fortio load https://x.example.com
+docker run --rm grafana/k6 run - <t.js
+docker compose run --rm k6 run /s/t.js
+EOF
+  while IFS= read -r c; do if_hit "$c"; [ "$HITS" = 0 ] || fail_tc "부하 도구 없는 명령에 if 가 맞았다: $c"; done <<'EOF'
+ls -la
+git status
+cat README.md
+grep -rn hello .
+npm test
+docker ps
+curl -s https://api.example.com/health
+EOF
+fi
+
+tc TC-S69 "ST-01 prompt 훅: Bash 에만 걸리고, 같은 프롬프트에 훅 입력과 ST-01 이 있고, 막으면 Claude 에게 이유를 돌려준다"
+if [ "$TC_ON" = 1 ]; then
+  H="$PLUGIN_ROOT/hooks/hooks.json"
+  [ "$(jq -r '[.hooks.PreToolUse[].matcher] | unique | join(",")' "$H")" = Bash ] || fail_tc "matcher 가 Bash 가 아니다"
+  [ "$(jq '[.hooks.PreToolUse[].hooks[].prompt] | unique | length' "$H")" = 1 ] || fail_tc "프롬프트가 훅마다 다르다"
+  jq -r '.hooks.PreToolUse[0].hooks[0].prompt' "$H" | grep -q 'ARGUMENTS' || fail_tc "프롬프트에 \$ARGUMENTS 가 없다"
+  jq -r '.hooks.PreToolUse[0].hooks[0].prompt' "$H" | grep -q 'ST-01' || fail_tc "프롬프트에 ST-01 이 없다"
+  [ "$(jq '[.hooks.PreToolUse[].hooks[] | select(.continueOnBlock != true)] | length' "$H")" = 0 ] || fail_tc "continueOnBlock 이 true 가 아닌 훅이 있다"
+  [ "$(jq '[.hooks.PreToolUse[].hooks[] | select((.if // "") | startswith("Bash(") | not)] | length' "$H")" = 0 ] || fail_tc "if 가 없거나 Bash 규칙이 아닌 훅이 있다 (모든 Bash 명령에서 모델을 부른다)"
 fi
 
 flush_tc

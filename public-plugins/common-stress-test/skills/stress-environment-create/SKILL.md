@@ -29,6 +29,7 @@ description: 부하·스트레스 테스트를 돌릴 환경을 local·Docker Co
      ```json
      { "env": { "STRESS_TEST_ALLOWED_HOSTS": "staging.example.com,*.perf.example.com" } }
      ```
+   - 이 목록은 `stress-target-validate.sh` 만 읽는다. 훅은 이 도메인도 막으므로 그 명령은 사용자가 직접 실행한다
 5. **환경을 기록한다** (ST-33)
    - 대상 · 부하기의 이미지 태그(버전)
    - CPU · 메모리 limit, 노드 · 인스턴스 유형

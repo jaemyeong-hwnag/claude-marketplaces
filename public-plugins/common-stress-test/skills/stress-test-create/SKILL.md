@@ -58,9 +58,10 @@ description: 부하·스트레스 테스트를 설계하고 스크립트를 쓸 
 
 1. 템플릿 1절 k6 스크립트를 가져와 요청 부분과 thresholds 를 바꾼다
 2. 짧게 돌려 스크립트가 맞는지 본다 — `k6 run -e TYPE=step -e RATE=5 -e UNIT=5s ...`
-3. 저장하면 훅이 ST-02 ~ ST-06 을 알린다. 경고마다 고치거나, closed 모델이 맞으면 `stress-test: closed-model` 주석을 남긴다
-4. 실행 명령을 정한다. 대상이 허용 목록 밖이면 훅이 막는다 (ST-01)
-   - 전용 테스트 환경이 맞으면 사용자에게 확인받고 `.claude/settings.json` 의 `env.STRESS_TEST_ALLOWED_HOSTS` 에 넣는다
+3. 저장한 뒤 `"${CLAUDE_PLUGIN_ROOT}/scripts/stress-script-validate.sh" <파일>` 로 ST-02 ~ ST-06 을 본다. 경고마다 고치거나, closed 모델이 맞으면 `stress-test: closed-model` 주석을 남긴다
+4. 실행 명령을 정하고, 실행하기 전에 `"${CLAUDE_PLUGIN_ROOT}/scripts/stress-target-validate.sh" '<명령>'` 을 돌린다 (ST-01). 종료 2 면 실행하지 않는다
+   - 이 스크립트는 명령이 가리키는 스크립트 파일 안 URL 과 `STRESS_TEST_ALLOWED_HOSTS` 까지 본다. 훅은 명령 문자열만 본다
+   - 전용 테스트 환경이 맞으면 사용자에게 확인받고 `.claude/settings.json` 의 `env.STRESS_TEST_ALLOWED_HOSTS` 에 넣는다. 훅은 이 목록을 읽지 못해 그래도 막으므로, 그 명령은 사용자에게 직접 실행해 달라고 한다
 5. 환경을 정한다 → `stress-environment-create`
 
 ## 하지 않을 것

@@ -28,12 +28,13 @@
 
 ## 钩子
 
-钩子类型为 `mcp_tool`。Claude Code 在每个会话中启动插件内的 stdio MCP 服务器 `stress-hook`（`scripts/stress-hook-server.sh`，`plugin.json` `mcpServers`），由服务器调用下列脚本判定。无需自行启动服务器。
+钩子类型为 `prompt`。仅对含有负载工具名称的 Bash 命令（`if` 规则），由 Claude Code 的后台模型读取命令字符串，指向允许列表外的主机时**阻止**，并把原因返回给 Claude。不含负载工具的命令不会调用模型。
 
-| 脚本 | 事件 | 行为 |
+| 事件 | 对象 | 行为 |
 |---|---|---|
-| stress-target-validate.sh | PreToolUse (Bash) | 负载工具指向允许列表外的主机时**阻止** (`ST-01`) |
-| stress-script-validate.sh | PostToolUse (Write\|Edit) | **提示**已保存的 k6 · Gatling · Locust · JMeter 脚本的测量设计 (`ST-02` ~ `ST-06`) |
+| PreToolUse (Bash) | 负载工具执行命令 | 指向允许列表外的主机时**阻止** (`ST-01`) |
+
+钩子只看命令字符串。脚本文件中的 URL、`STRESS_TEST_ALLOWED_HOSTS` 以及测量设计（`ST-02` ~ `ST-06`）由技能通过 `scripts/stress-target-validate.sh` 和 `/stress-script-validate` 检查。
 
 ## 注意事项
 
@@ -41,17 +42,17 @@
   - 回环地址、私有 IP — 仅限 IP 字面量。`10.evil.com` 这类名称以及整数 · 十六进制 · 八进制形式的 IP 不视为私有
   - 不含点的名称（容器 · 服务名）
   - `*.localhost` · `*.local` · `*.test` · `*.internal` · `host.docker.internal`
-- 专用测试域名放在 `.claude/settings.json` 的 `env.STRESS_TEST_ALLOWED_HOSTS` 中（逗号或空格分隔，允许 `*.perf.example.com` 形式）
-- 目标主机从以下位置查找。
+- 专用测试域名放在 `.claude/settings.json` 的 `env.STRESS_TEST_ALLOWED_HOSTS` 中（逗号或空格分隔，允许 `*.perf.example.com` 形式）。只有 `stress-target-validate.sh` 读取此列表。钩子读不到，也会阻止这些域名，因此由确认过目标的用户自行执行命令
+- `stress-target-validate.sh` 从以下位置查找目标主机。钩子只看其中位于命令字符串内的部分。
   - 负载命令中的 URL
   - `--host` · locust 的 `-H`
   - 名称含 `URL` · `HOST` 的变量赋值
   - 命令指向的脚本文件中的 URL
-- 钩子只看命令字符串，因此以下情况看不到而直接放行 — 请人工确认目标主机
+- 以下情况两者都看不到而直接放行。请人工确认目标主机
   - `make load` · `npm run load` · `./run.sh` 这类间接执行，以及 `$TOOL` · `"$URL"` 这类由变量构成的命令 · 目标
   - 规则原文列表之外的负载工具，以及脚本在运行时从别处（配置服务器等）读取的目标
 - 如果系统确实是 closed 模型，在脚本中加 `stress-test: closed-model` 注释。`ST-02` 警告会关闭
-- 钩子服务器未连接时（没有 jq、服务器退出），钩子不阻止而直接放行。请在 `/mcp` 中确认 `plugin:common-stress-test:stress-hook` 为 connected。判定脚本运行出错时会阻止
+- 钩子由模型判定，结果不是确定的。同一命令可能得到不同判定，也可能被伪装的写法骗过。每条含负载工具的命令会多一次模型调用（时限 30 秒）
 - 分析脚本只使用 bash · awk · jq。负载工具（k6 等）由项目安装或以 Docker 镜像运行
 - SLO 值（p99 标准 · 错误率）由服务决定。文档中的 `300 ms` · `1%` 是示例
 
