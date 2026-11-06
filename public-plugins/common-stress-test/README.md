@@ -28,12 +28,13 @@ None
 
 ## Hooks
 
-The hooks are of type `mcp_tool`. Claude Code starts the plugin's stdio MCP server `stress-hook` (`scripts/stress-hook-server.sh`, `plugin.json` `mcpServers`) in each session, and the server runs the scripts below. There is no server to start yourself.
+The hook is of type `prompt`. Only for Bash commands that contain a load tool name (`if` rules), Claude Code's background model reads the command string, and when it targets a host outside the allowlist it **blocks** and returns the reason to Claude. Commands without a load tool do not call the model.
 
-| Script | Event | Behavior |
+| Event | Target | Behavior |
 |---|---|---|
-| stress-target-validate.sh | PreToolUse (Bash) | **Blocks** when a load tool targets a host outside the allowlist (`ST-01`) |
-| stress-script-validate.sh | PostToolUse (Write\|Edit) | **Reports** the measurement design of saved k6 · Gatling · Locust · JMeter scripts (`ST-02` ~ `ST-06`) |
+| PreToolUse (Bash) | Load tool commands | **Blocks** a host outside the allowlist (`ST-01`) |
+
+The hook reads only the command string. URLs inside script files, `STRESS_TEST_ALLOWED_HOSTS`, and the measurement design (`ST-02` ~ `ST-06`) are checked by the skills with `scripts/stress-target-validate.sh` and `/stress-script-validate`.
 
 ## Notes
 
@@ -41,17 +42,17 @@ The hooks are of type `mcp_tool`. Claude Code starts the plugin's stdio MCP serv
   - Loopback, private IP — IP literals only. Names like `10.evil.com` and integer · hex · octal IP forms are not treated as private
   - Names without a dot (container · service names)
   - `*.localhost` · `*.local` · `*.test` · `*.internal` · `host.docker.internal`
-- Put dedicated test domains in `env.STRESS_TEST_ALLOWED_HOSTS` of `.claude/settings.json` (comma- or space-separated, `*.perf.example.com` form allowed)
-- The target host is looked up in:
+- Put dedicated test domains in `env.STRESS_TEST_ALLOWED_HOSTS` of `.claude/settings.json` (comma- or space-separated, `*.perf.example.com` form allowed). Only `stress-target-validate.sh` reads this list. The hook cannot read it and blocks these domains too, so a user who has checked the target runs the command themselves
+- `stress-target-validate.sh` looks up the target host in the places below. The hook sees only those inside the command string.
   - URLs in the load command
   - `--host` · locust's `-H`
   - Assignments to variables whose name contains `URL` · `HOST`
   - URLs in the script file the command points to
-- The hook reads only the command string, so these pass unseen — check the target host yourself
+- Neither sees the following, so they pass. Check the target host yourself
   - Indirect runs such as `make load` · `npm run load` · `./run.sh`, and commands or targets built from variables like `$TOOL` · `"$URL"`
   - Load tools outside the list in the rule source, and targets the script reads from elsewhere at runtime (a config server, etc.)
 - If the system really is a closed model, put a `stress-test: closed-model` comment in the script. This turns off the `ST-02` warning
-- If the hook server is not connected (no jq, server exited), the hooks pass instead of blocking. Check in `/mcp` that `plugin:common-stress-test:stress-hook` is connected. An error inside a check script blocks
+- The hook verdict comes from a model and is not deterministic. The same command can get different verdicts, and a disguised form can fool it. Each command with a load tool adds one model call (30 second limit)
 - Analysis scripts use only bash · awk · jq. Load tools (k6, etc.) are installed by the project or run as Docker images
 - SLO values (p99 limit · error rate) are set by the service. The `300 ms` · `1%` in the docs are examples
 

@@ -21,7 +21,7 @@
 
 | 조항 | 내용 | 판정 | 담당 |
 |---|---|---|---|
-| `ST-01` | 부하 도구가 겨누는 호스트가 허용 목록 안이다 | **차단** | `stress-target-validate.sh` (PreToolUse Bash) |
+| `ST-01` | 부하 도구가 겨누는 호스트가 허용 목록 안이다 | **차단** | PreToolUse(Bash) prompt 훅, `stress-target-validate.sh` |
 | `ST-02` | 지연을 판정하는 테스트는 **open 모델**(도착률 고정)로 건다. closed 모델이면 그렇게 표시한다 | 경고 | `stress-script-validate.sh` |
 | `ST-03` | 스크립트에 합격 기준(thresholds · assertions)이 있다 | 경고 | 〃 |
 | `ST-04` | p99 를 보고한다 (p50 · p95 · max · 에러율 · 처리량과 함께) | 경고 | 〃 · `stress-report-generate.sh` |
@@ -48,6 +48,8 @@
 | 점 없는 이름 | 컨테이너 · compose · k8s 서비스 이름 (`app`, `api`) |
 | 예약 도메인 | `*.local` · `*.test` · `*.internal` · `host.docker.internal` |
 | 사용자 지정 | `STRESS_TEST_ALLOWED_HOSTS` — 쉼표 · 공백 구분, `*.perf.example.com` 처럼 앞 와일드카드 |
+
+**훅과 스크립트** — 훅(`prompt`)은 사용자 지정을 뺀 위 허용 범위로 명령 문자열만 판정한다. 아래 "보는 곳" 이하는 `stress-target-validate.sh` 의 동작이다. 훅이 막은 사용자 지정 호스트는 확인한 사용자가 명령을 직접 실행한다.
 
 **IP 판정** — 사설 대역은 IP 리터럴일 때만 사설이다. `10.evil.com` · `127.0.0.1.nip.io` 는 이름이라 공용으로 본다. IPv4 는 표준 표기(점 넷, 0~255, 앞 0 없음)만 사설로 본다 — 정수(`167772161`) · 16진 · 8진 · 줄인 표기(`10.1`)는 도구마다 해석이 달라 대역과 관계없이 허용하지 않는다. 숫자와 `0x` 로만 된 이름은 점이 없어도 컨테이너 이름이 아니라 IP 다.
 
@@ -174,10 +176,9 @@ Gunther 는 USL 피팅에 정상 상태 측정점 **최소 6개**를 권한다. 
 
 | 이벤트 | 대상 | 동작 |
 |---|---|---|
-| `PreToolUse(Bash)` | 부하 도구 실행 명령 | `ST-01` 위반이면 **차단** |
-| `PostToolUse(Write\|Edit)` | k6 · Gatling · Locust · JMeter 스크립트 | `ST-02` ~ `ST-06` 을 **알린다** |
+| `PreToolUse(Bash)` | 부하 도구 이름이 든 명령 (`if` 규칙) | `ST-01` 위반이면 **차단** (`prompt` 훅) |
 
-스크립트 경고는 막지 않는다. closed 모델이 맞는 시스템도 있고, 스크립트를 여러 번 고쳐 완성하기 때문이다.
+훅은 `prompt` 타입이다. 디렉터리가 Verified 가 아닌 조직의 command, mcp_tool 훅과 로컬 MCP 서버를 받지 않는다. 모델이 명령 문자열만 보고 판정하므로 결정적이지 않고, 스크립트 파일 안 URL 과 `STRESS_TEST_ALLOWED_HOSTS` 를 보지 못한다. 이 둘과 `ST-02` ~ `ST-06` 은 스킬이 아래 스크립트로 본다. 스크립트 경고는 막지 않는다. closed 모델이 맞는 시스템도 있고, 스크립트를 여러 번 고쳐 완성하기 때문이다.
 
 ## 5. 명령
 
